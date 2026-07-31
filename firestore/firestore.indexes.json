@@ -1,0 +1,178 @@
+{
+  "indexes": [
+    // -------------------------------------------------------
+    // businesses collection
+    // -------------------------------------------------------
+
+    // List businesses enrolled by a specific employee, ordered by subscription status.
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enrolled_by", "order": "ASCENDING" },
+        { "fieldPath": "subscription_status", "order": "ASCENDING" }
+      ]
+    },
+    // List businesses currently managed by an employee, newest-first.
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "currently_managed_by", "order": "ASCENDING" },
+        { "fieldPath": "renewal_date", "order": "ASCENDING" }
+      ]
+    },
+    // Admin: filter by subscription_status and order by renewal_date (expiry dashboard).
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subscription_status", "order": "ASCENDING" },
+        { "fieldPath": "renewal_date", "order": "ASCENDING" }
+      ]
+    },
+    // Admin: filter by category_type to group businesses by industry.
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category_type", "order": "ASCENDING" },
+        { "fieldPath": "subscription_status", "order": "ASCENDING" }
+      ]
+    },
+
+    // -------------------------------------------------------
+    // branches (subcollection of businesses)
+    // -------------------------------------------------------
+
+    // Query all branches by place_id (Google Place deduplication check).
+    {
+      "collectionGroup": "branches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "place_id", "order": "ASCENDING" }
+      ]
+    },
+    // Query branches by qr_code_id (NFC / QR lookup on scan).
+    {
+      "collectionGroup": "branches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "qr_code_id", "order": "ASCENDING" }
+      ]
+    },
+    // Query branches by nfc_tag_id.
+    {
+      "collectionGroup": "branches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "nfc_tag_id", "order": "ASCENDING" }
+      ]
+    },
+
+    // -------------------------------------------------------
+    // employees collection
+    // -------------------------------------------------------
+
+    // List active employees ordered by this_month_enrollments (leaderboard).
+    {
+      "collectionGroup": "employees",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "this_month_enrollments", "order": "DESCENDING" }
+      ]
+    },
+    // List employees by role.
+    {
+      "collectionGroup": "employees",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "role", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" }
+      ]
+    },
+
+    // -------------------------------------------------------
+    // scan_logs collection
+    // -------------------------------------------------------
+
+    // Aggregate: filter logs by branch_id and timestamp range (Cloud Function rollup).
+    {
+      "collectionGroup": "scan_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "branch_id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    // Aggregate: filter by branch_id and star_rating (histogram rollup).
+    {
+      "collectionGroup": "scan_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "branch_id", "order": "ASCENDING" },
+        { "fieldPath": "star_rating", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    // Aggregate: filter by action_taken + timestamp (funnel analytics).
+    {
+      "collectionGroup": "scan_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "action_taken", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+
+    // -------------------------------------------------------
+    // commission_records collection
+    // -------------------------------------------------------
+
+    // Employee view: their own pending commissions.
+    {
+      "collectionGroup": "commission_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employee_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    // Employee view: their own commissions ordered by claim date.
+    {
+      "collectionGroup": "commission_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employee_id", "order": "ASCENDING" },
+        { "fieldPath": "date_claimed", "order": "DESCENDING" }
+      ]
+    },
+    // Admin view: filter by status, then by date_claimed (approval queue).
+    {
+      "collectionGroup": "commission_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "date_claimed", "order": "ASCENDING" }
+      ]
+    },
+    // Admin view: all commissions for a given business.
+    {
+      "collectionGroup": "commission_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "business_id", "order": "ASCENDING" },
+        { "fieldPath": "date_claimed", "order": "DESCENDING" }
+      ]
+    },
+
+    // -------------------------------------------------------
+    // category_templates collection
+    // (No composite indexes needed for now — templates are
+    // few in number and queried by document ID directly.)
+    // -------------------------------------------------------
+
+  ],
+  "fieldOverrides": []
+}

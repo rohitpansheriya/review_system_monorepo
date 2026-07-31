@@ -1,0 +1,15 @@
+{
+  "mcp": {
+    "code-review-graph": {
+      "type": "local",
+      "command": [
+        "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3",
+        "-m",
+        "code_review_graph",
+        "serve",
+        "--repo",
+        "/Users/rohitpansheriya/StudioProjects/review_system_monorepo"
+      ]
+    }
+  }
+}

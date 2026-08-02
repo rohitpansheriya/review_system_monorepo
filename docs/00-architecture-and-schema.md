@@ -61,7 +61,8 @@ businesses (collection)
 
 category_templates (collection)
   └─ template_id — reusable per business type (Ice Cream, Salon, Restaurant, etc.)
-       - categories: [ { name, phrase_pool: [variant1, variant2, ...30+], translations: {hi: [...], gu: [...]} }, ... ]
+       - categories: [ { name, phrase_pool: [variant1, variant2, ...30+] }, ... ]
+       (English only — no per-language translation fields)
 
 scan_logs (collection — write-only per scan, never read directly on dashboard load)
   └─ log_id

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "lib-scripts",
+    "rootDir": "src",
+    "noUnusedLocals": false
+  },
+  "include": [
+    "src/scripts"
+  ],
+  "exclude": []
+}

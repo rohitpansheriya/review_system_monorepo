@@ -165,7 +165,7 @@
         { "fieldPath": "business_id", "order": "ASCENDING" },
         { "fieldPath": "date_claimed", "order": "DESCENDING" }
       ]
-    },
+    }
 
     // -------------------------------------------------------
     // category_templates collection

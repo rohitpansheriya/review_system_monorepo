@@ -36,3 +36,11 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 2. Use `detect_changes_tool` for code review.
 3. Use `get_affected_flows_tool` to understand impact.
 4. Use `query_graph_tool` pattern="tests_for" to check coverage.
+
+<!-- Project-specific rules -->
+## Project Rules for All Agents
+
+- Read docs/00-architecture-and-schema.md before any task — it is the master reference.
+- Tech stack: standalone HTML/CSS/JS for the customer review page, Flutter Web for the admin/employee/owner panel (single codebase, role-gated), Firebase Cloud Functions (Node.js/TypeScript), Firestore, Firebase Storage, Firebase Hosting.
+- No AI-generated review text — phrase pools only (see docs/07-review-template-system.md).
+- No Firebase project, domain, or third-party accounts (Razorpay, Google Cloud API keys) exist yet — never assume credentials exist. Create local config files/placeholders only, and clearly flag anywhere a real account or key will be needed later.

@@ -14,7 +14,7 @@
 
 ## Category Template Library
 - Master list of templates (Ice Cream, Salon, Restaurant, etc.).
-- Full CRUD on each template's categories and their phrase pools (30+ variants each — see `07-review-template-system.md`), including per-language variants (Section in `07`).
+- Full CRUD on each template's categories and their phrase pools (30+ variants each — see `07-review-template-system.md`).
 - Assign a template to a business at enrollment, or change it later.
 - Allow branch-level `category_override_id` for businesses needing custom categories outside the standard templates.
 

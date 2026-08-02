@@ -11,10 +11,11 @@
  *                                server; never forwarded to the browser.
  *
  * ─── QR & NFC ────────────────────────────────────────────────────────────────
- *   generateBranchQr (callable) — generates a branded QR PNG (logo + category
- *                                 border), uploads to Storage, and writes
- *                                 qr_code_id + nfc_url onto the branch doc.
- *                                 Requires Auth.
+ *   onBranchCreated  (Firestore trigger) — fires automatically when a branch
+ *                                          doc is created; generates branded QR
+ *                                          PNG and writes qr_code_id + nfc_url.
+ *   generateBranchQr (callable) — manual re-generation for admin/employee.
+ *                                  Requires Auth.
  */
 
 import {setGlobalOptions} from "firebase-functions/v2";
@@ -29,4 +30,5 @@ setGlobalOptions({maxInstances: 10, region: "asia-south1"});
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 export {searchPlaces, getPlacePhoto} from "./placeSearch.js";
-export {generateBranchQr} from "./qrGenerator.js";
+export {onBranchCreated, generateBranchQr} from "./qrGenerator.js";
+

@@ -70,6 +70,11 @@ service cloud.firestore {
     //         grace_period_ends, owner_auth_uid
     // ----------------------------------------------------------
     match /businesses/{businessId} {
+      // Customer review page (unauthenticated QR scan): single-doc get only.
+      // Allows loading brand_name, logo_url, category_template_id, subscription_status.
+      // Does NOT allow list — prevents unauthenticated enumeration of the collection.
+      allow get: if true;
+
       // Admin: full CRUD on all businesses.
       allow read, write: if isAdmin();
 
@@ -110,6 +115,10 @@ service cloud.firestore {
       //         stats_summary
       // ----------------------------------------------------------
       match /branches/{branchId} {
+        // Customer review page (unauthenticated): single-doc get only.
+        // Loads whatsapp_number, place_id, star_routing_config, category_override_id.
+        allow get: if true;
+
         // Admin: full CRUD on all branches.
         allow read, write: if isAdmin();
 
@@ -140,7 +149,7 @@ service cloud.firestore {
 
     // ----------------------------------------------------------
     // category_templates collection
-    // Schema: categories: [{ name, phrase_pool, translations }]
+    // Schema: categories: [{ name, phrase_pool }] — English only.
     // These are globally reusable templates managed by admin.
     // ----------------------------------------------------------
     match /category_templates/{templateId} {

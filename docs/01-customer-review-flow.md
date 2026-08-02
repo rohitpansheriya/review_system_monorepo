@@ -21,10 +21,9 @@
   - "Send" button constructs a `wa.me/{owner_whatsapp_number}?text={encoded_feedback}` link and opens it — this is a customer-initiated WhatsApp chat, free, no Business API needed.
 
 ## Screen 2B: High Rating Path (4-5 stars, mapped to `"google"`)
-- Show category chips (multi-select), sourced from `category_templates/{template_id}.categories` (respecting `category_override_id` on the branch if set) and the customer's selected language (see `07`).
+- Show category chips (multi-select), sourced from `category_templates/{template_id}.categories` (respecting `category_override_id` on the branch if set).
 - Selecting categories pulls one random phrase variant per selected category from the pool and combines them into an editable text box.
 - Deselecting a category removes its phrase from the combined text.
-- Language selector visible on this screen (Section below).
 - Small-print Terms of Service text visible near this step (exact text in `07-review-template-system.md`).
 
 ## Screen 3: Copy & Post
@@ -32,11 +31,6 @@
   1. Copies the current (possibly edited) review text to clipboard.
   2. Opens `https://search.google.com/local/writereview/mobile?placeid={branch.place_id}` on mobile (falls back gracefully to the standard `writereview` URL on desktop or if the mobile path fails) — this hands off to the native Google Maps app if installed, so the customer's already-logged-in account handles posting without any browser login.
 - Customer pastes and posts on their own device — no data is submitted back to your system at this step (you don't get to programmatically verify the post happened; the customer completing this is outside your system's control).
-
-## Language Selection
-- Dropdown at top of Screen 2B: e.g. English / Hindi / Gujarati (expandable).
-- UI strings stored as translation JSON per language.
-- Category labels + phrase pool variants stored per language in the template (see `07`).
 
 ## Anti-Abuse
 - One `session_token` = one submission. Once a star rating + action (WhatsApp send or Google copy-open) is logged, subsequent attempts on the same session are blocked or redirected to a generic "thank you, already submitted" screen.

@@ -1,34 +1,42 @@
 [
   {
     "id": "ice_cream_v1",
-    "_comment": "Template ID used as Firestore document ID. 'v1' suffix enables pool versioning (doc 07) — assign different businesses of the same type to different pool versions to avoid duplicate Google Review content at scale.",
+    "_comment": "30+ English phrase variants per category. Pool versioning: assign businesses to v1/v2/v3 variants to prevent identical review text across multiple clients (doc 07).",
     "categories": [
       {
         "name": "Taste",
-        "_comment": "Only 5 sample phrases shown here — production should have 30+ per language per doc 07.",
         "phrase_pool": [
           "The flavours were absolutely divine — every spoonful was a burst of joy.",
           "Incredibly fresh and rich taste; you can tell they use quality ingredients.",
           "The ice cream was perfectly balanced — sweet without being overpowering.",
           "Every scoop was smooth, creamy, and full of authentic flavour.",
-          "The taste was outstanding — easily one of the best ice creams I've had."
-        ],
-        "translations": {
-          "hi": [
-            "स्वाद बिल्कुल लाजवाब था — हर चम्मच में खुशी का अहसास हुआ।",
-            "बेहद ताज़ा और समृद्ध स्वाद; इनके उत्तम सामग्रियों का उपयोग साफ़ दिखता है।",
-            "आइस क्रीम एकदम सही थी — मीठी, पर ज़्यादा नहीं।",
-            "हर स्कूप मुलायम, मलाईदार और असली स्वाद से भरपूर था।",
-            "स्वाद बेमिसाल था — यह अब तक की सबसे अच्छी आइस क्रीम में से एक है।"
-          ],
-          "gu": [
-            "સ્વાદ એકદમ અદ્ભુત હતો — દરેક ચમચીમાં આનંદ હતો.",
-            "અત્યંત તાજો અને સમૃદ્ધ સ્વાદ; ઉચ્ચ ગુણવત્તાની સામગ્રી સ્પષ્ટ દેખાય છે.",
-            "આઇસ ક્રીમ સંપૂર્ણ સંતુલિત હતી — મીઠી, પણ વધારે નહીં.",
-            "દરેક સ્કૂપ નરમ, ક્રીમી અને અસલ સ્વાદ ભરેલો હતો.",
-            "સ્વાદ અસાધારણ હતો — આ અત્યાર સુધીની સૌથી સારી આઇસ ક્રીમ છે."
-          ]
-        }
+          "The taste was outstanding — easily one of the best ice creams I've had.",
+          "An explosion of real fruit flavour that feels nothing like artificial alternatives.",
+          "The richness and depth of flavour here is truly remarkable.",
+          "I could taste the quality in every single bite — absolutely delicious.",
+          "The flavour lingered long after I finished — in the best possible way.",
+          "Such a clean, natural taste — you can feel the premium ingredients.",
+          "The balance of sweetness is just right — not too much, not too little.",
+          "A surprisingly complex flavour profile that keeps you going back for more.",
+          "Fresh, bright, and utterly delicious — exactly what ice cream should taste like.",
+          "The authentic flavour instantly transported me back to childhood memories.",
+          "Layers of flavour that unfold with every bite — truly a treat.",
+          "The real fruit pieces made all the difference — so fresh and vibrant.",
+          "A perfectly crafted flavour — indulgent yet light at the same time.",
+          "Every bite was a reminder of why this place is something special.",
+          "The taste is distinct and memorable — unlike anything else in the city.",
+          "Smooth, velvety, and packed with real flavour — simply outstanding.",
+          "The sourness and sweetness were perfectly calibrated in the fruit flavours.",
+          "I've tried many ice cream places, but this taste is on a different level entirely.",
+          "The chocolate was deep and intense without being bitter — pure perfection.",
+          "Fresh, creamy, and absolutely bursting with flavour — I couldn't stop eating.",
+          "The mango flavour was a masterclass in using natural, premium ingredients.",
+          "Clean finish, no artificial aftertaste — this is how ice cream should be made.",
+          "The combination of flavours in the special mix was truly inspired.",
+          "A single bite is enough to know this is made with love and exceptional quality.",
+          "The natural richness of the ingredients shines through in every mouthful.",
+          "Simply put — the best ice cream I've eaten in years."
+        ]
       },
       {
         "name": "Variety",
@@ -37,24 +45,33 @@
           "Loved the seasonal specials; they're always rotating in exciting new options.",
           "From classic vanilla to exotic mango saffron, the variety caters to everyone.",
           "There are so many options to choose from — I couldn't decide which was better!",
-          "The limited-edition flavours are a brilliant touch — keeps me coming back."
-        ],
-        "translations": {
-          "hi": [
-            "मेन्यू पर फ्लेवर की रेंज बहुत प्रभावशाली है — हर मूड के लिए कुछ न कुछ है।",
-            "मौसमी स्पेशल पसंद आए; वे हमेशा रोमांचक नए विकल्प लाते रहते हैं।",
-            "क्लासिक वनीला से लेकर विदेशी मैंगो सेफ्रोन तक, विविधता सभी के लिए है।",
-            "चुनने के लिए इतने सारे विकल्प हैं — मैं तय नहीं कर पाया कि कौन सा बेहतर है!",
-            "सीमित संस्करण के फ्लेवर एक शानदार स्पर्श हैं — मुझे हमेशा वापस आने पर मजबूर करते हैं।"
-          ],
-          "gu": [
-            "મેનૂ પર ફ્લેવરની રેન્જ પ્રભાવશાળી છે — દરેક મૂડ માટે કંઈક ને કંઈક છે.",
-            "સ્પેશ્યલ સીઝનલ ઓફર ગમ્યા; નવા વિકલ્પો હંમેશા ઉત્સાહ વધારે છે.",
-            "ક્લાસિક વેનિલ્લા થી વિદેશી કેરી-કેસર સુધી, વિવિધતા સૌ માટે છે.",
-            "પસંદ કરવા માટે ઘણા વિકલ્પો છે — મને નક્કી ન કર્યું કે કયો વધુ સારો છે!",
-            "લિમિટેડ-એડિશન ફ્લેવર એક ઉત્તમ સ્પર્શ છે — મને ફરી ફરી આવવાનું મન થાય."
-          ]
-        }
+          "The limited-edition flavours are a brilliant touch — keeps me coming back.",
+          "They had something for every taste — classic, fruity, creamy, and everything in between.",
+          "The menu changes regularly, which means there's always something new to discover.",
+          "I was impressed by how many options were available for different dietary needs.",
+          "Even the kids in our group found something they loved — that's saying a lot.",
+          "The seasonal mango and strawberry specials are worth a special trip.",
+          "I appreciate that they experiment with unique combinations — keeps things interesting.",
+          "Such a well-curated menu — not too many choices, but enough to satisfy everyone.",
+          "The fusion flavours were unexpected and absolutely delicious.",
+          "Perfect for groups — everyone found exactly what they were looking for.",
+          "The variety of toppings and mix-ins adds an extra layer of fun to the experience.",
+          "They have a wonderful range of lighter options that still taste amazing.",
+          "Both traditional and contemporary flavours are represented here — truly impressive.",
+          "The regional specialty flavours are a lovely nod to local culinary traditions.",
+          "I was glad to see so many options that aren't available elsewhere in the city.",
+          "The weekly specials board always has something worth trying.",
+          "Great variety of cone and cup options — every combination works perfectly.",
+          "The flavour rotation keeps loyal customers excited for each visit.",
+          "From light sorbets to rich, indulgent scoops — the spectrum is impressive.",
+          "You can mix and match flavours, which makes for a truly personalised experience.",
+          "Even my most indecisive friend managed to find a favourite here.",
+          "The kids' range is fantastic — fun, approachable flavours in perfect portions.",
+          "The collaboration with local ingredients brought flavours you simply can't find elsewhere.",
+          "You'd need many visits to work through the entire menu — that's a wonderful problem.",
+          "The variety means you never get bored, even if you visit every week.",
+          "Their menu reflects genuine creativity and a deep love for the craft."
+        ]
       },
       {
         "name": "Service",
@@ -63,24 +80,33 @@
           "Served with a smile — the team genuinely seems to love what they do.",
           "Quick and efficient service without compromising on quality.",
           "The person at the counter was helpful in recommending the best flavours.",
-          "Polite, cheerful staff who make you feel welcome the moment you walk in."
-        ],
-        "translations": {
-          "hi": [
-            "स्टाफ बहुत गर्मजोशी से मिला और यात्रा को और भी यादगार बना दिया।",
-            "मुस्कुराते हुए परोसा — टीम सच में अपना काम पसंद करती लगती है।",
-            "गुणवत्ता से समझौता किए बिना त्वरित और कुशल सेवा।",
-            "काउंटर पर व्यक्ति ने सबसे अच्छे फ्लेवर सुझाने में मदद की।",
-            "विनम्र, खुशनुमा स्टाफ जो आते ही आपको स्वागत का अहसास कराता है।"
-          ],
-          "gu": [
-            "સ્ટાફ ખૂબ ઉષ્માભર્યો અને મૈત્રીપૂર્ણ હતો — મુલાકાત વધુ આનંદદાયક બની.",
-            "સ્મિત સાથે સર્વ કર્યું — ટીમ ખરેખર પોતાનું કામ ચાહે છે.",
-            "ગુણવત્તા સાથે સમાધાન કર્યા વગર ઝડપી અને કાર્યક્ષમ સેવા.",
-            "કાઉન્ટર પર વ્યક્તિ શ્રેષ્ઠ ફ્લેવર ભલામણ કરવામાં સહાયક હતો.",
-            "સૌજન્યપૂર્ણ, ખુશ-મિજાજ સ્ટાફ — અંદર આવતાં જ સ્વાગત અનુભવ થાય."
-          ]
-        }
+          "Polite, cheerful staff who make you feel welcome the moment you walk in.",
+          "Service was impressively fast even during the busy evening rush.",
+          "The staff were knowledgeable about every flavour and happy to offer samples.",
+          "They remembered our preferences from a previous visit — a lovely personal touch.",
+          "The team went out of their way to accommodate our special requests.",
+          "Professional, attentive, and genuinely friendly — a rare combination.",
+          "The staff's enthusiasm for their product is infectious and makes the visit special.",
+          "They were incredibly patient while we took forever deciding what to order.",
+          "Outstanding service — every interaction felt personal and warm.",
+          "The counter staff were well-trained and clearly passionate about the product.",
+          "Service was prompt and the staff made sure we were completely satisfied.",
+          "The team handled the queue with grace and efficiency — very impressive.",
+          "I appreciated that the staff proactively told us about the day's specials.",
+          "They made my young daughter feel incredibly special — she was beaming.",
+          "The helpfulness and warmth of the team elevates the entire experience.",
+          "No question was too small — the staff answered everything with patience and a smile.",
+          "The kind of service that makes you want to tell all your friends about this place.",
+          "The service is as premium as the product — absolutely no complaints.",
+          "They packaged our order perfectly for takeaway — everything arrived intact.",
+          "A genuinely hospitable team that treats every customer like a valued guest.",
+          "The staff's attention to hygiene and cleanliness was reassuring and appreciated.",
+          "They proactively asked about allergies — that level of care really stands out.",
+          "Even at its busiest, the service never felt rushed or impersonal.",
+          "The counter staff's passion for the product comes through in every recommendation.",
+          "A credit to the brand — the team represents it with pride and professionalism.",
+          "The kind of service that turns first-time visitors into regulars."
+        ]
       },
       {
         "name": "Ambience",
@@ -89,24 +115,33 @@
           "Bright, clean, and well-maintained — a great environment to enjoy your treat.",
           "The seating area is comfortable and nicely decorated.",
           "Lovely atmosphere — cool inside even on a hot summer day.",
-          "The place feels inviting and vibrant — makes the experience extra special."
-        ],
-        "translations": {
-          "hi": [
-            "अंदर का माहौल मज़ेदार और खुशनुमा है — परिवार के साथ बाहर जाने के लिए परफेक्ट।",
-            "उज्जवल, साफ और अच्छी तरह से रखा हुआ — अपने ट्रीट का आनंद लेने का शानदार वातावरण।",
-            "बैठने की जगह आरामदायक और सुंदर सजी हुई है।",
-            "प्यारा माहौल — गर्म गर्मी के दिन भी अंदर ठंडक है।",
-            "जगह आकर्षक और जीवंत लगती है — अनुभव को और खास बनाती है।"
-          ],
-          "gu": [
-            "અંદર વાતાવરણ મজેદાર અને ઉત્સાહી છે — પારિવારિક બહાર નીકળવા માટે આદર્શ.",
-            "ઉજ્જવળ, સ્વચ્છ અને સારી રીતે જળવાયેલ — ટ્રીટ માણવા માટે ઉત્તમ.",
-            "બેઠક વ્યવસ્થા આરામદાયક અને સુંદર શણગારેલી છે.",
-            "સુંદર વાતાવરણ — ઉનાળાના ગરમ દિવસોમાં પણ અંદર ઠંડક છે.",
-            "સ્થળ આકર્ષક અને ઉત્સાહી છે — અનુભવ વધુ ખાસ બને છે."
-          ]
-        }
+          "The place feels inviting and vibrant — makes the experience extra special.",
+          "The interiors are thoughtfully designed — everything feels fresh and modern.",
+          "Such a cheerful, upbeat space — you can feel the positive energy the moment you walk in.",
+          "The lighting is warm and flattering — perfect for those memorable moments.",
+          "Clean, hygienic, and well-organised — you can trust the place from the first glance.",
+          "The outdoor seating is perfect for warm evenings — just the right setting.",
+          "The music is at the right volume — lively but not overwhelming.",
+          "A space that feels both premium and welcoming — hard to achieve, but they've done it.",
+          "The decor is as delightful as the ice cream — beautifully thought through.",
+          "The overall atmosphere is calm and pleasant — ideal for unwinding with family.",
+          "Enough seating for a group, arranged in a way that feels comfortable, not cramped.",
+          "The playful decor matches the joyful spirit of the product — great brand consistency.",
+          "An airy, well-ventilated space that feels cool and refreshing on a hot day.",
+          "The ambience sets the right mood — it enhances the whole ice cream experience.",
+          "A place that's equally enjoyable for a quick solo stop or a long family outing.",
+          "The attention to detail in the decor shows how much thought went into this space.",
+          "The colour palette is fun and energetic — it puts you in a good mood instantly.",
+          "There's always soft background music that matches the relaxed, happy vibe.",
+          "The space feels curated and consistent — every element works together beautifully.",
+          "Clean washrooms, clean tables, clean display — cleanliness is clearly a priority.",
+          "A perfect place to sit, chat, and linger over your dessert without feeling rushed.",
+          "The open display of the flavours adds to the excitement even before you order.",
+          "Well-spaced seating makes the experience comfortable even when it's busy.",
+          "The decor celebrates local culture in a subtle, tasteful way — a lovely touch.",
+          "A warm, nostalgic quality to the space that makes it feel like a familiar haven.",
+          "The overall ambience is a big part of why I keep coming back — it just feels good here."
+        ]
       },
       {
         "name": "Value for Money",
@@ -115,24 +150,33 @@
           "Excellent value — feels like a premium treat at an everyday price.",
           "Great quantity and quality at a price point that's hard to beat.",
           "Well worth every rupee — you'd happily pay more for this experience.",
-          "Affordable without cutting corners — the quality clearly comes first."
-        ],
-        "translations": {
-          "hi": [
-            "मिलने वाली गुणवत्ता और मात्रा के लिए बहुत उचित कीमत।",
-            "उत्कृष्ट मूल्य — रोज़ की कीमत पर प्रीमियम ट्रीट जैसा लगता है।",
-            "एक कीमत पर बेहतरीन मात्रा और गुणवत्ता जिसे हराना मुश्किल है।",
-            "हर रुपये के लायक — आप इस अनुभव के लिए खुशी से ज़्यादा चुकाएंगे।",
-            "किफायती लेकिन समझौता नहीं — गुणवत्ता स्पष्ट रूप से पहले आती है।"
-          ],
-          "gu": [
-            "મળતી ગુણવત્તા અને જથ્થા માટે ખૂબ વ્યાજબી ભાવ.",
-            "ઉત્તમ મૂલ્ય — રોજિંદી કિંમતે પ્રીમિયમ ટ્રીટ જેવું લાગે છે.",
-            "ઉત્તમ જથ્થો અને ગુણવત્તા — ભાવ-ગુણ ગુણોત્તર અજોડ.",
-            "દરેક રૂપિયો વ્યાજ આપ્યો — આ અનુભવ માટે વધુ ચૂકવવા તૈયાર.",
-            "સસ્તું, પણ ગુણવત્તા સાથે બાંધછોડ નહીં — ક્વોલિટી સ્પષ્ટ આગળ છે."
-          ]
-        }
+          "Affordable without cutting corners — the quality clearly comes first.",
+          "Generous portions at a price that makes you feel genuinely valued as a customer.",
+          "The price-to-quality ratio here is exceptional — better than anywhere else I've tried.",
+          "For what you get — the flavour, the freshness, the service — the price is very fair.",
+          "A big scoop for a small price — this is what value for money actually means.",
+          "You walk away feeling like you got far more than what you paid for.",
+          "One of the few places where premium quality and affordability genuinely coexist.",
+          "The combo offers are particularly great value — you always leave satisfied.",
+          "Even the most indulgent flavours are priced within reach — that's commendable.",
+          "I was pleasantly surprised by how affordable the experience was, given the quality.",
+          "The value here is unmatched — honestly, this could cost three times as much.",
+          "Honest pricing with no hidden markups for premium flavours — highly appreciated.",
+          "Worth every paisa — and I rarely say that about a dessert.",
+          "The portions are generous enough to share, which makes it even better value.",
+          "Compared to chain ice cream parlours, this is far superior at the same price.",
+          "This level of quality at this price is rare and should be celebrated.",
+          "The loyalty rewards add even more value for regular visitors.",
+          "A family can enjoy a premium dessert experience here without breaking the bank.",
+          "Gourmet quality at everyday prices — the best of both worlds.",
+          "The pricing feels transparent and honest — a refreshing change.",
+          "Every visit leaves me feeling like I got the better end of the deal.",
+          "The mix-and-match options are particularly good value — more for less.",
+          "Reasonably priced for such a premium product — I'll definitely be back.",
+          "I've spent twice this amount at other places and been far less satisfied.",
+          "Great value for a celebration treat that doesn't require a special occasion.",
+          "You get gourmet quality at a price that makes this a regular, not a rare, pleasure."
+        ]
       },
       {
         "name": "Packaging & Presentation",
@@ -141,24 +185,33 @@
           "The waffle cones were fresh and crispy; clearly made in-house.",
           "Neat and clean presentation that matched the quality of the product.",
           "Loved the attention to detail in the plating — small touches that matter.",
-          "The sundae was garnished perfectly — as beautiful to look at as it was to eat."
-        ],
-        "translations": {
-          "hi": [
-            "बड़े करीने से प्रस्तुत — यहाँ तक कि टेकअवे पैकेजिंग भी शानदार दिखी।",
-            "वेफल कोन ताज़े और कुरकुरे थे; स्पष्ट रूप से घर पर बने हुए।",
-            "साफ-सुथरी प्रस्तुति जो उत्पाद की गुणवत्ता से मेल खाती थी।",
-            "प्लेटिंग में विवरण पर ध्यान देना पसंद आया — छोटी-छोटी बातें मायने रखती हैं।",
-            "सन्डे को परफेक्ट तरीके से गार्निश किया गया था — देखने में उतना ही सुंदर जितना खाने में।"
-          ],
-          "gu": [
-            "સ્વચ્છ અને સુઘડ રીતે પ્રસ્તુત — ટેક-અવે પેકેજિંગ પણ ઉત્તમ દેખાઈ.",
-            "વેફ્ફ્ ળ કોન તાજા અને ક્રિસ્પી હતા; ઘરમાં બનાવ્યા છે તે સ્પષ્ટ.",
-            "ઉત્પાદ ગુણવત્તા સાથે મેળ ખાતી સ્વચ્છ પ્રસ્તુતિ.",
-            "પ્લેટિંગ પર વિગત ધ્યાન ગમ્યું — નાની-નાની બાબતો ફેર પાડે.",
-            "સન્ડે ઉત્તમ ગાર્નિશ સાથે — જોવામાં એટલો જ સુંદર, ખાવામાં એટલો જ."
-          ]
-        }
+          "The sundae was garnished perfectly — as beautiful to look at as it was to eat.",
+          "The cup and cone options are both well-designed and functional — nothing messy.",
+          "Eco-friendly packaging that still looks premium — a great balance.",
+          "The logo on the cup is a small touch, but it adds to the brand feel nicely.",
+          "Everything was packaged so well for delivery — arrived in perfect condition.",
+          "The presentation of the multi-scoop order was a visual delight.",
+          "The care taken in shaping and placing each scoop is a craft in itself.",
+          "The drizzle of sauce was done with such care — it elevated the whole dish.",
+          "Clean, simple, and classy packaging that represents the product perfectly.",
+          "The branded napkins and spoons are a nice touch — everything feels cohesive.",
+          "Even the sprinkles were placed thoughtfully — this is food that cares about its look.",
+          "The takeaway box kept the ice cream intact on the way home — impressive.",
+          "The layered presentation in the cup made every spoonful a delightful surprise.",
+          "I loved that the toppings were added fresh after I made my selection.",
+          "The colour contrast in the multi-flavour scoop was genuinely pretty.",
+          "The compostable packaging shows they care about more than just the product.",
+          "Even at peak time, every order was presented with the same level of care.",
+          "The freshly made cone adds a wonderful texture dimension to the experience.",
+          "Everything is served at the perfect temperature — exactly the right amount of frozen.",
+          "The neatness of the presentation gives confidence in the kitchen's hygiene.",
+          "The branded sticker on the cup is a small but memorable branding touch.",
+          "The layers were stacked so artfully — it was almost too pretty to eat.",
+          "The reusable spoon option is a thoughtful and sustainable choice I appreciate.",
+          "The presentation makes you feel like you're getting something truly special.",
+          "Even the simplest order is plated with intention and pride — that's rare.",
+          "The packaging is so nice I didn't want to throw it away — a true mark of quality."
+        ]
       }
     ]
   }

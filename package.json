@@ -1,0 +1,27 @@
+{
+  "name": "review_system_monorepo",
+  "version": "1.0.0",
+  "description": "> **Read [`docs/00-architecture-and-schema.md`](docs/00-architecture-and-schema.md) before anything else.** > Every other document in this repository refers back to the roles, schema, and rules defined there.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rohitpansheriya/review_system_monorepo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rohitpansheriya/review_system_monorepo/issues"
+  },
+  "homepage": "https://github.com/rohitpansheriya/review_system_monorepo#readme",
+  "dependencies": {
+    "firebase-admin": "^14.2.0"
+  }
+}

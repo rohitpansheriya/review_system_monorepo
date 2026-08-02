@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="Share your experience and help others discover this business." />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Leave a Review</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── Design Tokens ─────────────────────────────────────────────── */
+    :root {
+      --c-bg:          #0f0f13;
+      --c-surface:     #1a1a24;
+      --c-surface2:    #22222f;
+      --c-border:      rgba(255,255,255,0.08);
+      --c-text:        #f0f0f8;
+      --c-text-muted:  #8888aa;
+      --c-accent:      #7c6cfc;
+      --c-accent-glow: rgba(124,108,252,0.35);
+      --c-star-off:    #2a2a3a;
+      --c-star-on:     #ffcc44;
+      --c-success:     #34d399;
+      --c-danger:      #f87171;
+      --c-whatsapp:    #25d366;
+      --c-google:      #4285f4;
+      --radius-sm:     10px;
+      --radius-md:     18px;
+      --radius-lg:     26px;
+      --font:          'Outfit', sans-serif;
+      --transition:    0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ─── Reset ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--c-bg);
+      color: var(--c-text);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Layout ─────────────────────────────────────────────────────── */
+    #app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 48px;
+    }
+
+    .screen {
+      display: none;
+      width: 100%;
+      max-width: 480px;
+      animation: fadeIn 0.4s ease both;
+    }
+    .screen.active { display: flex; flex-direction: column; gap: 20px; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ─── Card ───────────────────────────────────────────────────────── */
+    .card {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+    }
+
+    /* ─── Header band ────────────────────────────────────────────────── */
+    #header-band {
+      width: 100%;
+      max-width: 480px;
+      padding: 24px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    #biz-logo {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      object-fit: cover;
+      background: var(--c-surface2);
+      border: 1px solid var(--c-border);
+      flex-shrink: 0;
+    }
+    #biz-logo-placeholder {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--c-accent), #5c4fe0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    #biz-name {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    #biz-branch {
+      font-size: 0.82rem;
+      color: var(--c-text-muted);
+      margin-top: 2px;
+    }
+
+
+
+    /* ─── Thank-you message ───────────────────────────────────────────── */
+    .thankyou-msg {
+      text-align: center;
+      color: var(--c-text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .thankyou-msg strong { color: var(--c-text); }
+
+    /* ─── Star Selector ──────────────────────────────────────────────── */
+    #star-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 8px 0;
+    }
+    .star-btn {
+      width: 52px;
+      height: 52px;
+      font-size: 38px;
+      line-height: 1;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--c-star-off);
+      transition: color var(--transition), transform var(--transition), filter var(--transition);
+      will-change: transform;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .star-btn.lit     { color: var(--c-star-on); }
+    .star-btn.lit     { filter: drop-shadow(0 0 6px rgba(255,204,68,0.5)); }
+    .star-btn:active  { transform: scale(1.25); }
+
+    /* ─── Section headings ────────────────────────────────────────────── */
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--c-text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* ─── Category chips ──────────────────────────────────────────────── */
+    #chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .chip {
+      padding: 9px 16px;
+      border-radius: 50px;
+      border: 1.5px solid var(--c-border);
+      background: var(--c-surface2);
+      color: var(--c-text);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition),
+                  color var(--transition), transform var(--transition);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .chip.selected {
+      background: var(--c-accent);
+      border-color: var(--c-accent);
+      color: #fff;
+      box-shadow: 0 0 16px var(--c-accent-glow);
+    }
+    .chip:active { transform: scale(0.96); }
+
+    /* ─── Review text area ────────────────────────────────────────────── */
+    #review-text {
+      width: 100%;
+      min-height: 140px;
+      background: var(--c-surface2);
+      border: 1.5px solid var(--c-border);
+      border-radius: var(--radius-md);
+      color: var(--c-text);
+      font-family: var(--font);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      padding: 14px 16px;
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    #review-text:focus { border-color: var(--c-accent); }
+    #review-text::placeholder { color: var(--c-text-muted); }
+
+    /* ─── WhatsApp textarea ───────────────────────────────────────────── */
+    #wa-text {
+      width: 100%;
+      min-height: 120px;
+      background: var(--c-surface2);
+      border: 1.5px solid var(--c-border);
+      border-radius: var(--radius-md);
+      color: var(--c-text);
+      font-family: var(--font);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      padding: 14px 16px;
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    #wa-text:focus { border-color: var(--c-whatsapp); }
+    #wa-text::placeholder { color: var(--c-text-muted); }
+
+    /* ─── Buttons ─────────────────────────────────────────────────────── */
+    .btn {
+      width: 100%;
+      padding: 15px 20px;
+      border-radius: var(--radius-md);
+      border: none;
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .btn:active  { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.45; pointer-events: none; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--c-accent), #5c4fe0);
+      color: #fff;
+      box-shadow: 0 4px 20px var(--c-accent-glow);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 28px var(--c-accent-glow); }
+
+    .btn-whatsapp {
+      background: var(--c-whatsapp);
+      color: #fff;
+    }
+    .btn-whatsapp:hover { opacity: 0.92; }
+
+    .btn-google {
+      background: var(--c-google);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(66,133,244,0.3);
+    }
+    .btn-google:hover { box-shadow: 0 6px 28px rgba(66,133,244,0.4); }
+
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--c-border);
+      color: var(--c-text);
+    }
+    .btn-outline:hover { border-color: var(--c-accent); color: var(--c-accent); }
+
+    /* ─── Icon SVGs inline ────────────────────────────────────────────── */
+    .icon { width: 20px; height: 20px; flex-shrink: 0; }
+
+    /* ─── ToS text ────────────────────────────────────────────────────── */
+    .tos-text {
+      font-size: 0.73rem;
+      color: var(--c-text-muted);
+      line-height: 1.55;
+      text-align: center;
+      padding: 0 4px;
+    }
+    .tos-text a { color: var(--c-accent); text-decoration: none; }
+
+    /* ─── Loading / error states ──────────────────────────────────────── */
+    #screen-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      gap: 20px;
+      padding-top: 40px;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid var(--c-border);
+      border-top-color: var(--c-accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #screen-error, #screen-unavailable, #screen-done {
+      text-align: center;
+      padding-top: 40px;
+    }
+    .big-icon { font-size: 56px; line-height: 1; margin-bottom: 16px; }
+    .screen-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 10px; }
+    .screen-sub   { font-size: 0.95rem; color: var(--c-text-muted); line-height: 1.6; }
+
+    /* ─── Already-submitted banner ────────────────────────────────────── */
+    .already-banner {
+      background: rgba(124,108,252,0.12);
+      border: 1px solid rgba(124,108,252,0.25);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      font-size: 0.88rem;
+      color: var(--c-text-muted);
+      text-align: center;
+    }
+
+    /* ─── Divider ─────────────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--c-border);
+      margin: 4px 0;
+    }
+
+    /* ─── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 360px) {
+      .star-btn { width: 44px; height: 44px; font-size: 32px; }
+      #star-row  { gap: 6px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Loading -->
+  <div id="screen-loading">
+    <div class="spinner"></div>
+    <p style="color:var(--c-text-muted); font-size:0.9rem;">Loading…</p>
+  </div>
+
+  <!-- Error: branch not found -->
+  <div id="screen-error" class="screen" style="display:none;">
+    <div class="big-icon">😕</div>
+    <div class="screen-title">Page Not Found</div>
+    <div class="screen-sub">We couldn't find this review page. Please check the QR code and try again.</div>
+  </div>
+
+  <!-- Subscription expired / deleted -->
+  <div id="screen-unavailable" class="screen" style="display:none;">
+    <div class="big-icon">🔒</div>
+    <div class="screen-title">Temporarily Unavailable</div>
+    <div class="screen-sub">This review page is currently unavailable. Please visit the store and try again later.</div>
+  </div>
+
+  <!-- Already submitted this session -->
+  <div id="screen-done" class="screen" style="display:none;">
+    <div class="big-icon">🎉</div>
+    <div class="screen-title">Thank You!</div>
+    <div class="screen-sub">You've already shared your feedback this visit. We really appreciate it!</div>
+  </div>
+
+  <!-- ─── MAIN FLOW ─────────────────────────────────────────────────────── -->
+
+  <!-- Header band (shared across screens 1 & 2) -->
+  <div id="header-band" style="display:none;">
+    <div id="biz-logo-placeholder">🍦</div>
+    <img id="biz-logo" alt="Business logo" style="display:none;" />
+    <div>
+      <div id="biz-name">…</div>
+      <div id="biz-branch"></div>
+    </div>
+  </div>
+
+
+
+  <!-- Screen 1: Landing -->
+  <div id="screen-landing" class="screen">
+    <div class="card" style="text-align:center;">
+      <p class="thankyou-msg" style="margin-bottom:20px;">
+        Thanks for visiting! How was your experience?
+      </p>
+      <div id="star-row" role="group" aria-label="Star rating">
+        <button class="star-btn" id="star-1" data-val="1" aria-label="1 star">★</button>
+        <button class="star-btn" id="star-2" data-val="2" aria-label="2 stars">★</button>
+        <button class="star-btn" id="star-3" data-val="3" aria-label="3 stars">★</button>
+        <button class="star-btn" id="star-4" data-val="4" aria-label="4 stars">★</button>
+        <button class="star-btn" id="star-5" data-val="5" aria-label="5 stars">★</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 2A: Low Rating — WhatsApp path -->
+  <div id="screen-low-wa" class="screen">
+    <div class="card">
+      <p class="thankyou-msg">
+        We're sorry to hear that. Would you mind telling us what went wrong? Your feedback helps us improve.
+      </p>
+      <textarea id="wa-text" rows="5"
+        placeholder="Tell us what happened…"></textarea>
+      <button class="btn btn-whatsapp" id="btn-wa-send" style="margin-top:12px;">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.531 5.848L0 24l6.335-1.509A11.932 11.932 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.798 9.798 0 0 1-5.031-1.388l-.361-.214-3.741.981.999-3.647-.236-.374A9.774 9.774 0 0 1 2.182 12c0-5.413 4.405-9.818 9.818-9.818 5.413 0 9.818 4.405 9.818 9.818 0 5.413-4.405 9.818-9.818 9.818z"/></svg>
+        <span>Send via WhatsApp</span>
+      </button>
+      <button class="btn btn-outline" id="btn-low-skip" style="margin-top:10px;">Skip</button>
+    </div>
+  </div>
+
+  <!-- Screen 2A-alt: Low Rating — Thank you only path -->
+  <div id="screen-low-thanks" class="screen">
+    <div class="card" style="text-align:center;">
+      <div class="big-icon">🙏</div>
+      <div class="screen-title">We appreciate your honesty</div>
+      <p class="screen-sub">Thank you for taking the time to share your experience. We'll work to do better.</p>
+    </div>
+  </div>
+
+  <!-- Screen 2B: High Rating — Category + phrases -->
+  <div id="screen-high" class="screen">
+    <div class="card">
+      <div class="section-title">What did you love? (select all that apply)</div>
+      <div id="chip-grid"></div>
+    </div>
+    <div class="card" id="review-card" style="display:none;">
+      <div class="section-title">Your review (feel free to edit)</div>
+      <textarea id="review-text" rows="7"
+        placeholder="Select categories above to build your review…"></textarea>
+    </div>
+    <p class="tos-text">
+      By posting this review you confirm the experience described is genuine and based on your personal visit.
+      Review text is pre-composed from common customer feedback themes and edited to reflect your experience.
+      <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Google's Terms of Service</a> apply to the review once posted.
+    </p>
+    <button class="btn btn-google" id="btn-google-post">
+      <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M21.35 11.1H12.18V13.83H18.69C18.36 17.64 15.19 19.27 12.19 19.27C8.36 19.27 5 16.25 5 12C5 7.9 8.2 4.73 12.2 4.73C15.29 4.73 17.1 6.7 17.1 6.7L19 4.72C19 4.72 16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12C2.03 17.05 6.16 22 12.25 22C17.6 22 21.5 18.33 21.5 12.91C21.5 11.76 21.35 11.1 21.35 11.1Z"/></svg>
+      <span>Copy & Open Google Maps</span>
+    </button>
+  </div>
+
+  <!-- Screen 3: Posted confirmation -->
+  <div id="screen-posted" class="screen" style="display:none;">
+    <div class="card" style="text-align:center;">
+      <div class="big-icon">✅</div>
+      <div class="screen-title">Almost there!</div>
+      <p class="screen-sub">Your review has been copied. Google Maps should open — just paste and post!</p>
+      <div class="divider" style="margin:18px 0;"></div>
+      <p class="tos-text">Can't see Google Maps? Open it manually and search for the business.</p>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ─── Firebase SDK (modular, compat layer for simple inline usage) ─────── -->
+<script type="module">
+  import { initializeApp }          from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getFirestore, doc, getDoc, addDoc, collection, serverTimestamp, connectFirestoreEmulator }
+    from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+  // ─── Firebase config ────────────────────────────────────────────────────
+  // The API key here is a client/public key — it's safe to embed in HTML.
+  // Access is governed entirely by Firestore Security Rules.
+  const firebaseConfig = {
+    apiKey:            "AIzaSyCzP1jhiOrhBJ8A2y5fxs2ducbxT9UqT90",
+    authDomain:        "review-system-prod-49b7a.firebaseapp.com",
+    projectId:         "review-system-prod-49b7a",
+    storageBucket:     "review-system-prod-49b7a.firebasestorage.app",
+    messagingSenderId: "1091002138393",
+    appId:             "1:1091002138393:web:841d4de99d22f6817f0f88",
+    measurementId:     "G-HY60V126M4",
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db    = getFirestore(fbApp);
+
+  // ─── Local dev: route Firestore reads to the emulator ───────────────────
+  // connectFirestoreEmulator() must be called before any read/write.
+  // The hostname check ensures this is a no-op in production.
+  const _host = window.location.hostname;
+  if (_host === 'localhost' || _host === '127.0.0.1') {
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  }
+
+
+
+
+  // ─── State ──────────────────────────────────────────────────────────────
+  let state = {
+    branchId: null,
+    businessId: null,
+    branch: null,
+    business: null,
+    template: null,
+    starRating: 0,
+    selectedCategories: new Set(),   // category names
+    phraseMap: {},                    // catName → chosen phrase string
+    sessionToken: null,
+    submitted: false,
+  };
+
+  // ─── DOM refs ────────────────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+  const screens = {
+    loading:     $('screen-loading'),
+    error:       $('screen-error'),
+    unavailable: $('screen-unavailable'),
+    done:        $('screen-done'),
+    landing:     $('screen-landing'),
+    'low-wa':    $('screen-low-wa'),
+    'low-thanks':$('screen-low-thanks'),
+    high:        $('screen-high'),
+    posted:      $('screen-posted'),
+  };
+
+  function showScreen(name) {
+    $('screen-loading').style.display = 'none';
+    $('screen-error').style.display   = 'none';
+    $('screen-unavailable').style.display = 'none';
+    $('screen-done').style.display    = 'none';
+
+    Object.entries(screens).forEach(([k, el]) => {
+      if (!el) return;
+      el.classList.remove('active');
+      if (!['loading','error','unavailable','done'].includes(k)) el.style.display = '';
+    });
+
+    const target = screens[name];
+    if (!target) return;
+
+    if (['error','unavailable','done'].includes(name)) {
+      target.style.display = 'flex';
+      target.style.flexDirection = 'column';
+      target.style.alignItems = 'center';
+      target.style.paddingTop = '60px';
+    } else {
+      target.classList.add('active');
+    }
+
+    // Header band visibility
+    const showHeader = ['landing','low-wa','low-thanks','high','posted'].includes(name);
+    $('header-band').style.display = showHeader ? 'flex' : 'none';
+
+  }
+
+  // ─── Session token ────────────────────────────────────────────────────────
+  function getOrCreateSessionToken(branchId) {
+    const key = `session_token_${branchId}`;
+    let token = sessionStorage.getItem(key);
+    if (!token) {
+      token = `${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
+      sessionStorage.setItem(key, token);
+    }
+    return token;
+  }
+
+  function isAlreadySubmitted(branchId) {
+    return sessionStorage.getItem(`submitted_${branchId}`) === '1';
+  }
+
+  function markSubmitted(branchId) {
+    sessionStorage.setItem(`submitted_${branchId}`, '1');
+  }
+
+  // ─── Star UI ──────────────────────────────────────────────────────────────
+  function updateStars(rating) {
+    document.querySelectorAll('.star-btn').forEach(btn => {
+      btn.classList.toggle('lit', parseInt(btn.dataset.val) <= rating);
+    });
+  }
+
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (state.submitted) return;
+      state.starRating = parseInt(btn.dataset.val);
+      updateStars(state.starRating);
+      setTimeout(() => handleStarChosen(), 350);
+    });
+  });
+
+  function handleStarChosen() {
+    const cfg = state.branch.star_routing_config || {};
+    const route = cfg[String(state.starRating)] || 'google';
+
+    if (route === 'google') {
+      showScreen('high');
+      buildChips();
+    } else if (route === 'whatsapp') {
+      showScreen('low-wa');
+    } else {
+      showScreen('low-thanks');
+    }
+  }
+
+  // ─── Category chips ───────────────────────────────────────────────────────
+  function pickPhrase(cat) {
+    const pool = cat.phrase_pool || [];
+    if (!pool.length) return '';
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function buildChips() {
+    if (!state.template) return;
+    const grid = $('chip-grid');
+    grid.innerHTML = '';
+    state.template.categories.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'chip';
+      btn.textContent = cat.name;
+      btn.dataset.cat = cat.name;
+      btn.addEventListener('click', () => toggleChip(cat, btn));
+      grid.appendChild(btn);
+    });
+  }
+
+  function toggleChip(cat, btn) {
+    if (state.selectedCategories.has(cat.name)) {
+      state.selectedCategories.delete(cat.name);
+      delete state.phraseMap[cat.name];
+      btn.classList.remove('selected');
+    } else {
+      state.selectedCategories.add(cat.name);
+      state.phraseMap[cat.name] = pickPhrase(cat);
+      btn.classList.add('selected');
+    }
+    rebuildReviewText();
+  }
+
+  function rebuildReviewText() {
+    const ta = $('review-text');
+    const card = $('review-card');
+    if (!state.selectedCategories.size) {
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = '';
+    // Build review in selection order
+    const phrases = [];
+    state.template.categories.forEach(cat => {
+      if (state.selectedCategories.has(cat.name)) {
+        phrases.push(state.phraseMap[cat.name]);
+      }
+    });
+    ta.value = phrases.join(' ');
+  }
+
+
+
+  // ─── Log scan to Firestore ────────────────────────────────────────────────
+  async function logScan({ actionTaken }) {
+    try {
+      await addDoc(collection(db, 'scan_logs'), {
+        branch_id:     state.branchId,
+        business_id:   state.businessId,
+        star_rating:   state.starRating,
+        timestamp:     serverTimestamp(),
+        session_token: state.sessionToken,
+        action_taken:  actionTaken,
+      });
+    } catch (e) {
+      // Non-fatal — best-effort logging
+      console.warn('scan_logs write failed', e);
+    }
+  }
+
+  // ─── WhatsApp button ─────────────────────────────────────────────────────
+  $('btn-wa-send').addEventListener('click', async () => {
+    const feedback = $('wa-text').value.trim();
+    const num = state.branch.whatsapp_number || '';
+    const msg = encodeURIComponent(feedback || 'Feedback from a customer.');
+    await logScan({ actionTaken: 'whatsapp' });
+    markSubmitted(state.branchId);
+    window.open(`https://wa.me/${num}?text=${msg}`, '_blank', 'noopener');
+    showScreen('low-thanks');
+  });
+
+  $('btn-low-skip').addEventListener('click', async () => {
+    await logScan({ actionTaken: 'low_skip' });
+    markSubmitted(state.branchId);
+    showScreen('low-thanks');
+  });
+
+  // ─── Google Maps / Copy button ────────────────────────────────────────────
+  $('btn-google-post').addEventListener('click', async () => {
+    const reviewText = $('review-text').value.trim();
+    if (!reviewText) return;
+
+    // Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(reviewText);
+    } catch {
+      // Fallback: select text
+      const ta = $('review-text');
+      ta.select();
+      document.execCommand('copy');
+    }
+
+    await logScan({ actionTaken: 'google_maps' });
+    markSubmitted(state.branchId);
+
+    // Open Google Maps write-review URL
+    const placeId = state.branch.place_id || '';
+    const mobileUrl  = `https://search.google.com/local/writereview/mobile?placeid=${placeId}`;
+    const desktopUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    window.open(isMobile ? mobileUrl : desktopUrl, '_blank', 'noopener');
+
+    showScreen('posted');
+  });
+
+  // ─── Load data on page init ───────────────────────────────────────────────
+  async function init() {
+    // URL format: /r/{businessId}/{branchId}
+    // Both IDs are required — the branch is a subcollection of the business.
+    // The QR code generator (Cloud Function) must encode both IDs in the URL.
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    // parts[0] === 'r',  parts[1] === businessId,  parts[2] === branchId
+    const businessId = parts[1] || null;
+    const branchId   = parts[2] || null;
+
+    if (!businessId || !branchId) {
+      showScreen('error');
+      return;
+    }
+
+    state.branchId   = branchId;
+    state.businessId = businessId;
+    state.sessionToken = getOrCreateSessionToken(branchId);
+
+    if (isAlreadySubmitted(branchId)) {
+      showScreen('done');
+      return;
+    }
+
+    await loadWithIds(businessId, branchId);
+  }
+
+  async function loadWithIds(businessId, branchId) {
+    state.businessId = businessId;
+    state.branchId   = branchId;
+
+    try {
+      const [bizSnap, branchSnap] = await Promise.all([
+        getDoc(doc(db, 'businesses', businessId)),
+        getDoc(doc(db, 'businesses', businessId, 'branches', branchId)),
+      ]);
+
+      if (!bizSnap.exists() || !branchSnap.exists()) {
+        showScreen('error');
+        return;
+      }
+
+      state.business = bizSnap.data();
+      state.branch   = branchSnap.data();
+
+      // Check subscription status
+      const status = state.business.subscription_status;
+      if (status === 'deleted' || status === 'suspended') {
+        showScreen('unavailable');
+        return;
+      }
+
+      // Load category template
+      const templateId = state.branch.category_override_id
+                       || state.business.default_category_template_id
+                       || 'ice_cream_v1';
+      const tplSnap = await getDoc(doc(db, 'category_templates', templateId));
+      state.template = tplSnap.exists() ? tplSnap.data() : null;
+
+      // Populate header
+      $('biz-name').textContent   = state.business.brand_name || 'Business';
+      $('biz-branch').textContent = state.branch.branch_name  || '';
+      const logoUrl = state.business.logo_url;
+      if (logoUrl) {
+        const img = $('biz-logo');
+        img.src = logoUrl;
+        img.style.display = 'block';
+        $('biz-logo-placeholder').style.display = 'none';
+      }
+
+      $('header-band').style.display = 'flex';
+      showScreen('landing');
+
+    } catch (err) {
+      console.error('Load error:', err);
+      showScreen('error');
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

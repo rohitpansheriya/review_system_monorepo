@@ -1,0 +1,56 @@
+{
+  "_comment": "Test data for local development. The seed script (scripts/seed-firestore.js) writes this into Firestore. Do NOT use real customer data here.",
+  "businesses": [
+    {
+      "id": "test_business_001",
+      "data": {
+        "brand_name": "Scoops & Smiles",
+        "logo_url": "",
+        "category_type": "ice_cream",
+        "default_category_template_id": "ice_cream_v1",
+        "enrolled_by": "seed_script",
+        "enrolled_by_original": "seed_script",
+        "currently_managed_by": "seed_script",
+        "subscription_status": "active",
+        "renewal_date": "2027-08-01",
+        "grace_period_ends": null,
+        "owner_auth_uid": null
+      }
+    }
+  ],
+  "branches": [
+    {
+      "id": "test_branch_001",
+      "business_id": "test_business_001",
+      "data": {
+        "branch_name": "MG Road Branch",
+        "address": "12, MG Road, Ahmedabad, Gujarat 380001",
+        "whatsapp_number": "919876543210",
+        "place_id": "ChIJLc6Xd3Hh6DkRrZ9A8lGJlm0",
+        "google_review_link": "https://search.google.com/local/writereview?placeid=ChIJLc6Xd3Hh6DkRrZ9A8lGJlm0",
+        "star_routing_config": {
+          "1": "whatsapp",
+          "2": "whatsapp",
+          "3": "whatsapp",
+          "4": "google",
+          "5": "google"
+        },
+        "category_override_id": null,
+        "qr_code_id": null,
+        "nfc_url": "https://placeholder.domain/r/test_business_001/test_branch_001",
+        "stats_summary": {
+          "total_scans": 0,
+          "total_reviews_redirected": 0,
+          "last_updated": null
+        }
+      }
+    }
+  ],
+  "category_templates": [
+    {
+      "id": "ice_cream_v1",
+      "_from_file": "firestore/seed/category-templates.json",
+      "_note": "The seed script reads category-templates.json directly — this entry just documents the dependency."
+    }
+  ]
+}

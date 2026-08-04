@@ -23,12 +23,22 @@
       ]
     },
     // Admin: filter by subscription_status and order by renewal_date (expiry dashboard).
+    // Also used by renewalLifecycle Pass 1: active businesses whose renewal_date has passed.
     {
       "collectionGroup": "businesses",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "subscription_status", "order": "ASCENDING" },
         { "fieldPath": "renewal_date", "order": "ASCENDING" }
+      ]
+    },
+    // renewalLifecycle Pass 2: grace_period businesses whose grace_period_ends has passed.
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subscription_status", "order": "ASCENDING" },
+        { "fieldPath": "grace_period_ends", "order": "ASCENDING" }
       ]
     },
     // Admin: filter by category_type to group businesses by industry.

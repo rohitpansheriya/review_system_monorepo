@@ -35,3 +35,4 @@ review_page/firebase-config.js
 # Flutter app — downloaded from Firebase console per platform
 admin_panel/android/app/google-services.json
 admin_panel/ios/Runner/GoogleService-Info.plist
+functions/.secret.local

@@ -16,6 +16,23 @@
  *                                          PNG and writes qr_code_id + nfc_url.
  *   generateBranchQr (callable) — manual re-generation for admin/employee.
  *                                  Requires Auth.
+ *
+ * ─── Payment, Subscription & Renewal ──────────────────────────────────────
+ * (see docs/05-payment-subscription-renewal.md)
+ *   createOrder        (callable) — Creates a Razorpay order for the ₹1999
+ *                                   one-time setup fee at enrollment time.
+ *                                   Requires Auth.
+ *   createSubscription (callable) — Creates a Razorpay subscription against
+ *                                   the ₹999/year Plan for annual renewal.
+ *                                   Requires Auth.
+ *   razorpayWebhook    (HTTPS)    — Receives Razorpay webhook events. Verifies
+ *                                   HMAC-SHA256 signature before processing.
+ *                                   On success: updates subscription_status,
+ *                                   renewal_date, creates commission_records.
+ *                                   Webhook URL (post-deploy — see razorpay.ts
+ *                                   header comment for exact URL).
+ *   renewalLifecycle   (scheduled) — Daily: active → grace_period → deleted.
+ *                                    Never deletes commission_records.
  */
 
 import {setGlobalOptions} from "firebase-functions/v2";
@@ -31,4 +48,9 @@ setGlobalOptions({maxInstances: 10, region: "asia-south1"});
 
 export {searchPlaces, getPlacePhoto} from "./placeSearch.js";
 export {onBranchCreated, generateBranchQr} from "./qrGenerator.js";
-
+export {
+  createOrder,
+  createSubscription,
+  razorpayWebhook,
+  renewalLifecycle,
+} from "./razorpay.js";

@@ -289,6 +289,17 @@
     }
     .tos-text a { color: var(--c-accent); text-decoration: none; }
 
+    /* ─── Status-screen tints ─────────────────────────────────────────── */
+    /* Warm amber: grace_period — business exists but subscription is paused */
+    #screen-unavailable .big-icon   { filter: hue-rotate(10deg) brightness(1.2); }
+    #screen-unavailable .screen-title { color: #fbbf24; }
+    #screen-unavailable .screen-sub   { color: #d4a800; }
+
+    /* Cool steel-blue: not-found — document was deleted or URL is wrong */
+    #screen-error .big-icon   { }
+    #screen-error .screen-title { color: #93b4d4; }
+    #screen-error .screen-sub   { color: #6b82a8; }
+
     /* ─── Loading / error states ──────────────────────────────────────── */
     #screen-loading {
       display: flex;
@@ -351,18 +362,18 @@
     <p style="color:var(--c-text-muted); font-size:0.9rem;">Loading…</p>
   </div>
 
-  <!-- Error: branch not found -->
+  <!-- Error: business/branch document does not exist (deleted or bad URL) -->
   <div id="screen-error" class="screen" style="display:none;">
-    <div class="big-icon">😕</div>
+    <div class="big-icon">🔍</div>
     <div class="screen-title">Page Not Found</div>
-    <div class="screen-sub">We couldn't find this review page. Please check the QR code and try again.</div>
+    <div class="screen-sub">We couldn't find this review link. Please check the QR code or NFC tag — it may have been updated or replaced by the store.</div>
   </div>
 
-  <!-- Subscription expired / deleted -->
+  <!-- Subscription in grace period — business exists but is paused -->
   <div id="screen-unavailable" class="screen" style="display:none;">
-    <div class="big-icon">🔒</div>
-    <div class="screen-title">Temporarily Unavailable</div>
-    <div class="screen-sub">This review page is currently unavailable. Please visit the store and try again later.</div>
+    <div class="big-icon">⏸️</div>
+    <div class="screen-title">Temporarily Paused</div>
+    <div class="screen-sub">This review page is temporarily unavailable. The business will be back shortly — please visit the store directly or try again later.</div>
   </div>
 
   <!-- Already submitted this session -->
@@ -505,6 +516,7 @@
     starRating: 0,
     selectedCategories: new Set(),   // category names
     phraseMap: {},                    // catName → chosen phrase string
+    userEditedReview: false,          // true once the user manually edits the textarea
     sessionToken: null,
     submitted: false,
   };
@@ -610,6 +622,8 @@
   }
 
   function buildChips() {
+    // Reset manual-edit flag each time the high-rating screen is freshly built.
+    state.userEditedReview = false;
     if (!state.template) return;
     const grid = $('chip-grid');
     grid.innerHTML = '';
@@ -638,23 +652,36 @@
 
   function rebuildReviewText() {
     const ta = $('review-text');
-    const card = $('review-card');
+    // Never hide the card — textarea is always visible so customers
+    // can type freely even without selecting chips.
     if (!state.selectedCategories.size) {
-      card.style.display = 'none';
+      // No chips selected: leave whatever the user has typed untouched.
+      // Only clear if the current content was auto-generated (i.e. came
+      // from a previous chip selection), detected by the absence of manual edits.
+      if (!state.userEditedReview) {
+        ta.value = '';
+      }
       return;
     }
-    card.style.display = '';
-    // Build review in selection order
-    const phrases = [];
-    state.template.categories.forEach(cat => {
-      if (state.selectedCategories.has(cat.name)) {
-        phrases.push(state.phraseMap[cat.name]);
-      }
-    });
-    ta.value = phrases.join(' ');
+    // Build review from selected chips, but only overwrite if the user
+    // hasn't manually edited the text since the last chip change.
+    if (!state.userEditedReview) {
+      const phrases = [];
+      state.template.categories.forEach(cat => {
+        if (state.selectedCategories.has(cat.name)) {
+          phrases.push(state.phraseMap[cat.name]);
+        }
+      });
+      ta.value = phrases.join(' ');
+    }
   }
 
-
+  // Once the user types in the textarea manually, stop auto-overwriting their text.
+  // They can clear and re-select chips to regenerate, but we never silently replace
+  // something they wrote themselves.
+  $('review-text').addEventListener('input', () => {
+    state.userEditedReview = true;
+  });
 
   // ─── Log scan to Firestore ────────────────────────────────────────────────
   async function logScan({ actionTaken }) {
@@ -693,7 +720,18 @@
   // ─── Google Maps / Copy button ────────────────────────────────────────────
   $('btn-google-post').addEventListener('click', async () => {
     const reviewText = $('review-text').value.trim();
-    if (!reviewText) return;
+    if (!reviewText) {
+      // Shake the textarea to signal it needs content
+      const ta = $('review-text');
+      ta.style.borderColor = 'var(--c-danger)';
+      ta.placeholder = 'Please write or select something first…';
+      ta.focus();
+      setTimeout(() => {
+        ta.style.borderColor = '';
+        ta.placeholder = 'Write your own review here, or tap the chips above to build one automatically…';
+      }, 2000);
+      return;
+    }
 
     // Copy to clipboard
     try {
@@ -763,17 +801,23 @@
       state.business = bizSnap.data();
       state.branch   = branchSnap.data();
 
-      // Check subscription status
+      // Check subscription status.
+      // Only 'active' businesses may show the review page.
+      // grace_period, deleted, suspended, pending_payment — all blocked.
       const status = state.business.subscription_status;
-      if (status === 'deleted' || status === 'suspended') {
+      if (status !== 'active') {
         showScreen('unavailable');
         return;
       }
 
-      // Load category template
+      // Load category template.
+      // Priority: branch override → business default → derive from category_type
+      // Convention: document IDs in category_templates follow "{category_type}_v1".
       const templateId = state.branch.category_override_id
                        || state.business.default_category_template_id
-                       || 'ice_cream_v1';
+                       || (state.business.category_type
+                           ? state.business.category_type + '_v1'
+                           : 'ice_cream_v1');
       const tplSnap = await getDoc(doc(db, 'category_templates', templateId));
       state.template = tplSnap.exists() ? tplSnap.data() : null;
 

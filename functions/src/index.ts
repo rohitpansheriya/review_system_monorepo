@@ -3,36 +3,43 @@
  *
  * Functions exported from this file are deployed to Firebase.
  *
- * ─── Place ID / Google Places ────────────────────────────────────────────────
- *   searchPlaces    (callable) — returns 2-3 candidate matches for a business
+ * ─── Place ID / Google Places ──────────────────────────────────────
+ *   searchPlaces    (callable) — 2–3 candidate matches for a business
  *                                name + city search. Requires Auth.
- *   getPlacePhoto   (HTTPS)    — server-side proxy that streams a Places photo
- *                                to authenticated clients. API key stays on the
- *                                server; never forwarded to the browser.
+ *   getPlacePhoto   (HTTPS)    — server-side proxy that streams a Places
+ *                                photo. API key stays on server.
  *
- * ─── QR & NFC ────────────────────────────────────────────────────────────────
- *   onBranchCreated  (Firestore trigger) — fires automatically when a branch
- *                                          doc is created; generates branded QR
- *                                          PNG and writes qr_code_id + nfc_url.
- *   generateBranchQr (callable) — manual re-generation for admin/employee.
- *                                  Requires Auth.
+ * ─── QR & NFC ─────────────────────────────────────────────────────
+ *   onBranchCreated  (Firestore trigger) — fires automatically when a
+ *                    branch doc is created; generates branded QR PNG
+ *                    and writes qr_code_id + nfc_url.
+ *   generateBranchQr (callable) — manual re-generation for admin/
+ *                    employee. Requires Auth.
  *
- * ─── Payment, Subscription & Renewal ──────────────────────────────────────
+ * ─── Payment, Subscription & Renewal ──────────────────────────
  * (see docs/05-payment-subscription-renewal.md)
- *   createOrder        (callable) — Creates a Razorpay order for the ₹1999
- *                                   one-time setup fee at enrollment time.
+ *   createOrder        (callable) — Razorpay order for the ₹1999 setup
+ *                                   fee. Requires Auth.
+ *   createSubscription (callable) — Razorpay subscription for ₹999/yr.
  *                                   Requires Auth.
- *   createSubscription (callable) — Creates a Razorpay subscription against
- *                                   the ₹999/year Plan for annual renewal.
- *                                   Requires Auth.
- *   razorpayWebhook    (HTTPS)    — Receives Razorpay webhook events. Verifies
- *                                   HMAC-SHA256 signature before processing.
- *                                   On success: updates subscription_status,
- *                                   renewal_date, creates commission_records.
- *                                   Webhook URL (post-deploy — see razorpay.ts
- *                                   header comment for exact URL).
- *   renewalLifecycle   (scheduled) — Daily: active → grace_period → deleted.
- *                                    Never deletes commission_records.
+ *   razorpayWebhook    (HTTPS)    — Receives Razorpay webhook events.
+ *                                   HMAC-SHA256 verified. Updates
+ *                                   subscription_status, renewal_date,
+ *                                   creates commission_records.
+ *   renewalLifecycle   (scheduled) — Daily: active → grace_period →
+ *                                    deleted. Never deletes
+ *                                    commission_records.
+ *
+ * ─── Notifications (doc 08) ──────────────────────────────────────
+ * (see docs/08-notifications-system.md)
+ *   sendRenewalReminders     (scheduled daily) — emails owner + employee
+ *                            at 30/15/7/1 days before renewal_date.
+ *                            Writes to notifications/{id}.
+ *   sendAdminDigest          (scheduled weekly Mon 09:00 IST) — one
+ *                            summary email to admin of upcoming renewals.
+ *   sendCashPaymentVerification (callable) — doc 06 fraud prevention;
+ *                            "Did you pay ₹X in cash to [Employee]?"
+ *                            Reuses same email + notifications infra.
  */
 
 import {setGlobalOptions} from "firebase-functions/v2";
@@ -54,3 +61,8 @@ export {
   razorpayWebhook,
   renewalLifecycle,
 } from "./razorpay.js";
+export {
+  sendRenewalReminders,
+  sendAdminDigest,
+  sendCashPaymentVerification,
+} from "./notifications.js";

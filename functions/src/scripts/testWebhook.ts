@@ -51,7 +51,7 @@ const BUSINESS_ID = process.env["TEST_BUSINESS_ID"] ?? "biz_test_001";
 process.env["FIRESTORE_EMULATOR_HOST"] = FIRESTORE_HOST;
 
 if (!admin.apps.length) {
-  admin.initializeApp({projectId: FIREBASE_PROJECT});
+  admin.initializeApp({ projectId: FIREBASE_PROJECT });
 }
 const db = admin.firestore();
 
@@ -67,7 +67,7 @@ function post(
   path: string,
   body: string,
   signature: string
-): Promise<{status: number; body: string}> {
+): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const options: http.RequestOptions = {
       hostname: host,
@@ -83,7 +83,7 @@ function post(
     const req = http.request(options, (res) => {
       let data = "";
       res.on("data", (chunk: string) => (data += chunk));
-      res.on("end", () => resolve({status: res.statusCode ?? 0, body: data}));
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, body: data }));
     });
     req.on("error", reject);
     req.write(body);
@@ -242,7 +242,7 @@ async function main(): Promise<void> {
     .doc(bizDelete)
     .collection("branches")
     .doc("branch_001");
-  await branchRef.set({branch_name: "Main Branch", address: "Test St"});
+  await branchRef.set({ branch_name: "Main Branch", address: "Test St" });
   await db.collection("scan_logs").doc("scan_001").set({
     branch_id: "branch_001",
     star_rating: 5,

@@ -175,6 +175,33 @@
         { "fieldPath": "business_id", "order": "ASCENDING" },
         { "fieldPath": "date_claimed", "order": "DESCENDING" }
       ]
+    },
+
+    // -------------------------------------------------------
+    // notifications collection (doc 08)
+    // -------------------------------------------------------
+
+    // Idempotency check in sendRenewalReminders:
+    // "has this business+type been notified in the last 20h?"
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "business_id", "order": "ASCENDING" },
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "sent_at", "order": "ASCENDING" }
+      ]
+    },
+
+    // Dashboard banner query (doc 02): unread notifications per recipient.
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recipient", "order": "ASCENDING" },
+        { "fieldPath": "read", "order": "ASCENDING" },
+        { "fieldPath": "sent_at", "order": "DESCENDING" }
+      ]
     }
 
     // -------------------------------------------------------

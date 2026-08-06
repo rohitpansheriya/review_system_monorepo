@@ -20,7 +20,7 @@ const FUNCTIONS_URL = 'http://127.0.0.1:5001/review-system-prod-49b7a/asia-south
 if (getApps().length === 0) initializeApp({ projectId: PROJECT_ID });
 const db = getFirestore();
 
-const BUSINESSES = ['tst-biz-a','tst-biz-b','tst-biz-c','tst-biz-d','tst-biz-e'];
+const BUSINESSES = ['tst-biz-a', 'tst-biz-b', 'tst-biz-c', 'tst-biz-d', 'tst-biz-e'];
 const EXPECTED_TYPE = {
   'tst-biz-a': null,
   'tst-biz-b': 'renewal_reminder_30',
@@ -53,8 +53,8 @@ async function checkNotifications() {
       .get();
 
     const notifs = snap.docs.map(d => d.data());
-    const types  = [...new Set(notifs.map(n => n.type))];
-    const roles  = notifs.map(n => n.recipient_role).sort();
+    const types = [...new Set(notifs.map(n => n.type))];
+    const roles = notifs.map(n => n.recipient_role).sort();
     const expected = EXPECTED_TYPE[bizId];
 
     let status;
@@ -62,8 +62,8 @@ async function checkNotifications() {
       status = snap.size === 0 ? '✅ PASS — no notification (correct)' : `❌ FAIL — got ${snap.size} unexpected notifications`;
     } else {
       const hasCorrectType = types.includes(expected);
-      const hasOwner  = roles.includes('owner');
-      const hasEmp    = roles.includes('employee');
+      const hasOwner = roles.includes('owner');
+      const hasEmp = roles.includes('employee');
       if (hasCorrectType && hasOwner && hasEmp && snap.size === 2) {
         status = `✅ PASS — ${expected} × 2 (owner + employee)`;
       } else {
@@ -102,7 +102,7 @@ async function main() {
   const COL = [14, 10, 24, 7];
   const header = ['Business', 'Days Left', 'Expected Type', 'Count'];
   const divider = COL.map(w => '─'.repeat(w)).join('─┼─');
-  const row = (cells) => cells.map((c,i) => String(c).padEnd(COL[i])).join(' │ ');
+  const row = (cells) => cells.map((c, i) => String(c).padEnd(COL[i])).join(' │ ');
 
   console.log(row(header));
   console.log(divider);

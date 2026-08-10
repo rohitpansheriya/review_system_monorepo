@@ -1,10 +1,39 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function isSignedIn()  { return request.auth != null; }
+    function isEmployee()  { return isSignedIn() && request.auth.token.role == 'employee'; }
+    function isAdmin()     { return isSignedIn() && request.auth.token.role == 'admin'; }
+    function isOwner()     { return isSignedIn() && request.auth.token.role == 'owner'; }
+
+    // ── Business logos: logos/{filename} ─────────────────────────────────────
+    // Uploaded during enrollment (before the businesses doc exists, so the
+    // path is a flat logos/{uuid}.ext rather than keyed by businessId).
+    // Read is public — logos are displayed on the customer review page.
+    match /logos/{filename} {
+      // Public read (shown on customer-facing review page and in panel).
+      allow read: if true;
+
+      // Employee or admin can upload/replace a logo.
+      // 2 MB cap, image content type only.
+      allow write: if (isEmployee() || isAdmin() || isOwner())
+                   && request.resource.size <= 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // ── QR code images: qr_codes/{branchId}/{filename} ───────────────────────
+    // Generated server-side by the generateBranchQr Cloud Function.
+    // Panel users can read to display the QR image.
+    match /qr_codes/{branchId}/{filename} {
+      allow read:  if isEmployee() || isAdmin() || isOwner();
+      // Client writes blocked — Cloud Functions service account writes only.
+      allow write: if false;
+    }
+
+    // ── Fallback: deny everything else ────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;
     }

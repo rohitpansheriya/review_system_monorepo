@@ -1,29 +1,30 @@
 /**
  * qrGenerator.ts
  *
- * Exports two Cloud Functions:
+ * Exports Cloud Functions:
  *
  *  onBranchCreated (Firestore trigger)
  *    Fires automatically when a document is created at
  *    businesses/{businessId}/branches/{branchId}.
- *    Generates a branded QR PNG and writes qr_code_id + nfc_url back.
- *    No Auth required (trusted server-side trigger).
+ *    Generates:
+ *      (a) Branded "standee" QR PNG (logo + category border, 4×6 print-ready)
+ *          → writes qr_code_id + nfc_url.  [STUB: acrylic standee artwork pipeline, doc 09]
+ *      (b) Plain printable QR PNG (simple URL→PNG, 600×600 px, no artwork)
+ *          → writes plain_qr_storage_path.  [Change 1 — instant digital deliverable]
+ *    Both are skipped for pending_payment (draft) branches.
  *
  *  generateBranchQr (callable)
- *    Manual re-generation — admin/employee calls this to regenerate a QR
- *    (e.g. after a domain change or logo update).
+ *    Manual re-generation — also produces both QR types.
  *    Requires Firebase Auth.
  *
- * Shared pipeline (buildQrForBranch):
- *  1. Reads business doc for logo_url + category_type.
- *  2. Builds review URL: https://{REVIEW_DOMAIN}/r/{businessId}/{branchId}
- *  3. Generates QR code PNG (error correction H — tolerates logo overlay).
- *  4. Fetches + composites business logo (circular, centred, non-fatal).
- *  5. Applies category-themed coloured border strip.
- *  6. Resizes to 1200×1800 px (4×6 inches @ 300 dpi) — print-ready.
- *  7. Uploads to Firebase Storage at qr_codes/{branchId}.png.
- *  8. Updates branch doc: qr_code_id + nfc_url.
- *  9. Returns { qrStoragePath, nfcUrl } to the caller.
+ * buildQrForBranch (exported function)
+ *  Full branded standee pipeline (logo + border + 4×6 canvas). See steps below.
+ *  Called by: onBranchCreated, generateBranchQr, razorpay.ts activation webhook.
+ *
+ * buildPlainQrForBranch (exported function — Change 1)
+ *  Minimal URL→PNG pipeline: no logo, no border, no resize.
+ *  Output: 600×600 px PNG at qr_codes/{branchId}_plain.png.
+ *  Called by: onBranchCreated, generateBranchQr, razorpay.ts activation webhook.
  *
  * Resources: 512 MiB RAM (sharp is memory-intensive), 120 s timeout.
  */
@@ -128,7 +129,7 @@ function requireAuth(auth: {uid: string} | undefined): void {
 }
 
 // ---------------------------------------------------------------------------
-// buildQrForBranch — shared image pipeline
+// buildQrForBranch — shared standee image pipeline
 // ---------------------------------------------------------------------------
 
 interface QrResult {
@@ -136,16 +137,27 @@ interface QrResult {
   nfcUrl: string;
 }
 
+/** Result of buildPlainQrForBranch — Change 1. */
+interface PlainQrResult {
+  plainQrStoragePath: string;
+  plainQrUrl: string;
+}
+
 /**
  * Runs the full QR image pipeline for a branch:
  * reads business data, generates a branded QR PNG, uploads to Storage,
  * and writes qr_code_id + nfc_url back to the branch Firestore document.
+ *
+ * Exported so the payment webhook (razorpay.ts) can call it directly
+ * during draft activation without going through the Firestore trigger.
+ *
  * @param {string} businessId - Firestore document ID of the parent business.
  * @param {string} branchId - Firestore document ID of the branch.
  * @param {FirebaseFirestore.DocumentReference} branchRef - Live ref to branch.
  * @return {Promise<QrResult>} Storage path and review URL.
  */
-async function buildQrForBranch(
+export async function buildQrForBranch(
+
   businessId: string,
   branchId: string,
   branchRef: FirebaseFirestore.DocumentReference
@@ -292,6 +304,77 @@ async function buildQrForBranch(
 }
 
 // ---------------------------------------------------------------------------
+// buildPlainQrForBranch — plain printable QR (Change 1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Generates a plain printable QR PNG for a branch:
+ *   - No logo overlay, no border, no print canvas.
+ *   - 600×600 px — enough for a desktop printer at normal quality.
+ *   - Error correction H for readability.
+ *   - Encodes the same review URL as the standee QR.
+ *   - Uploaded to Firebase Storage at qr_codes/{branchId}_plain.png.
+ *   - Writes plain_qr_storage_path back to the branch doc.
+ *
+ * This is the instant digital deliverable (Change 1).
+ * Separate from the acrylic standee artwork (buildQrForBranch / doc 09 stub).
+ *
+ * @param {string} businessId - Firestore document ID of the parent business.
+ * @param {string} branchId - Firestore document ID of the branch.
+ * @param {FirebaseFirestore.DocumentReference} branchRef - Live ref to branch.
+ * @return {Promise<PlainQrResult>} Storage path and review URL.
+ */
+export async function buildPlainQrForBranch(
+  businessId: string,
+  branchId: string,
+  branchRef: FirebaseFirestore.DocumentReference
+): Promise<PlainQrResult> {
+  const domain = reviewDomain.value();
+  const plainQrUrl = `https://${domain}/r/${businessId}/${branchId}`;
+
+  logger.info("buildPlainQrForBranch: generating plain QR", {
+    branchId, businessId, plainQrUrl,
+  });
+
+  // Generate minimal QR — URL → PNG, error correction H, 600×600 px.
+  // No logo overlay, no category border, no canvas padding.
+  const PLAIN_SIZE = 600;
+  const plainQrBuffer: Buffer = await QRCode.toBuffer(plainQrUrl, {
+    errorCorrectionLevel: "H",
+    type: "png",
+    margin: 2,
+    width: PLAIN_SIZE,
+    color: {dark: "#000000", light: "#FFFFFF"},
+  });
+
+  // Upload to Firebase Storage.
+  const storagePath = `qr_codes/${branchId}_plain.png`;
+  const storageBucket = getStorage().bucket();
+  const file = storageBucket.file(storagePath);
+
+  await file.save(plainQrBuffer, {
+    metadata: {
+      contentType: "image/png",
+      metadata: {
+        branchId,
+        businessId,
+        reviewUrl: plainQrUrl,
+        type: "plain_printable",
+        generatedAt: new Date().toISOString(),
+      },
+    },
+  });
+
+  // Write plain_qr_storage_path back to the branch doc.
+  await branchRef.update({
+    plain_qr_storage_path: storagePath,
+  });
+
+  logger.info("buildPlainQrForBranch: complete", {branchId, storagePath, plainQrUrl});
+  return {plainQrStoragePath: storagePath, plainQrUrl};
+}
+
+// ---------------------------------------------------------------------------
 // onBranchCreated — Firestore trigger
 // Fires when a new branch document is created under any business.
 // ---------------------------------------------------------------------------
@@ -313,6 +396,22 @@ export const onBranchCreated = onDocumentCreated(
       return;
     }
 
+    // DRAFT GUARD: Do NOT generate a QR for a pending_payment (draft) business.
+    // QR generation is deferred until the payment webhook confirms payment and
+    // activates the business (activateDraft in razorpay.ts).
+    const db = getFirestore();
+    const bizSnap = await db.doc(`businesses/${businessId}`).get();
+    const bizStatus = bizSnap.data()?.subscription_status as string | undefined;
+
+    if (bizStatus === "pending_payment") {
+      logger.info(
+        "onBranchCreated: parent business is a draft (pending_payment) — " +
+        "skipping QR generation. Will be triggered by the payment webhook.",
+        {businessId, branchId}
+      );
+      return;
+    }
+
     logger.info("onBranchCreated: new branch, generating QR", {
       businessId, branchId,
     });
@@ -322,21 +421,38 @@ export const onBranchCreated = onDocumentCreated(
       return;
     }
 
+    // Generate branded standee QR (doc 09 pipeline).
     try {
       const result = await buildQrForBranch(
         businessId,
         branchId,
         event.data.ref
       );
-      logger.info("onBranchCreated: QR ready", result);
+      logger.info("onBranchCreated: standee QR ready", result);
     } catch (err) {
-      logger.error("onBranchCreated: QR generation failed", {
+      logger.error("onBranchCreated: standee QR generation failed", {
         err, businessId, branchId,
       });
       // Non-fatal — branch doc is still valid without a QR.
     }
+
+    // Change 1: Also generate plain printable QR (instant digital deliverable).
+    try {
+      const plainResult = await buildPlainQrForBranch(
+        businessId,
+        branchId,
+        event.data.ref
+      );
+      logger.info("onBranchCreated: plain QR ready", plainResult);
+    } catch (err) {
+      logger.error("onBranchCreated: plain QR generation failed", {
+        err, businessId, branchId,
+      });
+      // Non-fatal.
+    }
   }
 );
+
 
 // ---------------------------------------------------------------------------
 // generateBranchQr — callable (admin/employee manual re-generation)
@@ -374,9 +490,36 @@ export const generateBranchQr = onCall(
       );
     }
 
+    // DRAFT GUARD: refuse QR generation for unpaid (pending_payment) businesses.
+    const bizSnap = await db.doc(`businesses/${businessId}`).get();
+    const bizStatus = bizSnap.data()?.subscription_status as string | undefined;
+    if (bizStatus === "pending_payment") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Cannot generate a QR code for a business that has not yet completed payment. " +
+        "The QR will be generated automatically when payment is confirmed."
+      );
+    }
+
+    // Generate both QR types (standee + plain printable).
     const result = await buildQrForBranch(businessId, branchId, branchRef);
 
-    // Return a 1-hour signed URL for immediate download/preview
+    // Change 1: also generate / regenerate plain printable QR.
+    let plainDownloadUrl: string | null = null;
+    try {
+      const plainResult = await buildPlainQrForBranch(businessId, branchId, branchRef);
+      const plainExpiresAt = new Date();
+      plainExpiresAt.setHours(plainExpiresAt.getHours() + 1);
+      const plainFile = getStorage().bucket().file(plainResult.plainQrStoragePath);
+      [plainDownloadUrl] = await plainFile.getSignedUrl({
+        action: "read",
+        expires: plainExpiresAt,
+      });
+    } catch (plainErr) {
+      logger.warn("generateBranchQr: plain QR generation failed (non-fatal)", {plainErr});
+    }
+
+    // Return 1-hour signed URL for standee QR immediate download/preview.
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
     const file = getStorage().bucket().file(result.qrStoragePath);
@@ -385,6 +528,6 @@ export const generateBranchQr = onCall(
       expires: expiresAt,
     });
 
-    return {...result, downloadUrl};
+    return {...result, downloadUrl, plainDownloadUrl};
   }
 );

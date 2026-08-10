@@ -87,12 +87,13 @@ export const searchPlaces = onCall(
     const query = encodeURIComponent(
       `${businessName.trim()} ${city.trim()}`
     );
-    // Request only the fields we need — billed per field mask.
-    const fields = "name,place_id,formatted_address,photos,geometry";
+    // Text Search returns all fields by default — the `fields` mask only works
+    // on findplacefromtext, NOT textsearch. No field mask needed here.
+    // `region=in` biases results toward India without hard-filtering.
     const url =
       "https://maps.googleapis.com/maps/api/place/textsearch/json" +
       `?query=${query}` +
-      `&fields=${fields}` +
+      "&region=in" +
       `&key=${placeApiKey.value()}`;
 
     let json: Record<string, unknown>;

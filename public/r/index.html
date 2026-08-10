@@ -802,7 +802,7 @@
       const msg = encodeURIComponent(feedback || 'Feedback from a customer.');
       await logScan({ actionTaken: 'whatsapp' });
       markSubmitted(state.branchId);
-      window.open(`https://wa.me/${num}?text=${msg}`, '_blank', 'noopener');
+      window.open(`https://wa.me/${num.replace(/^\+/, '')}?text=${msg}`, '_blank', 'noopener');
       showScreen('low-thanks');
     });
 
@@ -887,7 +887,9 @@
 
         // Check subscription status
         const status = state.business.subscription_status;
-        if (status === 'deleted' || status === 'suspended') {
+        // RULE 5: pending_payment (draft, not yet paid) is treated as not-live.
+        // QR is not generated until activation, so this is mostly defensive.
+        if (status === 'deleted' || status === 'suspended' || status === 'pending_payment') {
           showScreen('unavailable');
           return;
         }

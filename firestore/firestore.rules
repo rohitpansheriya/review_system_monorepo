@@ -78,6 +78,27 @@ service cloud.firestore {
       // Admin: full CRUD on all businesses.
       allow read, write: if isAdmin();
 
+      // Employee: create a new business document during enrollment.
+      // Enforces all ownership fields point to THIS employee.
+      // subscription_status must be "pending_payment" (the new draft state).
+      //   "active" is also accepted here for backward compat / admin-assisted flows,
+      //   but normal enrollment always writes "pending_payment".
+      // owner_auth_uid may be present but must be null (set by doc 02 owner provisioning).
+      // grace_period_ends must be absent at create time (added by renewal lifecycle only).
+      // created_at must be present (used by the abandoned-draft cleanup job).
+      allow create: if isEmployee()
+                    && request.resource.data.enrolled_by          == request.auth.uid
+                    && request.resource.data.enrolled_by_original == request.auth.uid
+                    && request.resource.data.currently_managed_by == request.auth.uid
+                    && (request.resource.data.subscription_status == "pending_payment"
+                        || request.resource.data.subscription_status == "active")
+                    && !("grace_period_ends" in request.resource.data)
+                    && !("renewal_date" in request.resource.data
+                         && request.resource.data.subscription_status == "pending_payment")
+                    && ("created_at" in request.resource.data)
+                    && (!("owner_auth_uid" in request.resource.data)
+                        || request.resource.data.owner_auth_uid == null);
+
       // Employee: read businesses they enrolled OR currently manage.
       // Write access limited to update (not create/delete — admin only).
       allow read: if isEmployee()
@@ -86,12 +107,23 @@ service cloud.firestore {
       allow update: if isEmployee()
                     && (resource.data.enrolled_by == request.auth.uid
                         || resource.data.currently_managed_by == request.auth.uid)
-                    // Employees must not self-assign owner_auth_uid or change billing fields.
-                    && !("owner_auth_uid"          in request.resource.data.diff(resource.data).affectedKeys())
+                    // ── Payment/lifecycle fields — IMMUTABLE by employee ──────────────
+                    // Employees MUST NOT flip subscription_status to active, extend
+                    // renewal_date, self-assign owner_auth_uid, or change audit trails.
+                    // This closes the self-activation fraud path.
                     && !("subscription_status"     in request.resource.data.diff(resource.data).affectedKeys())
                     && !("renewal_date"            in request.resource.data.diff(resource.data).affectedKeys())
                     && !("grace_period_ends"       in request.resource.data.diff(resource.data).affectedKeys())
-                    && !("enrolled_by_original"    in request.resource.data.diff(resource.data).affectedKeys());
+                    && !("enrolled_by"             in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("enrolled_by_original"    in request.resource.data.diff(resource.data).affectedKeys())
+                    && !("owner_auth_uid"          in request.resource.data.diff(resource.data).affectedKeys());
+
+      // Employee: DELETE — pending_payment drafts ONLY.
+      // After successful payment (status active / grace_period), employee
+      // delete is DENIED. Admin is the only principal that can delete active biz.
+      allow delete: if isEmployee()
+                    && resource.data.enrolled_by == request.auth.uid
+                    && resource.data.subscription_status == "pending_payment";
 
       // Owner: read their own business document (matched by owner_auth_uid).
       allow read: if isOwner() && resource.data.owner_auth_uid == request.auth.uid;
@@ -132,9 +164,23 @@ service cloud.firestore {
                       && (get(/databases/$(database)/documents/businesses/$(businessId)).data.enrolled_by == request.auth.uid
                           || get(/databases/$(database)/documents/businesses/$(businessId)).data.currently_managed_by == request.auth.uid)
                       && !("stats_summary" in request.resource.data.diff(resource.data).affectedKeys());
+        // Employee: create a branch.
+        // Uses getAfter() (not get()) so this rule works during a batch write
+        // that creates both the business doc AND the branch in the same commit.
+        // get() would return null (business not written yet) and always deny.
+        // getAfter() reads the post-commit state, seeing the business doc being
+        // created in the same batch.
         allow create: if isEmployee()
-                      && (get(/databases/$(database)/documents/businesses/$(businessId)).data.enrolled_by == request.auth.uid
-                          || get(/databases/$(database)/documents/businesses/$(businessId)).data.currently_managed_by == request.auth.uid);
+                      && (getAfter(/databases/$(database)/documents/businesses/$(businessId)).data.enrolled_by == request.auth.uid
+                          || getAfter(/databases/$(database)/documents/businesses/$(businessId)).data.currently_managed_by == request.auth.uid);
+
+        // Employee: DELETE a branch — only when parent business is a pending_payment draft.
+        // Mirrors the business delete rule above: deleteDraftBusiness() deletes
+        // branches in the same batch as the business itself.
+        allow delete: if isEmployee()
+                      && get(/databases/$(database)/documents/businesses/$(businessId)).data.enrolled_by == request.auth.uid
+                      && get(/databases/$(database)/documents/businesses/$(businessId)).data.subscription_status == "pending_payment";
+
 
         // Owner: read & update their own business's branches.
         allow read: if isOwner()

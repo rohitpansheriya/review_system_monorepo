@@ -8,19 +8,30 @@
  *                        setup fee at enrollment time.
  *   createSubscription — Creates a Razorpay subscription against the existing
  *                        ₹999/year Plan for recurring annual renewal.
+ *   resendPaymentLink  — Creates a fresh Razorpay Payment Link (short_url) for
+ *                        a pending_payment draft, emails it to the owner via
+ *                        the notifications service, and returns the short_url
+ *                        so the employee can share it via WhatsApp/copy.
+ *                        (Change 3)
  *
- * ─── HTTP Function ─────────────────────────────────────────────────────────
+ * ─── HTTP Function ────────────────────────────────────────────────
  *   razorpayWebhook    — Receives Razorpay webhook events. Verifies
  *                        HMAC-SHA256 signature before processing. On success:
- *                          • Updates businesses/{id}: subscription_status →
- *                            "active", renewal_date extended by 1 year.
+ *                          • Activates pending_payment draft: flips status →
+ *                            "active", sets renewal_date = now + 1 year.
+ *                          • Increments employee counters (activation-time only).
+ *                          • Generates branded QR PNG for every branch (doc 09).
  *                          • Creates commission_records (online / verified).
  *
- * ─── Scheduled Function (daily) ────────────────────────────────────────────
- *   renewalLifecycle   — Enforces the subscription state machine:
- *                          active  →  grace_period (renewal_date passed)
- *                          grace_period → deleted  (grace_period_ends passed)
- *                        NEVER deletes commission_records (financial audit).
+ * ─── Scheduled Functions (daily) ───────────────────────────────────
+ *   renewalLifecycle       — Enforces subscription state machine:
+ *                              active → grace_period (renewal_date passed)
+ *                              grace_period → deleted (grace_period_ends passed)
+ *                            NEVER reads pending_payment docs (query-level filter).
+ *                            NEVER deletes commission_records (financial audit).
+ *   cleanupAbandonedDrafts — Deletes pending_payment businesses older than
+ *                            ABANDONED_DRAFT_AGE_HOURS (48h default) + their
+ *                            branches. Keeps the DB clean.
  *
  * Secrets: RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET
  * Params:  RAZORPAY_PLAN_ID  (set via: firebase functions:params:set
@@ -50,6 +61,8 @@ import {
   razorpayWebhookSecret,
   razorpayPlanId,
 } from "./secrets.js";
+import {buildQrForBranch, buildPlainQrForBranch} from "./qrGenerator.js";
+import {sendPaymentLinkEmail} from "./notifications.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -63,6 +76,16 @@ const RENEWAL_FEE_PAISE = 99900;
 
 /** Grace period duration in days after renewal_date passes without payment. */
 const GRACE_PERIOD_DAYS = 30;
+
+/**
+ * Age threshold in hours after which an unpaid draft (pending_payment) is
+ * considered abandoned and eligible for cleanup.
+ * Change this constant only — never scatter the value throughout the code.
+ */
+const ABANDONED_DRAFT_AGE_HOURS = 48;
+
+/** Default standee status written to every branch on first activation. (Change 2) */
+const STANDEE_STATUS_DEFAULT = "not_ordered";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -418,11 +441,24 @@ export const razorpayWebhook = onRequest(
 // ---------------------------------------------------------------------------
 
 /**
- * Processes a confirmed payment:
- *   - Determines businessId from the event payload.
- *   - Updates subscription_status → "active", extends renewal_date + 1 year.
- *   - Creates a commission_records document
- *     (payment_mode: "online", status: "verified").
+ * Processes a confirmed payment and ACTIVATES a pending_payment draft.
+ *
+ * This is the ONLY code path that may:
+ *   • Flip subscription_status to "active".
+ *   • Set renewal_date (THIS starts the renewal clock).
+ *   • Increment employee counters.
+ *
+ * Actions:
+ *   1. Flips subscription_status: pending_payment → "active".
+ *      (Also handles re-payments on grace_period / expired active subs.)
+ *   2. Sets renewal_date = now + 1 year (or extends existing future date).
+ *   3. Clears grace_period_ends (if present).
+ *   4. Increments enrolled_by employee's total_enrollments / this_month_enrollments.
+ *      (Skipped for renewal payments where status was already "active" or
+ *      "grace_period" — counters only increment once per enrollment.)
+ *   5. STUB: triggers QR/NFC generation for each branch (doc 09).
+ *   6. Creates a commission_records document
+ *      (payment_mode: "online", status: "verified").
  *
  * @param {string} eventName - Razorpay event name.
  * @param {object} event - Full parsed webhook payload.
@@ -530,46 +566,131 @@ async function handleSuccessfulPayment(
   };
 
   const now = new Date();
-  // Extend from the existing renewal_date if it is in the future; otherwise
-  // extend from now (covers the case where renewal_date has already passed).
+
+  // RULE 4: THIS IS THE ONLY LINE IN THE SYSTEM THAT STARTS THE CLOCK.
+  // For a pending_payment draft: renewal_date = now + 1 year.
+  // For a renewal (active/grace_period): extend from existing future date.
+  const isPendingDraft = bizData.subscription_status === "pending_payment";
   const baseDate =
-    bizData.renewal_date && bizData.renewal_date.toDate() > now ?
+    !isPendingDraft &&
+    bizData.renewal_date &&
+    bizData.renewal_date.toDate() > now ?
       bizData.renewal_date.toDate() :
       now;
-
   const newRenewalDate = addYears(baseDate, 1);
 
-  // ── Firestore writes ─────────────────────────────────────────────────────
+  // ── Firestore writes (all in one batch) ───────────────────────────────────
   const batch = db.batch();
 
-  // 1. Update business document.
+  // 1. Activate business: flip status, start clock, clear grace.
   batch.update(bizRef, {
     subscription_status: "active",
     renewal_date: Timestamp.fromDate(newRenewalDate),
     grace_period_ends: FieldValue.delete(),
   });
 
-  // 2. Create commission_records entry.
+  // 2. Increment employee counters — ONLY on first activation (draft → active).
+  //    Renewal payments skip this to avoid double-counting.
+  if (isPendingDraft && bizData.enrolled_by) {
+    const empRef = db.collection("employees").doc(bizData.enrolled_by);
+    batch.update(empRef, {
+      total_enrollments:      FieldValue.increment(1),
+      this_month_enrollments: FieldValue.increment(1),
+    });
+    logger.info("handleSuccessfulPayment: employee counters incremented", {
+      employeeId: bizData.enrolled_by, businessId,
+    });
+  }
+
+  // 3. Create commission_records entry.
   //    employee_id comes from enrolled_by; falls back to "admin" if unset.
   const commissionRef = db.collection("commission_records").doc();
   batch.set(commissionRef, {
-    employee_id: bizData.enrolled_by ?? "admin",
-    business_id: businessId,
-    amount: amountPaise / 100, // store in rupees
-    payment_mode: "online",
-    status: "verified",
-    date_claimed: Timestamp.fromDate(now),
+    employee_id:   bizData.enrolled_by ?? "admin",
+    business_id:   businessId,
+    amount:        amountPaise / 100, // store in rupees
+    payment_mode:  "online",
+    status:        "verified",
+    date_claimed:  Timestamp.fromDate(now),
     date_verified: Timestamp.fromDate(now),
   });
 
   await batch.commit();
 
-  logger.info("handleSuccessfulPayment: Firestore updated", {
+  logger.info("handleSuccessfulPayment: business activated", {
     businessId,
+    wasDraft:       isPendingDraft,
     newRenewalDate: newRenewalDate.toISOString(),
     eventName,
-    amountRupees: amountPaise / 100,
+    amountRupees:   amountPaise / 100,
   });
+
+  // 4. Generate QR PNGs for every branch (doc 09).
+  //    Both standee QR and plain printable QR are generated per branch.
+  //    Each branch is processed independently — one failure does NOT
+  //    block the others. Activation is already committed above.
+  try {
+    const branchesSnap = await bizRef.collection("branches").get();
+    logger.info("handleSuccessfulPayment: generating QR for branches", {
+      businessId, branchCount: branchesSnap.size,
+    });
+    for (const branchDoc of branchesSnap.docs) {
+      // Change 2: Set standee_status to "not_ordered" on activation.
+      // This is the first write; standee_status_updated_at will be set
+      // on subsequent employee updates via the panel.
+      try {
+        await branchDoc.ref.update({
+          standee_status:            STANDEE_STATUS_DEFAULT,
+          standee_status_updated_at: Timestamp.now(),
+        });
+        logger.info("handleSuccessfulPayment: standee_status initialized", {
+          businessId, branchId: branchDoc.id,
+        });
+      } catch (standeeErr) {
+        logger.error("handleSuccessfulPayment: standee_status init failed", {
+          businessId, branchId: branchDoc.id, err: standeeErr,
+        });
+      }
+
+      // Standee QR (branded, print-ready, 4×6 — doc 09 pipeline).
+      try {
+        const result = await buildQrForBranch(
+          businessId,
+          branchDoc.id,
+          branchDoc.ref
+        );
+        logger.info("handleSuccessfulPayment: standee QR generated", {
+          businessId, branchId: branchDoc.id, qrPath: result.qrStoragePath,
+        });
+      } catch (branchErr) {
+        // Per-branch failure is non-fatal.
+        logger.error("handleSuccessfulPayment: standee QR generation failed for branch", {
+          businessId, branchId: branchDoc.id, err: branchErr,
+        });
+      }
+
+      // Change 1: Plain printable QR (instant digital deliverable).
+      try {
+        const plainResult = await buildPlainQrForBranch(
+          businessId,
+          branchDoc.id,
+          branchDoc.ref
+        );
+        logger.info("handleSuccessfulPayment: plain QR generated", {
+          businessId, branchId: branchDoc.id, path: plainResult.plainQrStoragePath,
+        });
+      } catch (plainErr) {
+        logger.error("handleSuccessfulPayment: plain QR generation failed for branch", {
+          businessId, branchId: branchDoc.id, err: plainErr,
+        });
+      }
+    }
+  } catch (err) {
+    // If reading the branches collection itself fails, log and continue.
+    logger.error("handleSuccessfulPayment: failed to read branches for QR generation", {
+      businessId, err,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -668,6 +789,64 @@ export const renewalLifecycle = onSchedule(
 );
 
 // ---------------------------------------------------------------------------
+// cleanupAbandonedDrafts  (scheduled — daily)
+// ---------------------------------------------------------------------------
+
+/**
+ * Daily cleanup of pending_payment businesses older than ABANDONED_DRAFT_AGE_HOURS.
+ *
+ * Deletes:
+ *   ✓ businesses/{id}/branches (all branch subdocs)
+ *   ✓ businesses/{id} itself
+ *
+ * Does NOT delete:
+ *   ✗ commission_records — a draft never generates one; nothing to delete.
+ *   ✗ active / grace_period / deleted businesses — query-level filter.
+ *
+ * Age threshold is the ABANDONED_DRAFT_AGE_HOURS constant — change it there only.
+ */
+export const cleanupAbandonedDrafts = onSchedule(
+  {
+    schedule: "every 24 hours",
+    timeZone: "Asia/Kolkata",
+    region: "asia-south1",
+    maxInstances: 1,
+  },
+  async () => {
+    logger.info("cleanupAbandonedDrafts: starting run");
+    const db = getFirestore();
+    const now = new Date();
+    const cutoff = new Date(
+      now.getTime() - ABANDONED_DRAFT_AGE_HOURS * 60 * 60 * 1000
+    );
+    const cutoffTs = Timestamp.fromDate(cutoff);
+
+    // Query: pending_payment AND created_at older than cutoff.
+    // Requires a Firestore composite index on (subscription_status, created_at).
+    const draftsSnap = await db
+      .collection("businesses")
+      .where("subscription_status", "==", "pending_payment")
+      .where("created_at", "<=", cutoffTs)
+      .get();
+
+    logger.info("cleanupAbandonedDrafts: drafts eligible for deletion", {
+      count: draftsSnap.size,
+      cutoff: cutoff.toISOString(),
+    });
+
+    for (const bizDoc of draftsSnap.docs) {
+      // Reuse deleteBusiness (already handles branches + scan_logs).
+      await deleteBusiness(db, bizDoc.id, bizDoc.ref);
+      logger.info("cleanupAbandonedDrafts: deleted draft", {businessId: bizDoc.id});
+    }
+
+    logger.info("cleanupAbandonedDrafts: run complete", {
+      deleted: draftsSnap.size,
+    });
+  }
+);
+
+// ---------------------------------------------------------------------------
 // deleteBusiness — deletes a business and all related data (except commissions)
 // ---------------------------------------------------------------------------
 
@@ -761,3 +940,155 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   }
   return chunks;
 }
+
+// ---------------------------------------------------------------------------
+// resendPaymentLink  (callable — Change 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a fresh Razorpay Payment Link for a pending_payment draft business,
+ * emails it to the business owner via the notifications service, and returns
+ * the short_url so the employee can share it (WhatsApp, copy).
+ *
+ * Design decisions:
+ *   - Uses Razorpay Payment Links API (not Orders) so the result is a
+ *     shareable short URL, not an order ID.
+ *   - Payment completion still goes through the existing razorpayWebhook
+ *     (payment.captured event) — NO second activation path is added.
+ *   - Only valid for pending_payment businesses. Calling on active/grace
+ *     businesses is rejected with failed-precondition.
+ *
+ * Input:  { businessId: string }
+ * Output: { shortUrl: string, paymentLinkId: string }
+ *
+ * Requires Auth (any role). Requires RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET.
+ */
+export const resendPaymentLink = onCall(
+  {
+    secrets: [razorpayKeyId, razorpayKeySecret],
+    maxInstances: 10,
+    region: "asia-south1",
+  },
+  async (request) => {
+    requireAuth(request.auth);
+
+    const {businessId} = request.data as {businessId?: unknown};
+    if (typeof businessId !== "string" || businessId.trim().length === 0) {
+      throw new HttpsError(
+        "invalid-argument",
+        "`businessId` must be a non-empty string."
+      );
+    }
+
+    const db = admin.firestore();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const bizSnap = await bizRef.get();
+
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", `Business '${businessId}' not found.`);
+    }
+
+    const bizData = bizSnap.data() as Record<string, unknown>;
+    const subscriptionStatus = bizData["subscription_status"] as string | undefined;
+
+    // Only allowed for pending_payment drafts.
+    if (subscriptionStatus !== "pending_payment") {
+      throw new HttpsError(
+        "failed-precondition",
+        `Business '${businessId}' is not in pending_payment status ` +
+        `(current: ${subscriptionStatus}). Payment link resend is only ` +
+        "for businesses awaiting their initial payment."
+      );
+    }
+
+    const ownerEmail  = bizData["owner_email"]  as string | undefined;
+    const ownerName   = bizData["owner_name"]   as string | undefined ?? "Business Owner";
+    const brandName   = bizData["brand_name"]   as string | undefined ?? "your business";
+
+    if (!ownerEmail) {
+      throw new HttpsError(
+        "not-found",
+        "Business owner_email is not set. Cannot send payment link."
+      );
+    }
+
+    // ── Create Razorpay Payment Link ─────────────────────────────────────────
+    const razorpay = new Razorpay({
+      key_id: razorpayKeyId.value(),
+      key_secret: razorpayKeySecret.value(),
+    });
+
+    let paymentLink: {id: string; short_url: string};
+    try {
+      // razorpay.paymentLink.create() — Razorpay Payment Links API.
+      // Returns a short_url (e.g. https://rzp.io/l/xxx) suitable for
+      // WhatsApp sharing and email embedding.
+      paymentLink = await (razorpay as unknown as {
+        paymentLink: {
+          create: (opts: Record<string, unknown>) => Promise<{id: string; short_url: string}>;
+        };
+      }).paymentLink.create({
+        amount: SETUP_FEE_PAISE,
+        currency: "INR",
+        description: `Enrollment setup fee — ${brandName}`,
+        // IMPORTANT: notes.businessId is read by the webhook (payment.captured)
+        // to map the payment back to the correct business document.
+        notes: {
+          businessId,
+          type: "setup_fee",
+        },
+        // No auto-send — we send our own email below.
+        notify: {sms: false, email: false},
+        // No expiry — the draft cleanup job handles old abandoned drafts.
+        callback_method: "get",
+      });
+    } catch (err) {
+      logger.error("resendPaymentLink: Razorpay paymentLink.create failed", {
+        err, businessId,
+      });
+      throw new HttpsError(
+        "internal",
+        "Failed to create payment link. Please try again."
+      );
+    }
+
+    // Persist the payment link on the business doc so the panel can display it.
+    await bizRef.update({
+      last_payment_link_url:        paymentLink.short_url,
+      last_payment_link_id:         paymentLink.id,
+      last_payment_link_created_at: Timestamp.now(),
+    });
+
+    // ── Email the payment link to the owner ──────────────────────────────────
+    // Reuses the sendPaymentLinkEmail helper exported by notifications.ts.
+    // Same Brevo email + Firestore notifications/{id} infrastructure.
+    try {
+      await sendPaymentLinkEmail({
+        ownerEmail,
+        ownerName,
+        brandName,
+        paymentLinkUrl: paymentLink.short_url,
+        businessId,
+      });
+    } catch (emailErr) {
+      // Email failure is non-fatal — the link is still returned to the
+      // employee who can share it manually via WhatsApp/copy.
+      logger.error("resendPaymentLink: email send failed (non-fatal)", {
+        businessId, err: emailErr,
+      });
+    }
+
+    logger.info("resendPaymentLink: complete", {
+      businessId,
+      paymentLinkId: paymentLink.id,
+      shortUrl: paymentLink.short_url,
+      callerUid: request.auth?.uid,
+    });
+
+    return {
+      shortUrl: paymentLink.short_url,
+      paymentLinkId: paymentLink.id,
+    };
+  }
+);
+

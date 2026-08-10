@@ -13,6 +13,29 @@
         { "fieldPath": "subscription_status", "order": "ASCENDING" }
       ]
     },
+
+    // ── NEW: Employee dashboard — paginated + date-windowed (Change 2) ──────
+    // Query: enrolled_by == X AND created_at >= since ORDER BY created_at DESC
+    // Used by "All" filter (with whereNotIn on status for deleted exclusion).
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enrolled_by",      "order": "ASCENDING" },
+        { "fieldPath": "subscription_status", "order": "ASCENDING" },
+        { "fieldPath": "created_at",       "order": "DESCENDING" }
+      ]
+    },
+    // Query: enrolled_by == X AND status == pending_payment AND created_at >= since DESC
+    // Used by "Pending payment" filter.
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enrolled_by",  "order": "ASCENDING" },
+        { "fieldPath": "created_at",   "order": "DESCENDING" }
+      ]
+    },
     // List businesses currently managed by an employee, newest-first.
     {
       "collectionGroup": "businesses",
@@ -39,6 +62,16 @@
       "fields": [
         { "fieldPath": "subscription_status", "order": "ASCENDING" },
         { "fieldPath": "grace_period_ends", "order": "ASCENDING" }
+      ]
+    },
+    // cleanupAbandonedDrafts: pending_payment businesses ordered by created_at
+    // (finds drafts older than ABANDONED_DRAFT_AGE_HOURS for deletion).
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subscription_status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
       ]
     },
     // Admin: filter by category_type to group businesses by industry.

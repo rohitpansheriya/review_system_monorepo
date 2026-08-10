@@ -8,13 +8,14 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "emulators": "firebase emulators:start --only firestore,functions,hosting,storage",
+    "emulators": "firebase emulators:start --only firestore,functions,hosting,storage,auth",
     "seed": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/test-all-statuses.js",
     "test:statuses": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/test-all-statuses.js",
     "test:reminders": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/test-reminders-all.js",
     "test:lifecycle": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/test-grace-and-deletion.js",
     "test:renewal-in-grace": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/test-renewal-in-grace.js",
     "test:qa": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/test-notifications-qa.js",
+    "seed:employee": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 node scripts/seed-employee-user.js",
     "teardown:qa": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/teardown-qa.js"
   },
   "repository": {

@@ -216,8 +216,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               label: 'Annual renewal (from Year 2)',
                               value: '₹999 / year',
                               badge: 'Next year',
-                              badgeColor: const Color(0xFFF1F5F9),
-                              badgeFgColor: const Color(0xFF64748B),
+                              badgeColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+                              badgeFgColor: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(height: 12),
                             Container(
@@ -278,10 +278,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ElevatedButton.icon(
                       onPressed: _paying ? null : _launchRazorpay,
                       icon: _paying
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 18, height: 18,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
+                                  strokeWidth: 2,
+                                  color: cs.onPrimary))
                           : const Icon(Icons.payments_outlined),
                       label: Text(
                           _paying ? 'Opening checkout…' : 'Collect payment now  ₹1,999'),

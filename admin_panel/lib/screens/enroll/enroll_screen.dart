@@ -22,6 +22,7 @@ import 'package:image_picker_web/image_picker_web.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants.dart';
 import '../../core/phone_field.dart';
+import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/enroll_provider.dart';
 import '../../services/firestore_service.dart';
@@ -49,6 +50,11 @@ class _EnrollScreenState extends State<EnrollScreen> {
   final _ownerNameCtrl  = TextEditingController();
   final _ownerEmailCtrl = TextEditingController();
 
+  // FocusNodes for Bug 1 (auto-focus and scroll to first invalid field)
+  final _brandNameFocus  = FocusNode();
+  final _ownerNameFocus  = FocusNode();
+  final _ownerEmailFocus = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +72,9 @@ class _EnrollScreenState extends State<EnrollScreen> {
     _brandNameCtrl.dispose();
     _ownerNameCtrl.dispose();
     _ownerEmailCtrl.dispose();
+    _brandNameFocus.dispose();
+    _ownerNameFocus.dispose();
+    _ownerEmailFocus.dispose();
     super.dispose();
   }
 
@@ -89,7 +98,6 @@ class _EnrollScreenState extends State<EnrollScreen> {
     if (bytes == null) return;
 
     // Decode image dimensions client-side via dart:ui.
-    // This works in Flutter Web (CanvasKit and HTML renderer).
     try {
       final codec = await ui.instantiateImageCodec(bytes);
       final frame = await codec.getNextFrame();
@@ -117,7 +125,6 @@ class _EnrollScreenState extends State<EnrollScreen> {
       setState(() => _logoRejectionMessage = null);
     } catch (e) {
       // Dimension decode failed — allow the upload but warn.
-      // Better to accept a potentially-small image than block the employee.
       setState(() => _logoRejectionMessage = null);
     }
 
@@ -127,13 +134,38 @@ class _EnrollScreenState extends State<EnrollScreen> {
     context.read<EnrollProvider>().setLogo(bytes, mime);
   }
 
+  void _focusFirstError() {
+    final enroll = context.read<EnrollProvider>();
+    FocusNode? target;
+    if (enroll.brandName.trim().isEmpty) {
+      target = _brandNameFocus;
+    } else if (enroll.ownerName.trim().isEmpty) {
+      target = _ownerNameFocus;
+    } else if (enroll.ownerEmail.trim().isEmpty) {
+      target = _ownerEmailFocus;
+    }
+    if (target?.context != null) {
+      target!.requestFocus();
+      Scrollable.ensureVisible(
+        target.context!,
+        duration:  const Duration(milliseconds: 300),
+        curve:     Curves.easeInOut,
+        alignment: 0.25,
+      );
+    }
+  }
+
   Future<void> _submit() async {
     final enroll = context.read<EnrollProvider>();
     final err    = enroll.validationError;
     if (err != null) {
       setState(() => _showErrors = true);
+      _focusFirstError();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err), backgroundColor: Colors.red.shade700),
+        SnackBar(
+          content: Text(err),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
       return;
     }
@@ -144,12 +176,15 @@ class _EnrollScreenState extends State<EnrollScreen> {
 
     if (error != null) {
       setState(() => _showErrors = true);
+      _focusFirstError();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red.shade700),
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     } else {
       // Navigate to payment page for this draft — user pays or defers there.
-      // Do NOT navigate directly to /businesses; the payment page handles that.
       final bizId = enroll.successBizId!;
       context.go('/enroll/payment/$bizId');
     }
@@ -169,224 +204,249 @@ class _EnrollScreenState extends State<EnrollScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
           child: ListView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
               // ── Mode toggle ──────────────────────────────────────────────
-              _SectionHeader('Business Type'),
-              const SizedBox(height: 12),
-              SegmentedButton<EnrollMode>(
-                segments: const [
-                  ButtonSegment(
-                    value: EnrollMode.single,
-                    label: Text('Single location'),
-                    icon: Icon(Icons.storefront_outlined),
-                  ),
-                  ButtonSegment(
-                    value: EnrollMode.multi,
-                    label: Text('Multiple branches'),
-                    icon: Icon(Icons.account_tree_outlined),
-                  ),
-                ],
-                selected: {enroll.mode},
-                onSelectionChanged: (set) {
-                  if (set.isNotEmpty) enroll.setMode(set.first);
-                  setState(() => _showErrors = false);
-                },
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  enroll.mode == EnrollMode.single
-                      ? 'One physical location — branch name is set automatically.'
-                      : 'Multiple branches under one brand — each gets its own QR/NFC.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: scheme.onSurfaceVariant),
+              _FormSection(
+                title: 'Business Type',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SegmentedButton<EnrollMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: EnrollMode.single,
+                          label: Text('Single location'),
+                          icon:  Icon(Icons.storefront_outlined),
+                        ),
+                        ButtonSegment(
+                          value: EnrollMode.multi,
+                          label: Text('Multiple branches'),
+                          icon:  Icon(Icons.account_tree_outlined),
+                        ),
+                      ],
+                      selected: {enroll.mode},
+                      onSelectionChanged: (set) {
+                        if (set.isNotEmpty) enroll.setMode(set.first);
+                        setState(() => _showErrors = false);
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      enroll.mode == EnrollMode.single
+                          ? 'One physical location — branch name is set automatically.'
+                          : 'Multiple branches under one brand — each gets its own QR/NFC.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 28),
-              const Divider(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
 
               // ── Business Details ─────────────────────────────────────────
-              _SectionHeader('Business Details'),
-              const SizedBox(height: 12),
+              _FormSection(
+                title: 'Business Details',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Business name
+                    TextFormField(
+                      controller: _brandNameCtrl,
+                      focusNode:  _brandNameFocus,
+                      decoration: InputDecoration(
+                        labelText: 'Business name *',
+                        prefixIcon: const Icon(Icons.business_outlined),
+                        errorText: _showErrors && enroll.brandName.trim().isEmpty
+                            ? 'Business name is required'
+                            : null,
+                      ),
+                      onChanged: (v) => enroll.brandName = v,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
 
-              // Business name
-              TextFormField(
-                controller: _brandNameCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Business name *',
-                  errorText: _showErrors && enroll.brandName.trim().isEmpty
-                      ? 'Business name is required'
-                      : null,
+                    // Category
+                    if (_templatesLoading)
+                      const LinearProgressIndicator()
+                    else if (_templates.isEmpty)
+                      _InfoBox(
+                        icon: Icons.info_outline,
+                        message: 'No categories available — contact admin.\n'
+                            'You can still enroll without a category.',
+                        color: scheme.onSurfaceVariant,
+                        backgroundColor: scheme.surfaceContainerLowest,
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(
+                          labelText:  'Business category',
+                          prefixIcon: Icon(Icons.category_outlined),
+                        ),
+                        hint: const Text('Select a category (optional)'),
+                        items: _templates
+                            .map((t) => DropdownMenuItem<String>(
+                                  value: t['id'] as String,
+                                  child: Text(
+                                      t['name'] as String? ?? t['id'] as String),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v == null) return;
+                          enroll.templateId   = v;
+                          enroll.categoryType =
+                              _templates.firstWhere(
+                                    (t) => t['id'] == v,
+                                    orElse: () => {'name': v},
+                                  )['name'] as String? ??
+                              v;
+                        },
+                      ),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // Logo picker with dimension validation (Change 4)
+                    _LogoPicker(
+                      enroll:           enroll,
+                      onPick:           _pickLogoWithValidation,
+                      rejectionMessage: _logoRejectionMessage,
+                    ),
+                  ],
                 ),
-                onChanged: (v) => enroll.brandName = v,
-              ),
-              const SizedBox(height: 16),
-
-              // Category
-              if (_templatesLoading)
-                const LinearProgressIndicator()
-              else if (_templates.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'No categories available — contact admin.\n'
-                    'You can still enroll without a category.',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                )
-              else
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                      labelText: 'Business category'),
-                  hint: const Text('Select a category (optional)'),
-                  items: _templates
-                      .map((t) => DropdownMenuItem<String>(
-                            value: t['id'] as String,
-                            child: Text(
-                                t['name'] as String? ?? t['id'] as String),
-                          ))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v == null) return;
-                    enroll.templateId    = v;
-                    enroll.categoryType  =
-                        _templates.firstWhere(
-                              (t) => t['id'] == v,
-                              orElse: () => {'name': v},
-                            )['name'] as String? ??
-                            v;
-                  },
-                ),
-              const SizedBox(height: 16),
-
-              // Logo picker with dimension validation (Change 4)
-              _LogoPicker(
-                enroll: enroll,
-                onPick: _pickLogoWithValidation,
-                rejectionMessage: _logoRejectionMessage,
               ),
 
-              const SizedBox(height: 28),
-              const Divider(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
 
               // ── Owner Contact ────────────────────────────────────────────
-              _SectionHeader('Owner Contact'),
-              const SizedBox(height: 12),
-
-              TextFormField(
-                controller: _ownerNameCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Owner name *',
-                  errorText: _showErrors && enroll.ownerName.trim().isEmpty
-                      ? 'Owner name is required'
-                      : null,
+              _FormSection(
+                title: 'Owner Contact',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: _ownerNameCtrl,
+                      focusNode:  _ownerNameFocus,
+                      decoration: InputDecoration(
+                        labelText: 'Owner name *',
+                        prefixIcon: const Icon(Icons.person_outline),
+                        errorText: _showErrors && enroll.ownerName.trim().isEmpty
+                            ? 'Owner name is required'
+                            : null,
+                      ),
+                      onChanged: (v) => enroll.ownerName = v,
+                    ),
+                    const SizedBox(height: AppSpacing.sm + 4),
+                    TextFormField(
+                      controller:  _ownerEmailCtrl,
+                      focusNode:   _ownerEmailFocus,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText:  'Owner email *',
+                        helperText: 'Used for renewal notifications',
+                        prefixIcon: const Icon(Icons.mail_outline),
+                        errorText: _showErrors && enroll.ownerEmail.trim().isEmpty
+                            ? 'Owner email is required'
+                            : null,
+                      ),
+                      onChanged: (v) => enroll.ownerEmail = v,
+                    ),
+                    const SizedBox(height: AppSpacing.sm + 4),
+                    PhoneField(
+                      label:       'Owner phone *',
+                      helperText:  'Used for payment and WhatsApp contact',
+                      initialValue: enroll.ownerPhone,
+                      showError:   _showErrors,
+                      onChanged:   (e164) => enroll.ownerPhone = e164,
+                    ),
+                  ],
                 ),
-                onChanged: (v) => enroll.ownerName = v,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _ownerEmailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: 'Owner email *',
-                  helperText: 'Used for renewal notifications',
-                  errorText: _showErrors && enroll.ownerEmail.trim().isEmpty
-                      ? 'Owner email is required'
-                      : null,
-                ),
-                onChanged: (v) => enroll.ownerEmail = v,
-              ),
-              const SizedBox(height: 12),
-              PhoneField(
-                label: 'Owner phone *',
-                helperText: 'Used for payment and WhatsApp contact',
-                initialValue: enroll.ownerPhone,
-                showError: _showErrors,
-                onChanged: (e164) => enroll.ownerPhone = e164,
               ),
 
-              const SizedBox(height: 28),
-              const Divider(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
 
               // ── Branch(es) ───────────────────────────────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: _SectionHeader(
-                      enroll.mode == EnrollMode.single
-                          ? 'Location'
-                          : 'Branches (${enroll.branches.length})',
-                    ),
-                  ),
-                  if (enroll.mode == EnrollMode.multi)
-                    TextButton.icon(
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Add branch'),
-                      onPressed: enroll.addBranch,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              enroll.mode == EnrollMode.single
+                                  ? 'Location'
+                                  : 'Branches (${enroll.branches.length})',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          if (enroll.mode == EnrollMode.multi)
+                            TextButton.icon(
+                              icon:      const Icon(Icons.add, size: 16),
+                              label:     const Text('Add branch'),
+                              onPressed: enroll.addBranch,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      const Divider(height: 1),
+                      const SizedBox(height: AppSpacing.md),
 
-              // Branch widgets
-              ...List.generate(enroll.branches.length, (i) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: BranchFormWidget(
-                    key: ValueKey('branch_$i'),
-                    branchIndex:    i,
-                    draft:          enroll.branchAt(i),
-                    showBranchName: enroll.isMulti,
-                    showError:      _showErrors,
-                    onChanged:      enroll.notifyBranchChanged,
-                    onRemove:       enroll.isMulti && enroll.branches.length > 1
-                        ? () => enroll.removeBranch(i)
-                        : null,
-                  ),
-                );
-              }),
+                      // Branch widgets
+                      ...List.generate(enroll.branches.length, (i) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                          child: BranchFormWidget(
+                            key:           ValueKey('branch_$i'),
+                            branchIndex:   i,
+                            draft:         enroll.branchAt(i),
+                            showBranchName: enroll.isMulti,
+                            showError:     _showErrors,
+                            onChanged:     enroll.notifyBranchChanged,
+                            onRemove:      enroll.isMulti && enroll.branches.length > 1
+                                ? () => enroll.removeBranch(i)
+                                : null,
+                          ),
+                        );
+                      }),
 
-              // Multi-mode: warn if zero branches (shouldn't be possible but guard)
-              if (enroll.isMulti && enroll.branches.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add first branch'),
-                    onPressed: enroll.addBranch,
+                      // Multi-mode: warn if zero branches
+                      if (enroll.isMulti && enroll.branches.isEmpty)
+                        OutlinedButton.icon(
+                          icon:      const Icon(Icons.add),
+                          label:     const Text('Add first branch'),
+                          onPressed: enroll.addBranch,
+                        ),
+                    ],
                   ),
                 ),
+              ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpacing.xl),
 
               // ── Submit ───────────────────────────────────────────────────
               ElevatedButton.icon(
                 onPressed: enroll.isSubmitting ? null : _submit,
                 icon: enroll.isSubmitting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18, height: 18,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                          strokeWidth: 2,
+                          color: scheme.onPrimary,
+                        ),
+                      )
                     : const Icon(Icons.check_circle_outline),
                 label: Text(enroll.isSubmitting ? 'Enrolling…' : 'Enroll Business'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: scheme.primary,
-                  foregroundColor: scheme.onPrimary,
                   minimumSize: const Size.fromHeight(52),
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: AppSpacing.xxl - 8),
             ],
           ),
         ),
@@ -395,19 +455,69 @@ class _EnrollScreenState extends State<EnrollScreen> {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Form section card ─────────────────────────────────────────────────────────
 
-class _SectionHeader extends StatelessWidget {
+class _FormSection extends StatelessWidget {
   final String title;
-  const _SectionHeader(this.title);
+  final Widget child;
+  const _FormSection({required this.title, required this.child});
 
   @override
-  Widget build(BuildContext context) => Text(
-        title,
-        style: Theme.of(context)
-            .textTheme
-            .titleMedium
-            ?.copyWith(fontWeight: FontWeight.bold),
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const Divider(height: 1),
+              const SizedBox(height: AppSpacing.md),
+              child,
+            ],
+          ),
+        ),
+      );
+}
+
+// ── Info box (no templates, etc.) ────────────────────────────────────────────
+
+class _InfoBox extends StatelessWidget {
+  final IconData icon;
+  final String   message;
+  final Color    color;
+  final Color    backgroundColor;
+  const _InfoBox({
+    required this.icon,
+    required this.message,
+    required this.color,
+    required this.backgroundColor,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color:        backgroundColor,
+          borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+          border:       Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(message, style: TextStyle(fontSize: 13, color: color)),
+            ),
+          ],
+        ),
       );
 }
 
@@ -416,7 +526,7 @@ class _SectionHeader extends StatelessWidget {
 class _LogoPicker extends StatelessWidget {
   final EnrollProvider enroll;
   final VoidCallback   onPick;
-  final String?        rejectionMessage; // Change 4
+  final String?        rejectionMessage;
 
   const _LogoPicker({
     required this.enroll,
@@ -426,25 +536,37 @@ class _LogoPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          'Business Logo',
+          style: Theme.of(context)
+              .textTheme
+              .labelLarge
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: AppSpacing.sm),
         Row(
           children: [
+            // Logo preview thumbnail
             Container(
               width: 72, height: 72,
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
+                color: scheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppRadius.md),
                 border: Border.all(
                   color: rejectionMessage != null
-                      ? Colors.red.shade400
-                      : Colors.grey.shade300,
+                      ? scheme.error
+                      : scheme.outlineVariant,
+                  width: rejectionMessage != null ? 1.5 : 1,
                 ),
                 image: enroll.logoBytes != null
                     ? DecorationImage(
                         image: MemoryImage(enroll.logoBytes!),
-                        fit: BoxFit.cover,
+                        fit:   BoxFit.cover,
                       )
                     : null,
               ),
@@ -452,41 +574,52 @@ class _LogoPicker extends StatelessWidget {
                   ? Icon(
                       Icons.image_outlined,
                       color: rejectionMessage != null
-                          ? Colors.red.shade400
-                          : Colors.grey,
+                          ? scheme.error
+                          : scheme.onSurfaceVariant,
                     )
                   : null,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.md),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 OutlinedButton.icon(
                   onPressed: enroll.logoUploading ? null : onPick,
-                  icon: const Icon(Icons.upload_outlined, size: 16),
+                  icon:  const Icon(Icons.upload_outlined, size: 16),
                   label: Text(
                       enroll.logoBytes == null ? 'Upload logo' : 'Change logo'),
                 ),
                 if (enroll.logoUploading)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Text('Uploading…', style: TextStyle(fontSize: 12)),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Uploading…',
+                      style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                    ),
                   ),
                 if (enroll.logoUrl != null && !enroll.logoUploading)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text('✓ Uploaded',
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.green.shade700)),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle_outline,
+                            size: 13, color: AppColors.activeFg),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Uploaded',
+                          style: TextStyle(fontSize: 12, color: AppColors.activeFg),
+                        ),
+                      ],
+                    ),
                   ),
                 // Min-size hint
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'Min ${AppConstants.minLogoPx}\u00d7${AppConstants.minLogoPx} px for standee print quality',
+                    'Min ${AppConstants.minLogoPx}×${AppConstants.minLogoPx} px for standee print quality',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.grey.shade600,
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -497,24 +630,28 @@ class _LogoPicker extends StatelessWidget {
         // Change 4: rejection message below the picker row
         if (rejectionMessage != null)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade300),
+                color:        scheme.errorContainer,
+                borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+                border:       Border.all(
+                  color: scheme.error.withValues(alpha: 0.4),
+                ),
               ),
               child: Row(
                 children: [
                   Icon(Icons.warning_amber_rounded,
-                      size: 16, color: Colors.red.shade700),
+                      size: 16, color: scheme.error),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       rejectionMessage!,
                       style: TextStyle(
-                          fontSize: 12, color: Colors.red.shade800),
+                        fontSize: 12,
+                        color: scheme.onErrorContainer,
+                      ),
                     ),
                   ),
                 ],

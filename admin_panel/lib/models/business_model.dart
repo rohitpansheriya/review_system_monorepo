@@ -65,5 +65,33 @@ class BusinessModel {
   }
 
   bool get isReassigned => currentlyManagedBy == 'admin';
-}
 
+  /// Creates a copy with specified employee-editable fields replaced.
+  /// Used by BusinessEditScreen after a successful save to update the
+  /// in-memory model in MyBusinessesProvider without a Firestore round-trip.
+  BusinessModel copyWith({
+    String?  brandName,
+    String?  logoUrl,
+    String?  categoryType,
+    String?  defaultCategoryTemplateId,
+    String?  ownerName,
+    String?  ownerEmail,
+    String?  ownerPhone,
+  }) => BusinessModel(
+    id:                        id,
+    brandName:                 brandName ?? this.brandName,
+    logoUrl:                   logoUrl   ?? this.logoUrl,
+    categoryType:              categoryType ?? this.categoryType,
+    defaultCategoryTemplateId: defaultCategoryTemplateId ?? this.defaultCategoryTemplateId,
+    enrolledBy:                enrolledBy,
+    enrolledByOriginal:        enrolledByOriginal,
+    currentlyManagedBy:        currentlyManagedBy,
+    subscriptionStatus:        subscriptionStatus,
+    renewalDate:               renewalDate,
+    gracePeriodEnds:           gracePeriodEnds,
+    ownerAuthUid:              ownerAuthUid,
+    ownerEmail:                ownerEmail ?? this.ownerEmail,
+    ownerName:                 ownerName  ?? this.ownerName,
+    ownerPhone:                ownerPhone ?? this.ownerPhone,
+  );
+}

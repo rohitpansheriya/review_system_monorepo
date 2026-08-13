@@ -1,5 +1,6 @@
 // lib/screens/commission/commission_screen.dart
 // Commission tracker: totals, record list, Log Cash Payment action.
+// Styling: all Colors.* replaced with AppTheme semantic tokens.
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -36,7 +37,7 @@ class _CommissionScreenState extends State<CommissionScreen> {
       builder: (_) => _LogCashDialog(
         employeeId: context.read<AppAuthProvider>().uid!,
         businesses: context.read<CommissionProvider>().myBizList,
-        provider: context.read<CommissionProvider>(),
+        provider:   context.read<CommissionProvider>(),
       ),
     );
   }
@@ -46,16 +47,17 @@ class _CommissionScreenState extends State<CommissionScreen> {
     final auth     = context.watch<AppAuthProvider>();
     final provider = context.watch<CommissionProvider>();
     final employee = auth.employee;
+    final scheme   = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Commission Tracker'),
+        title:   const Text('Commission Tracker'),
         leading: BackButton(onPressed: () => context.go('/businesses')),
       ),
 
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showLogCashDialog,
-        icon: const Icon(Icons.payments_outlined),
+        icon:  const Icon(Icons.payments_outlined),
         label: const Text('Log Cash Payment'),
       ),
 
@@ -64,13 +66,22 @@ class _CommissionScreenState extends State<CommissionScreen> {
           // ── Summary bar ─────────────────────────────────────────────────
           if (employee != null)
             Container(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    scheme.primaryContainer,
+                    scheme.primaryContainer.withValues(alpha: 0.6),
+                  ],
+                  begin: Alignment.topLeft,
+                  end:   Alignment.bottomRight,
+                ),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               child: Row(
                 children: [
                   Expanded(
                     child: _StatCard(
-                      icon: Icons.business_outlined,
+                      icon:  Icons.business_outlined,
                       label: 'Total enrolled',
                       value: '${employee.totalEnrollments}',
                     ),
@@ -78,7 +89,7 @@ class _CommissionScreenState extends State<CommissionScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _StatCard(
-                      icon: Icons.calendar_month_outlined,
+                      icon:  Icons.calendar_month_outlined,
                       label: 'This month',
                       value: '${employee.thisMonthEnrollments}',
                     ),
@@ -92,13 +103,14 @@ class _CommissionScreenState extends State<CommissionScreen> {
             child: provider.loading
                 ? const Center(child: CircularProgressIndicator())
                 : provider.error != null
-                    ? Center(child: Text('Error: ${provider.error}'))
+                    ? _ErrorState(message: provider.error!)
                     : provider.records.isEmpty
                         ? const _EmptyState()
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
                             itemCount: provider.records.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: AppSpacing.sm),
                             itemBuilder: (_, i) =>
                                 _RecordCard(record: provider.records[i]),
                           ),
@@ -116,59 +128,66 @@ class _RecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = AppTheme.commissionStatusColor(record.status);
-    final dateStr = record.dateClaimed != null
+    final statusBg = AppTheme.commissionStatusColor(record.status);
+    final statusFg = AppTheme.commissionStatusForeground(record.status);
+    final isCash   = record.paymentMode == 'cash';
+    final dateStr  = record.dateClaimed != null
         ? DateFormat('d MMM yyyy').format(record.dateClaimed!)
         : '—';
     final amountStr = '₹${record.amount.toStringAsFixed(0)}';
+
+    // Avatar colors: cash → amber semantic, online → primary brand
+    final avatarBg = isCash ? AppColors.pendingBg  : AppColors.secondary.withValues(alpha: 0.12);
+    final avatarFg = isCash ? AppColors.pendingFg  : AppColors.secondary;
 
     return Card(
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: record.paymentMode == 'cash'
-              ? Colors.orange.shade50
-              : Colors.blue.shade50,
+          backgroundColor: avatarBg,
           child: Icon(
-            record.paymentMode == 'cash'
-                ? Icons.money_outlined
-                : Icons.credit_card_outlined,
-            color: record.paymentMode == 'cash'
-                ? Colors.orange.shade700
-                : Colors.blue.shade700,
+            isCash ? Icons.money_outlined : Icons.credit_card_outlined,
+            color: avatarFg,
           ),
         ),
         title: Text(
           record.businessName ?? record.businessId,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$amountStr · ${record.paymentMode} · $dateStr',
-                style: const TextStyle(fontSize: 12)),
+            Text(
+              '$amountStr · ${record.paymentMode} · $dateStr',
+              style: const TextStyle(fontSize: 12),
+            ),
             if (record.status == 'pending')
-              const Text(
+              Text(
                 '⏳ Pending admin verification (doc 06)',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
           ],
         ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: statusColor, width: 0.8),
+            color:        statusBg,
+            borderRadius: BorderRadius.circular(AppRadius.full),
+            border:       Border.all(color: statusFg.withValues(alpha: 0.4), width: 0.8),
           ),
           child: Text(
             record.status,
             style: TextStyle(
-              fontSize: 11,
+              fontSize:   11,
               fontWeight: FontWeight.w600,
-              color: statusColor,
+              color:      statusFg,
             ),
           ),
         ),
@@ -180,9 +199,9 @@ class _RecordCard extends StatelessWidget {
 
 // ── Log cash payment dialog ───────────────────────────────────────────────────
 class _LogCashDialog extends StatefulWidget {
-  final String employeeId;
+  final String             employeeId;
   final List<BusinessModel> businesses;
-  final CommissionProvider provider;
+  final CommissionProvider  provider;
 
   const _LogCashDialog({
     required this.employeeId,
@@ -196,7 +215,7 @@ class _LogCashDialog extends StatefulWidget {
 
 class _LogCashDialogState extends State<_LogCashDialog> {
   String? _selectedBizId;
-  final _amountCtrl = TextEditingController();
+  final   _amountCtrl = TextEditingController();
   String? _error;
 
   @override
@@ -231,8 +250,8 @@ class _LogCashDialogState extends State<_LogCashDialog> {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✅ Cash payment logged (pending verification)'),
-          backgroundColor: Colors.green,
+          content:         Text('✅ Cash payment logged (pending verification)'),
+          backgroundColor: AppColors.activeFg,
         ),
       );
     }
@@ -241,13 +260,14 @@ class _LogCashDialogState extends State<_LogCashDialog> {
   @override
   Widget build(BuildContext context) {
     final submitting = widget.provider.submitting;
+    final scheme     = Theme.of(context).colorScheme;
 
     return AlertDialog(
       title: const Text('Log Cash Payment'),
       content: SingleChildScrollView(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize:        MainAxisSize.min,
+          crossAxisAlignment:  CrossAxisAlignment.stretch,
           children: [
             if (widget.businesses.isEmpty)
               const Text('No businesses found. Enroll a business first.')
@@ -266,24 +286,29 @@ class _LogCashDialogState extends State<_LogCashDialog> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _amountCtrl,
+                controller:  _amountCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Amount collected (₹)',
+                  labelText:  'Amount collected (₹)',
                   prefixText: '₹ ',
                 ),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
-                Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                Text(
+                  _error!,
+                  style: TextStyle(color: scheme.error, fontSize: 12),
+                ),
               ],
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 // [NOTE] Two-step verification (doc 06) is not yet built.
-                // This record stays "pending" until admin verifies.
                 '⚠️ This creates a pending record. '
                 'Admin will verify the payment before it counts as commission.',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 11,
+                  color:    scheme.onSurfaceVariant,
+                ),
               ),
             ],
           ],
@@ -310,44 +335,113 @@ class _LogCashDialogState extends State<_LogCashDialog> {
 // ── Supporting widgets ────────────────────────────────────────────────────────
 class _StatCard extends StatelessWidget {
   final IconData icon;
-  final String label, value;
+  final String   label;
+  final String   value;
   const _StatCard({required this.icon, required this.label, required this.value});
 
   @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Icon(icon, size: 18,
-              color: Theme.of(context).colorScheme.onPrimaryContainer),
-          const SizedBox(width: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer)),
-            ],
-          ),
-        ],
-      );
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: scheme.onPrimaryContainer),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize:   20,
+                fontWeight: FontWeight.w700,
+                color:      scheme.onPrimaryContainer,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color:    scheme.onPrimaryContainer.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.receipt_long_outlined, size: 72, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('No commission records yet.',
-                style: TextStyle(fontSize: 16, color: Colors.grey)),
+            Container(
+              width: 88, height: 88,
+              decoration: BoxDecoration(
+                color:        scheme.primaryContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+              ),
+              child: Icon(
+                Icons.receipt_long_outlined,
+                size:  44,
+                color: scheme.primary.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'No commission records yet.',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Records appear here after you log a cash payment\nor after a successful Razorpay checkout.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
           ],
         ),
-      );
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  const _ErrorState({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: scheme.error),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Error: $message',
+              style: TextStyle(color: scheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

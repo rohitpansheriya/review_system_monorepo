@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
+import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 
 class StarRoutingWidget extends StatelessWidget {
@@ -61,13 +62,13 @@ class StarRoutingWidget extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
-                SizedBox(
+                  SizedBox(
                   width: 60,
                   child: Text(
                     _starLabels[i],
                     style: TextStyle(
                       fontSize: 16,
-                      color: hasError ? scheme.error : Colors.amber.shade700,
+                      color: hasError ? scheme.error : AppColors.star,
                     ),
                   ),
                 ),

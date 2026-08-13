@@ -23,6 +23,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/phone_field.dart';
+import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 import '../../providers/enroll_provider.dart';
 import 'star_routing_widget.dart';
@@ -59,6 +60,10 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
   late final TextEditingController _searchNameCtrl;
   late final TextEditingController _searchCityCtrl;
 
+  final _nameFocus                 = FocusNode();
+  final _whatsappMonitoredByFocus  = FocusNode();
+  final _addressFocus              = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +86,9 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
     _placeIdCtrl.dispose();
     _searchNameCtrl.dispose();
     _searchCityCtrl.dispose();
+    _nameFocus.dispose();
+    _whatsappMonitoredByFocus.dispose();
+    _addressFocus.dispose();
     super.dispose();
   }
 
@@ -160,6 +168,7 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
           if (widget.showBranchName) ...[
             TextFormField(
               controller: _nameCtrl,
+              focusNode:  _nameFocus,
               decoration: InputDecoration(
                 labelText: 'Branch name *',
                 hintText: 'e.g. Andheri Branch',
@@ -194,6 +203,7 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
           // even after staff changes.
           TextFormField(
             controller: _whatsappMonitoredByCtrl,
+            focusNode:  _whatsappMonitoredByFocus,
             decoration: InputDecoration(
               labelText: 'WhatsApp monitored by *',
               hintText: 'e.g. Owner / Manager Ravi / Front Desk',
@@ -307,12 +317,12 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
               child: Row(
                 children: [
                   Icon(Icons.check_circle_outline,
-                      size: 14, color: Colors.green.shade700),
+                      size: 14, color: AppColors.activeFg),
                   const SizedBox(width: 4),
                   Text(
                     'Auto-filled from Google Maps — you can still edit below.',
                     style: TextStyle(
-                        fontSize: 11, color: Colors.green.shade700),
+                        fontSize: 11, color: AppColors.activeFg),
                   ),
                 ],
               ),
@@ -323,6 +333,7 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
           // ── Address (always visible, always editable) ───────────────────
           TextFormField(
             controller: _addressCtrl,
+            focusNode:  _addressFocus,
             decoration: InputDecoration(
               labelText: 'Full address *',
               hintText: '123 Main Street, Mumbai 400001',

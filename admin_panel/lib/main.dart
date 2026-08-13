@@ -23,6 +23,7 @@ import 'providers/auth_provider.dart';
 import 'providers/commission_provider.dart';
 import 'providers/enroll_provider.dart';
 import 'providers/my_businesses_provider.dart';
+import 'providers/profile_provider.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/places_service.dart';
@@ -35,6 +36,7 @@ import 'screens/my_businesses/my_businesses_screen.dart';
 import 'screens/business_detail/business_detail_screen.dart';
 import 'screens/business_detail/business_edit_screen.dart';
 import 'screens/commission/commission_screen.dart';
+import 'screens/profile/profile_screen.dart';
 import 'models/business_model.dart';
 
 void main() async {
@@ -137,6 +139,7 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
         GoRoute(path: '/businesses', builder: (_, __) => const MyBusinessesScreen()),
         GoRoute(path: '/enroll',     builder: (_, __) => const EnrollScreen()),
         GoRoute(path: '/commission', builder: (_, __) => const CommissionScreen()),
+        GoRoute(path: '/profile',    builder: (_, __) => const ProfileScreen()),
         GoRoute(
           path: '/enroll/payment/:businessId',
           builder: (context, state) {
@@ -210,9 +213,16 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
         ChangeNotifierProvider(
           create: (_) => CommissionProvider(firestoreService: _firestoreService),
         ),
+        ChangeNotifierProvider(
+          create: (_) => ProfileProvider(
+            firestoreService: _firestoreService,
+            storageService:   _storageService,
+          ),
+        ),
 
-        // ── Expose FirestoreService for direct reads (e.g. template loading) ─
+        // ── Expose services for direct reads / uploads ───────────────────────
         Provider<FirestoreService>.value(value: _firestoreService),
+        Provider<StorageService>.value(value: _storageService),
       ],
       child: MaterialApp.router(
         title: 'Review System Panel',

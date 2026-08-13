@@ -33,6 +33,20 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // ── Employee KYC Documents: employee_docs/{uid}/{filename} ───────────────
+    // Uploaded by employees for commission payout verification.
+    // Read: employee reads only their own files; admin reads all.
+    // Write: employee uploads only to their own directory, max 5MB, image or PDF.
+    match /employee_docs/{uid}/{filename} {
+      allow read:  if isAdmin()
+                   || (isEmployee() && request.auth.uid == uid);
+      allow write: if isEmployee()
+                   && request.auth.uid == uid
+                   && request.resource.size <= 5 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType == 'application/pdf');
+    }
+
     // ── Fallback: deny everything else ────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

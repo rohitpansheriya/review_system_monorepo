@@ -123,8 +123,24 @@ service cloud.firestore {
       allow read: if isAdmin()
         || (isEmployee() && request.auth.uid == empId);
 
-      // Writes are managed by admin/Cloud Functions.
-      allow write: if false;
+      // UPDATE: Employee may update ONLY their own profile, payout, documents, and documents_verified.
+      // They may NOT touch name, contact, role, active, total_enrollments, this_month_enrollments.
+      // If documents_verified is modified, it can ONLY be set to 'pending' (no self-approval).
+      allow update: if isEmployee()
+        && request.auth.uid == empId
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'profile',
+              'payout',
+              'documents',
+              'documents_verified',
+            ])
+        && (
+          !('documents_verified' in request.resource.data.diff(resource.data).affectedKeys())
+          || request.resource.data.documents_verified == 'pending'
+        );
+
+      allow create, delete: if false;
     }
 
     // ─── commission_records/{recId} ────────────────────────────────────────

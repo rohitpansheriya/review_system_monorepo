@@ -11,6 +11,7 @@ import '../models/branch_model.dart';
 import '../models/business_model.dart';
 import '../models/commission_record_model.dart';
 import '../models/employee_model.dart';
+import '../models/employee_profile_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db;
@@ -431,4 +432,86 @@ class FirestoreService {
       ),
     );
   }
+
+  // ── Employee profile (My Profile screen) ────────────────────────────────
+
+  /// Real-time stream of the employee's own profile data.
+  Stream<EmployeeProfileModel> watchEmployeeProfile(String uid) {
+    return _db
+        .collection(AppConstants.colEmployees)
+        .doc(uid)
+        .snapshots()
+        .map((doc) => doc.exists
+            ? EmployeeProfileModel.fromDoc(doc)
+            : EmployeeProfileModel.empty);
+  }
+
+  /// Updates only the `profile.*` sub-map of the employee doc.
+  /// Does NOT touch payout, documents, or documents_verified.
+  Future<void> updateEmployeeProfile(String uid, EmployeeProfileModel model) async {
+    await _db
+        .collection(AppConstants.colEmployees)
+        .doc(uid)
+        .update(model.profilePayload());
+  }
+
+  /// Updates payout details and resets documents_verified to "pending".
+  /// SECURITY SAFEGUARD: every payout change triggers re-verification.
+  Future<void> updateEmployeePayoutDetails(
+    String uid,
+    EmployeeProfileModel model,
+  ) async {
+    await _db
+        .collection(AppConstants.colEmployees)
+        .doc(uid)
+        .update(model.payoutPayload());
+  }
+
+  /// Appends a new KYC document reference to the employee's documents list.
+  /// Also resets documents_verified to "pending".
+  /// [storagePath] — the Firebase Storage path returned by StorageService.uploadDocument.
+  /// [documentType] — human label chosen by the employee ("Aadhaar", "PAN", etc.).
+  Future<void> appendEmployeeDocument(
+    String uid,
+    String storagePath,
+    String documentType,
+  ) async {
+    final newDoc = EmployeeDocument(
+      storagePath:  storagePath,
+      documentType: documentType,
+      uploadedAt:   null, // server timestamp set via FieldValue below
+    );
+    await _db
+        .collection(AppConstants.colEmployees)
+        .doc(uid)
+        .update({
+      'documents': FieldValue.arrayUnion([{
+        'path':          newDoc.storagePath,
+        'document_type': newDoc.documentType,
+        'uploaded_at':   FieldValue.serverTimestamp(),
+      }]),
+      // Reset verification on every new document upload.
+      'documents_verified': 'pending',
+    });
+  }
+
+  /// Removes a document from the documents list by its storagePath.
+  /// Also resets documents_verified to "pending".
+  Future<void> removeEmployeeDocument(String uid, String storagePath) async {
+    // We can't arrayRemove a map without knowing the exact map including Timestamp.
+    // So we do a transaction: read, filter, write.
+    final ref = _db.collection(AppConstants.colEmployees).doc(uid);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      final raw  = snap.data()?['documents'] as List<dynamic>? ?? [];
+      final updated = raw
+          .where((e) => (e as Map<String, dynamic>)['path'] != storagePath)
+          .toList();
+      tx.update(ref, {
+        'documents':           updated,
+        'documents_verified':  'pending',
+      });
+    });
+  }
 }
+

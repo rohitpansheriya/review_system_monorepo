@@ -10,6 +10,8 @@
 //   Change 2 — Standee fulfillment status dropdown per branch (employee updates).
 //   Change 3 — For pending_payment businesses: amber "Resend payment link" panel
 //               with action button; displays/copies the returned short_url.
+//
+// Styling: all Colors.* replaced with AppTheme/AppColors semantic tokens.
 
 // ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
@@ -67,6 +69,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final biz    = widget.business;
+    final scheme = Theme.of(context).colorScheme;
     final status = biz.subscriptionStatus;
     final isDue  = biz.isDueSoon(30);
     final displayStatus = isDue && status == AppConstants.statusActive
@@ -79,22 +82,22 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(biz.brandName),
+        title:       Text(biz.brandName),
         centerTitle: false,
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/business/${biz.id}/edit', extra: biz),
-        icon: const Icon(Icons.edit_outlined),
+        icon:  const Icon(Icons.edit_outlined),
         label: const Text('Edit'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.lg - 4),
         children: [
           // ── Change 3: Pending payment banner ─────────────────────────
           if (isPendingPayment)
             _PendingPaymentPanel(business: biz),
 
-          if (isPendingPayment) const SizedBox(height: 16),
+          if (isPendingPayment) const SizedBox(height: AppSpacing.md),
 
           // ── Business Summary Card ─────────────────────────────────────
           _SectionCard(
@@ -104,21 +107,20 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                 Row(
                   children: [
                     CircleAvatar(
-                      radius: 28,
-                      backgroundColor:
-                          Theme.of(context).colorScheme.primaryContainer,
+                      radius:          28,
+                      backgroundColor: scheme.primaryContainer,
                       child: Text(
                         biz.brandName.isNotEmpty
                             ? biz.brandName[0].toUpperCase()
                             : '?',
                         style: TextStyle(
-                          fontSize: 22,
+                          fontSize:   22,
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
+                          color:      scheme.onPrimaryContainer,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,9 +139,9 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 const Divider(),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm + 4),
                 _InfoRow(
                   label: 'Category',
                   value: biz.categoryType.isEmpty ? '—' : biz.categoryType,
@@ -149,14 +151,14 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                 _InfoRow(label: 'Business ID',  value: biz.id, mono: true),
                 if (biz.isReassigned)
                   const Padding(
-                    padding: EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.only(top: AppSpacing.sm),
                     child: _ReassignedBanner(),
                   ),
               ],
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg - 4),
 
           // ── Branches ─────────────────────────────────────────────────
           Text(
@@ -166,7 +168,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                 .titleMedium
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm + 4),
 
           if (_loading)
             const Center(
@@ -178,37 +180,38 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
           else if (_error != null)
             Center(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Text(
                   'Error loading branches: $_error',
-                  style: const TextStyle(color: Colors.red),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
             )
           else if (_branches.isEmpty)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(32),
+                padding: const EdgeInsets.all(32),
                 child: Text(
                   'No branches found.',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             )
           else
             ..._branches.map(
               (b) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
                 child: _BranchCard(
-                  branch: b,
-                  businessId: biz.id,
-                  // Standee UI only makes sense for activated businesses.
+                  branch:             b,
+                  businessId:         biz.id,
                   showStandeeControls: !isPendingPayment,
                 ),
               ),
             ),
 
-          const SizedBox(height: 40),
+          const SizedBox(height: AppSpacing.xxl - 8),
         ],
       ),
     );
@@ -226,7 +229,7 @@ class _PendingPaymentPanel extends StatefulWidget {
 }
 
 class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
-  bool   _sending = false;
+  bool    _sending = false;
   String? _shortUrl;
   String? _error;
 
@@ -261,7 +264,7 @@ class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
     Clipboard.setData(ClipboardData(text: _shortUrl!));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Payment link copied to clipboard'),
+        content:  Text('Payment link copied to clipboard'),
         duration: Duration(seconds: 2),
       ),
     );
@@ -274,12 +277,16 @@ class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.shade300, width: 1.5),
+        color:        AppColors.pendingBg,
+        borderRadius: BorderRadius.circular(AppRadius.lg - 4),
+        border:       Border.all(
+          color: AppColors.pendingFg.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,101 +294,111 @@ class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
           // Header
           Row(
             children: [
-              Icon(Icons.payment_outlined, color: Colors.amber.shade800, size: 20),
-              const SizedBox(width: 8),
+              Icon(Icons.payment_outlined, color: AppColors.pendingFg, size: 20),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   'Awaiting Payment',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade900,
-                    fontSize: 15,
+                    color:      AppColors.pendingFg,
+                    fontSize:   15,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             'This business is enrolled but the owner has not yet paid the '
             '₹1999 setup fee. Use the button below to generate a fresh '
             'payment link and email it to ${widget.business.ownerEmail ?? "the owner"}.',
-            style: TextStyle(fontSize: 13, color: Colors.amber.shade900),
+            style: TextStyle(fontSize: 13, color: AppColors.pendingFg),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm + 4),
 
           // Action button
-          Row(
-            children: [
-              ElevatedButton.icon(
-                onPressed: _sending ? null : _resend,
-                icon: _sending
-                    ? const SizedBox(
-                        width: 16, height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.send_outlined, size: 16),
-                label: Text(_sending ? 'Sending…' : 'Resend payment link'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber.shade700,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
+          ElevatedButton.icon(
+            onPressed: _sending ? null : _resend,
+            icon: _sending
+                ? SizedBox(
+                    width: 16, height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: scheme.onPrimary,
+                    ),
+                  )
+                : const Icon(Icons.send_outlined, size: 16),
+            label: Text(_sending ? 'Sending…' : 'Resend payment link'),
           ),
 
           // Error
           if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text('Error: $_error',
-                style: const TextStyle(color: Colors.red, fontSize: 12)),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Error: $_error',
+              style: TextStyle(color: scheme.error, fontSize: 12),
+            ),
           ],
 
           // Success: show link for WhatsApp / copy
           if (_shortUrl != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm + 4),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.shade300),
+                color:        scheme.surface,
+                borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+                border:       Border.all(color: AppColors.pendingFg.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Payment link generated and emailed to owner ✅',
-                      style: TextStyle(
-                          fontSize: 12,
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle_outline,
+                          size: 14, color: AppColors.activeFg),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Payment link generated and emailed to owner',
+                        style: TextStyle(
+                          fontSize:   12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.green.shade700)),
-                  const SizedBox(height: 8),
-                  // Link display
+                          color:      AppColors.activeFg,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
                   SelectableText(
                     _shortUrl!,
                     style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600),
+                      fontFamily: 'monospace',
+                      fontSize:   12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   Wrap(
-                    spacing: 8,
+                    spacing: AppSpacing.sm,
                     children: [
                       OutlinedButton.icon(
                         onPressed: _copyLink,
-                        icon: const Icon(Icons.copy, size: 14),
+                        icon:  const Icon(Icons.copy, size: 14),
                         label: const Text('Copy'),
                         style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                        ),
                       ),
                       OutlinedButton.icon(
                         onPressed: _openLink,
-                        icon: const Icon(Icons.open_in_new, size: 14),
+                        icon:  const Icon(Icons.open_in_new, size: 14),
                         label: const Text('Open'),
                         style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                        ),
                       ),
                     ],
                   ),
@@ -413,7 +430,6 @@ class _BranchCard extends StatefulWidget {
 }
 
 class _BranchCardState extends State<_BranchCard> {
-  // Current standee status (may be updated locally on dropdown change).
   late String _standeeStatus;
   bool        _standeeUpdating = false;
 
@@ -430,20 +446,19 @@ class _BranchCardState extends State<_BranchCard> {
   Future<void> _onStandeeChanged(String? newStatus) async {
     if (newStatus == null || newStatus == _standeeStatus) return;
     setState(() {
-      _standeeStatus    = newStatus;
-      _standeeUpdating  = true;
+      _standeeStatus   = newStatus;
+      _standeeUpdating = true;
     });
     try {
       await context.read<FirestoreService>().updateStandeeStatus(
             widget.businessId, widget.branch.id, newStatus);
     } catch (e) {
-      // Revert on failure
       if (mounted) {
         setState(() => _standeeStatus = widget.branch.standeeStatus);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to update standee status: $e'),
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -462,10 +477,7 @@ class _BranchCardState extends State<_BranchCard> {
     try {
       final url = await context.read<FirestoreService>().getPlainQrDownloadUrl(path);
       if (mounted) {
-        setState(() {
-          _qrLoading = false;
-        });
-        // Open in new tab for download.
+        setState(() => _qrLoading = false);
         // ignore: avoid_web_libraries_in_flutter
         html.window.open(url, '_blank');
       }
@@ -489,8 +501,12 @@ class _BranchCardState extends State<_BranchCard> {
           // Branch name header
           Row(
             children: [
-              const Icon(Icons.storefront_outlined, size: 18),
-              const SizedBox(width: 8),
+              Icon(
+                Icons.storefront_outlined,
+                size:  18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   branch.branchName,
@@ -502,26 +518,25 @@ class _BranchCardState extends State<_BranchCard> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm + 4),
           const Divider(height: 1),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm + 4),
 
           _InfoRow(label: 'Address',  value: branch.address),
           _InfoRow(label: 'WhatsApp', value: branch.whatsappNumber),
-          // Change 5: show who monitors the WhatsApp channel
           if (branch.whatsappMonitoredBy.isNotEmpty)
             _InfoRow(
               label: 'WA monitor',
               value: branch.whatsappMonitoredBy,
             ),
           if (branch.placeId != null && branch.placeId!.isNotEmpty)
-            _InfoRow(label: 'Place ID', value: branch.placeId!, mono: true),
+            _InfoRow(label: 'Place ID',    value: branch.placeId!, mono: true),
           if (branch.googleReviewLink != null &&
               branch.googleReviewLink!.isNotEmpty)
             _InfoRow(label: 'Review link', value: branch.googleReviewLink!),
           _InfoRow(label: 'Branch ID', value: branch.id, mono: true),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
 
           // ── Change 1: Plain printable QR download ─────────────────────
           _PlainQrRow(
@@ -531,7 +546,7 @@ class _BranchCardState extends State<_BranchCard> {
             onDownload:         _downloadQr,
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm + 4),
 
           // ── Change 2: Standee fulfillment status ──────────────────────
           if (widget.showStandeeControls)
@@ -542,7 +557,8 @@ class _BranchCardState extends State<_BranchCard> {
               onChanged:     _onStandeeChanged,
             ),
 
-          if (widget.showStandeeControls) const SizedBox(height: 16),
+          if (widget.showStandeeControls)
+            const SizedBox(height: AppSpacing.md),
 
           // Star routing
           Text(
@@ -552,7 +568,7 @@ class _BranchCardState extends State<_BranchCard> {
                 .labelLarge
                 ?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           _StarRoutingTable(config: branch.starRoutingConfig),
         ],
       ),
@@ -577,27 +593,26 @@ class _PlainQrRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(Icons.qr_code_2_outlined,
-            size: 18,
-            color: Theme.of(context).colorScheme.onSurfaceVariant),
-        const SizedBox(width: 8),
+        Icon(Icons.qr_code_2_outlined, size: 18, color: scheme.onSurfaceVariant),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Printable QR',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
               if (qrError != null)
-                Text(qrError!,
-                    style: const TextStyle(color: Colors.red, fontSize: 11)),
+                Text(
+                  qrError!,
+                  style: TextStyle(color: scheme.error, fontSize: 11),
+                ),
             ],
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.sm),
         if (plainQrStoragePath != null)
           ElevatedButton.icon(
             onPressed: qrLoading ? null : onDownload,
@@ -608,7 +623,7 @@ class _PlainQrRow extends StatelessWidget {
                 : const Icon(Icons.download_outlined, size: 16),
             label: Text(qrLoading ? 'Loading…' : 'Download'),
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding:   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               textStyle: const TextStyle(fontSize: 12),
             ),
           )
@@ -617,10 +632,10 @@ class _PlainQrRow extends StatelessWidget {
             message: 'QR will be ready after payment is confirmed',
             child: ElevatedButton.icon(
               onPressed: null,
-              icon: const Icon(Icons.download_outlined, size: 16),
+              icon:  const Icon(Icons.download_outlined, size: 16),
               label: const Text('Download'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 textStyle: const TextStyle(fontSize: 12),
               ),
             ),
@@ -647,56 +662,76 @@ class _StandeeStatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = AppConstants.standeeStatusLabels[currentStatus]
-        ?? currentStatus;
-    final updatedStr = updatedAt != null
+    final scheme     = Theme.of(context).colorScheme;
+    final label      = AppConstants.standeeStatusLabels[currentStatus] ?? currentStatus;
+    final statusColor = AppTheme.standeeStatusColor(currentStatus);
+    final statusFg    = AppTheme.standeeStatusForeground(currentStatus);
+    final updatedStr  = updatedAt != null
         ? DateFormat('d MMM yyyy').format(updatedAt!)
         : null;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.sm + 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        color:        scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+        border:       Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.local_shipping_outlined, size: 16),
+              Icon(Icons.local_shipping_outlined,
+                  size: 16, color: scheme.onSurfaceVariant),
               const SizedBox(width: 6),
               const Text('Acrylic Standee',
-                  style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               const Spacer(),
+              // Current status chip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color:        statusColor,
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                  border:       Border.all(
+                    color: statusFg.withValues(alpha: 0.4), width: 0.8),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize:   10,
+                    fontWeight: FontWeight.w600,
+                    color:      statusFg,
+                  ),
+                ),
+              ),
               if (updating)
-                const SizedBox(
-                  width: 14, height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: SizedBox(
+                    width: 14, height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           DropdownButtonFormField<String>(
-            value: currentStatus,
+            value:      currentStatus,
             isExpanded: true,
             decoration: InputDecoration(
               isDense: true,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6)),
-              label: const Text('Status'),
+                  borderRadius: BorderRadius.circular(AppRadius.sm)),
+              label: const Text('Update status'),
             ),
             items: AppConstants.standeeStatuses
                 .map((s) => DropdownMenuItem<String>(
                       value: s,
-                      child: Text(
-                          AppConstants.standeeStatusLabels[s] ?? s),
+                      child: Text(AppConstants.standeeStatusLabels[s] ?? s),
                     ))
                 .toList(),
             onChanged: updating ? null : onChanged,
@@ -704,36 +739,14 @@ class _StandeeStatusRow extends StatelessWidget {
           if (updatedStr != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text('Last updated: $updatedStr',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color:
-                          Theme.of(context).colorScheme.onSurfaceVariant)),
+              child: Text(
+                'Last updated: $updatedStr',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+              ),
             ),
-          // Current status label below dropdown for quick glance
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Current: $label',
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: _standeeColor(currentStatus)),
-            ),
-          ),
         ],
       ),
     );
-  }
-
-  Color _standeeColor(String status) {
-    switch (status) {
-      case AppConstants.standeeNotOrdered: return Colors.grey;
-      case AppConstants.standeePrinted:    return const Color(0xFF3B82F6); // blue
-      case AppConstants.standeeShipped:    return const Color(0xFFF59E0B); // amber
-      case AppConstants.standeeDelivered:  return const Color(0xFF22C55E); // green
-      default:                             return Colors.grey;
-    }
   }
 }
 
@@ -755,10 +768,11 @@ class _StarRoutingTable extends StatelessWidget {
     'google':   Icons.star_outline,
   };
 
+  // Semantic, purposeful routing colors — not random
   static const _colors = {
-    'thankyou': Color(0xFF6B7280),
-    'whatsapp': Color(0xFF25D366),
-    'google':   Color(0xFFF59E0B),
+    'thankyou': AppColors.deletedFg,    // grey — neutral action
+    'whatsapp': Color(0xFF25D366),      // WhatsApp brand green (unchanged)
+    'google':   AppColors.star,         // star amber — brand token
   };
 
   @override
@@ -769,7 +783,7 @@ class _StarRoutingTable extends StatelessWidget {
         final route = config[star] ?? '—';
         final label = _labels[route] ?? route;
         final icon  = _icons[route]  ?? Icons.help_outline;
-        final color = _colors[route] ?? Colors.grey;
+        final color = _colors[route] ?? Theme.of(context).colorScheme.onSurfaceVariant;
 
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
@@ -777,16 +791,16 @@ class _StarRoutingTable extends StatelessWidget {
             children: [
               ...List.generate(
                 i + 1,
-                (_) => const Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
+                (_) => const Icon(Icons.star, size: 14, color: AppColors.star),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.sm),
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
-                  color: color,
+                  fontSize:   13,
+                  color:      color,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -806,19 +820,19 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          color:        Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
             color: Theme.of(context).colorScheme.outlineVariant,
             width: 0.8,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color:     AppColors.primary.withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset:    const Offset(0, 2),
             ),
           ],
         ),
@@ -847,8 +861,8 @@ class _InfoRow extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize:   12,
+                  color:      Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -857,7 +871,7 @@ class _InfoRow extends StatelessWidget {
               child: Text(
                 value,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize:   13,
                   fontFamily: mono ? 'monospace' : null,
                   fontWeight: FontWeight.w500,
                 ),
@@ -882,21 +896,22 @@ class _StatusBadge extends StatelessWidget {
       'deleted':         'Deleted',
     };
     final label = labels[status] ?? status;
-    final color = AppTheme.statusColor(status);
+    final bg    = AppTheme.statusColor(status);
+    final fg    = AppTheme.statusForeground(status);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color, width: 0.8),
+        color:        bg,
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border:       Border.all(color: fg.withValues(alpha: 0.4), width: 0.8),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 11,
+          fontSize:   11,
           fontWeight: FontWeight.w700,
-          color: color,
+          color:      fg,
         ),
       ),
     );
@@ -910,18 +925,20 @@ class _ReassignedBanner extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.amber.shade50,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.amber.shade300),
+          color:        AppColors.dueSoonBg,
+          borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+          border:       Border.all(
+            color: AppColors.dueSoonFg.withValues(alpha: 0.4),
+          ),
         ),
         child: Row(
           children: [
-            Icon(Icons.info_outline, size: 16, color: Colors.amber.shade800),
-            const SizedBox(width: 8),
+            Icon(Icons.info_outline, size: 16, color: AppColors.dueSoonFg),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
                 'This business has been reassigned to admin management.',
-                style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                style: TextStyle(fontSize: 12, color: AppColors.dueSoonFg),
               ),
             ),
           ],

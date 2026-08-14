@@ -3,6 +3,7 @@
 // Dashboard Home Tab for Business Owner.
 // Displays pre-aggregated stats (total scans, star distribution, conversion rate)
 // with single-branch stats vs multi-branch aggregated view.
+// Also displays Cash Payment Confirmation requests (Doc 06 fraud gate).
 //
 // SCALABILITY RULE #1/#2:
 // Reads PRE-AGGREGATED stats_summary fields ONLY.
@@ -11,6 +12,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/owner_dashboard_provider.dart';
+import '../../models/commission_record_model.dart';
 import '../../core/theme.dart';
 
 class OwnerHomeTab extends StatelessWidget {
@@ -48,6 +50,13 @@ class OwnerHomeTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── 0. Cash Payment Confirmation Requests (Doc 06 fraud gate) ───
+            if (provider.pendingCashConfirmations.isNotEmpty) ...[
+              for (final record in provider.pendingCashConfirmations)
+                _buildCashConfirmationCard(context, provider, record),
+              const SizedBox(height: 12),
+            ],
+
             // ── 1. Renewal Reminder Banner (Doc 08) ─────────────────────────
             if (provider.isGracePeriod)
               _buildGraceBanner(context, provider, biz.gracePeriodEnds)
@@ -121,58 +130,64 @@ class OwnerHomeTab extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // ── 3. Summary Stat Cards (Pre-aggregated) ──────────────────────
+            // ── 3. High-Level Metrics (Total Scans, Google Reviews, Conversion Rate)
             LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth > 700;
-                return GridView.count(
-                  crossAxisCount: isWide ? 3 : 1,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: isWide ? 2.2 : 2.8,
-                  children: [
-                    _buildStatCard(
-                      context,
-                      title: 'Total QR Scans',
-                      value: '$totalScans',
-                      subtitle: 'Pre-aggregated scan count',
-                      icon: Icons.qr_code_scanner,
-                      color: colorScheme.primary,
-                    ),
-                    _buildStatCard(
-                      context,
-                      title: 'Google Reviews Opened',
-                      value: '$googleOpened',
-                      subtitle: '$conversionRate% conversion rate',
-                      icon: Icons.star_rate_rounded,
-                      color: AppColors.star,
-                    ),
-                    _buildStatCard(
-                      context,
-                      title: 'Active Branches',
-                      value: '${provider.branches.length}',
-                      subtitle: provider.isSingleBranch ? 'Single location' : 'Multi-branch setup',
-                      icon: Icons.location_city,
-                      color: colorScheme.tertiary,
-                    ),
-                  ],
+                final cards = [
+                  _buildStatCard(
+                    context,
+                    title: 'Total QR Scans',
+                    value: '$totalScans',
+                    subtitle: 'Customer interactions',
+                    icon: Icons.qr_code_scanner,
+                    color: colorScheme.primary,
+                  ),
+                  _buildStatCard(
+                    context,
+                    title: 'Google Reviews Prompted',
+                    value: '$googleOpened',
+                    subtitle: '4★ and 5★ review redirects',
+                    icon: Icons.rate_review,
+                    color: AppColors.activeFg,
+                  ),
+                  _buildStatCard(
+                    context,
+                    title: 'Conversion Rate',
+                    value: '$conversionRate%',
+                    subtitle: 'Scans converted to reviews',
+                    icon: Icons.trending_up,
+                    color: AppColors.star,
+                  ),
+                ];
+
+                if (isWide) {
+                  return Row(
+                    children: cards.map((c) => Expanded(child: c)).toList(),
+                  );
+                }
+                return Column(
+                  children: cards
+                      .map((c) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: c,
+                          ))
+                      .toList(),
                 );
               },
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
 
-            // ── 4. Star Rating Breakdown Card ────────────────────────────────
+            // ── 4. Star-Rating Distribution ──────────────────────────────────
             Card(
-              elevation: 1,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(color: colorScheme.outlineVariant),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -249,6 +264,128 @@ class OwnerHomeTab extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Cash Confirmation Card (Doc 06) ─────────────────────────────────────────
+  Widget _buildCashConfirmationCard(
+    BuildContext context,
+    OwnerDashboardProvider provider,
+    CommissionRecordModel record,
+  ) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final dateStr = record.dateClaimed != null
+        ? record.dateClaimed!.toLocal().toString().split(' ')[0]
+        : 'recently';
+
+    return Card(
+      color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: colorScheme.primary, width: 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.verified_user_outlined, color: colorScheme.primary, size: 24),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Cash Payment Verification Required',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.star.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Pending Confirmation',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Our records show a cash payment of ₹${record.amount.toStringAsFixed(0)} was collected for your enrollment/renewal on $dateStr.',
+              style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Did you pay ₹${record.amount.toStringAsFixed(0)} in cash?',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await provider.confirmCashPayment(
+                      recordId: record.id,
+                      confirmed: false,
+                      disputeReason: 'Owner responded NO to payment confirmation.',
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Payment disputed. Admin has been notified for investigation.'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('No, I Did Not Pay'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.error,
+                    side: BorderSide(color: colorScheme.error),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    await provider.confirmCashPayment(
+                      recordId: record.id,
+                      confirmed: true,
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('✅ Cash payment confirmed successfully!'),
+                          backgroundColor: AppColors.activeFg,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Yes, I Paid'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.activeFg,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -358,7 +495,7 @@ class OwnerHomeTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 28),

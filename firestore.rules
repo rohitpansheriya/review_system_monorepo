@@ -1,9 +1,8 @@
-rules_version = '2';
 // firestore.rules
+// Production security rules for Review System.
 //
-// Security rules for the Review System Monorepo.
-//
-// Roles are enforced via Firebase Auth custom claims:
+// Authentication model:
+//   request.auth.uid          — Firebase Auth user ID
 //   request.auth.token.role == 'employee' | 'owner' | 'admin'
 //
 // Collection structure:
@@ -13,16 +12,22 @@ rules_version = '2';
 //   /commission_records/{recId}               — commission records
 //   /notifications/{notifId}                  — notification documents
 //   /category_templates/{templateId}          — category templates (read-only for auth users)
+//   /scan_logs/{logId}                        — customer scan logs (write-only for clients)
 //
-// Key design constraints (from 00-architecture-and-schema.md):
+// Key design constraints (from 00-architecture-and-schema.md & 06-commission-tracking.md):
 //   - Employees may only read businesses where enrolled_by == their uid.
 //   - Employees may update standee_status, standee_status_updated_at,
 //     and whatsapp_monitored_by on branches — nothing else.
 //   - Owners may only access their own business (owner_auth_uid == their uid).
-//   - Admins have broad read access; writes go through Cloud Functions.
+//   - Admins have broad read access; writes go through Cloud Functions or admin credentials.
 //   - All activation (pending_payment → active) happens ONLY in the payment
 //     webhook Cloud Function. No client-side status promotion is allowed.
 //   - draft (pending_payment) businesses are readable by the enrolling employee.
+//   - Commission records: Employee can CREATE a cash pending record for their own enrollment
+//     and READ their own records — but CANNOT set admin_confirmed, owner_confirmed, or flip
+//     status to verified/paid (no self-verification).
+//   - Owner can update ONLY owner_confirmed & dispute fields on records for their OWN business.
+//   - Commission records cannot be deleted by employees/owners (financial audit trail).
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -150,20 +155,62 @@ service cloud.firestore {
     // ─── commission_records/{recId} ────────────────────────────────────────
 
     match /commission_records/{recId} {
-      // Employee: read only their own commission records.
       // Admin: read all.
+      // Employee: read only their own commission records.
+      // Owner: read commission records for their own business.
       allow read: if isAdmin()
-        || (isEmployee() && resource.data.employee_id == request.auth.uid);
+        || (isEmployee() && resource.data.employee_id == request.auth.uid)
+        || (isOwner() && get(/databases/$(database)/documents/businesses/$(resource.data.business_id)).data.owner_auth_uid == request.auth.uid);
 
-      // Create: Employee may create a cash payment record (doc 06).
-      // The record is created with status = "pending" and cannot be self-approved.
-      allow create: if isEmployee()
-        && request.resource.data.employee_id == request.auth.uid
-        && request.resource.data.keys().hasAll(['employee_id', 'business_id', 'amount', 'status'])
-        && request.resource.data.status == 'pending';
+      // CREATE: Employee may create a cash payment record (doc 06).
+      // The record MUST be created with status = "pending", payment_mode = "cash",
+      // and cannot have admin_confirmed=true or owner_confirmed=true or status="verified"/"paid".
+      allow create: if isAdmin()
+        || (
+          isEmployee()
+          && request.resource.data.employee_id == request.auth.uid
+          && request.resource.data.payment_mode == 'cash'
+          && request.resource.data.status == 'pending'
+          && request.resource.data.keys().hasAll(['employee_id', 'business_id', 'amount', 'status', 'payment_mode'])
+          && (!('admin_confirmed' in request.resource.data) || request.resource.data.admin_confirmed == false)
+          && (!('owner_confirmed' in request.resource.data) || request.resource.data.owner_confirmed == null)
+          && (!('disputed' in request.resource.data) || request.resource.data.disputed == false)
+        );
 
-      // Update/delete: Cloud Functions and admin only.
-      allow update: if false;
+      // UPDATE:
+      // - Admin: full control (can confirm admin_confirmed, mark paid, etc.).
+      // - Owner: can set ONLY owner_confirmed / dispute fields on records for their OWN business.
+      //   Owner CANNOT change financial audit fields (employee_id, amount, business_id, payment_mode).
+      //   Owner CANNOT set admin_confirmed or mark status="paid".
+      //   If owner sets status="verified", admin_confirmed MUST already be true.
+      // - Employee: CANNOT update (false — prevents self-verification).
+      allow update: if isAdmin()
+        || (
+          isOwner()
+          && get(/databases/$(database)/documents/businesses/$(resource.data.business_id)).data.owner_auth_uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'owner_confirmed',
+                'owner_confirmed_at',
+                'owner_response',
+                'disputed',
+                'dispute_reason',
+                'status',
+                'date_verified',
+              ])
+          && request.resource.data.employee_id == resource.data.employee_id
+          && request.resource.data.business_id == resource.data.business_id
+          && request.resource.data.amount == resource.data.amount
+          && request.resource.data.payment_mode == resource.data.payment_mode
+          && (!('admin_confirmed' in request.resource.data) || request.resource.data.admin_confirmed == resource.data.admin_confirmed)
+          && request.resource.data.status != 'paid'
+          && (
+            request.resource.data.status != 'verified'
+            || (resource.data.admin_confirmed == true && request.resource.data.owner_confirmed == true)
+          )
+        );
+
+      // DELETE: Not allowed from client side (financial audit trail).
       allow delete: if false;
     }
 
@@ -172,7 +219,11 @@ service cloud.firestore {
     match /notifications/{notifId} {
       // Any authenticated user can read their own notifications.
       allow read: if isSignedIn()
-        && resource.data.recipient == request.auth.uid;
+        && (
+          resource.data.recipient == request.auth.uid
+          || resource.data.recipient == request.auth.token.email
+          || (('recipient_uid' in resource.data) && resource.data.recipient_uid == request.auth.uid)
+        );
 
       // Writes are via Cloud Functions (sendNotification service) only.
       allow write: if false;
@@ -186,6 +237,14 @@ service cloud.firestore {
 
       // Writes are admin-only via console or Cloud Functions.
       allow write: if isAdmin();
+    }
+
+    // ─── scan_logs/{logId} ────────────────────────────────────────────────
+
+    match /scan_logs/{logId} {
+      // Public scan logging: write-only per scan.
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
     }
 
     // ─── Catch-all: deny everything else ───────────────────────────────────

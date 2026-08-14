@@ -653,16 +653,25 @@ async function handleSuccessfulPayment(
 
   // 3. Create commission_records entry.
   //    employee_id comes from enrolled_by; falls back to "admin" if unset.
-  const commissionRef = db.collection("commission_records").doc();
+  //    ID is deterministic (comm_{paymentId}) to guarantee IDEMPOTENCY on webhook retries.
+  const paymentId = (event["id"] as string | undefined) ||
+                    ((payload["payment"] as Record<string, unknown> | undefined)?.entity as Record<string, unknown> | undefined)?.id as string | undefined ||
+                    ((payload["subscription"] as Record<string, unknown> | undefined)?.entity as Record<string, unknown> | undefined)?.id as string | undefined ||
+                    `${businessId}_${now.getTime()}`;
+
+  const commDocId = `comm_${paymentId}`;
+  const commissionRef = db.collection("commission_records").doc(commDocId);
   batch.set(commissionRef, {
     employee_id:   bizData.enrolled_by ?? "admin",
     business_id:   businessId,
     amount:        amountPaise / 100, // store in rupees
     payment_mode:  "online",
     status:        "verified",
+    admin_confirmed: true,
+    owner_confirmed: true,
     date_claimed:  Timestamp.fromDate(now),
     date_verified: Timestamp.fromDate(now),
-  });
+  }, {merge: true});
 
   await batch.commit();
 

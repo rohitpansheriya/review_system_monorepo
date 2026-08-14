@@ -2,21 +2,24 @@
 //
 // State provider for the Business Owner Dashboard.
 // Handles business & branch reads, pre-aggregated stats rollup, category toggling,
-// star-routing updates, and renewal payment status checks.
+// star-routing updates, renewal payment status checks, and cash payment confirmations (Doc 06).
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/business_model.dart';
 import '../models/branch_model.dart';
+import '../models/commission_record_model.dart';
 import '../services/firestore_service.dart';
 
 class OwnerDashboardProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
+  final FirestoreService  _firestore;
 
   BusinessModel? _business;
   List<BranchModel> _branches = [];
   Map<String, dynamic>? _assignedTemplate;
   List<Map<String, dynamic>> _renewalNotifications = [];
+  List<CommissionRecordModel> _pendingCashConfirmations = [];
 
   String _selectedBranchId = 'all'; // 'all' or branchId
   bool _loading = false;
@@ -26,6 +29,7 @@ class OwnerDashboardProvider extends ChangeNotifier {
   List<BranchModel> get branches => _branches;
   Map<String, dynamic>? get assignedTemplate => _assignedTemplate;
   List<Map<String, dynamic>> get renewalNotifications => _renewalNotifications;
+  List<CommissionRecordModel> get pendingCashConfirmations => _pendingCashConfirmations;
 
   String get selectedBranchId => _selectedBranchId;
   bool get loading => _loading;
@@ -40,7 +44,8 @@ class OwnerDashboardProvider extends ChangeNotifier {
   OwnerDashboardProvider({
     FirestoreService? firestoreService,
     FirebaseFirestore? firestore,
-  }) : _db = firestore ?? FirebaseFirestore.instance;
+  })  : _db = firestore ?? FirebaseFirestore.instance,
+        _firestore = firestoreService ?? FirestoreService(db: firestore ?? FirebaseFirestore.instance);
 
   void setSelectedBranch(String branchId) {
     _selectedBranchId = branchId;
@@ -64,6 +69,7 @@ class OwnerDashboardProvider extends ChangeNotifier {
       if (bizSnap.docs.isEmpty) {
         _business = null;
         _branches = [];
+        _pendingCashConfirmations = [];
         _loading = false;
         _error = 'No business associated with this owner account.';
         notifyListeners();
@@ -107,6 +113,22 @@ class OwnerDashboardProvider extends ChangeNotifier {
         _renewalNotifications = [];
       }
 
+      // 5. Fetch pending cash payment verification requests (Doc 06 fraud gate)
+      try {
+        final commSnap = await _db
+            .collection('commission_records')
+            .where('business_id', isEqualTo: _business!.id)
+            .where('payment_mode', isEqualTo: 'cash')
+            .get();
+
+        _pendingCashConfirmations = commSnap.docs
+            .map((d) => CommissionRecordModel.fromDoc(d, businessName: _business!.brandName))
+            .where((r) => r.ownerConfirmed == null && (r.status == 'pending' || r.status == 'disputed'))
+            .toList();
+      } catch (_) {
+        _pendingCashConfirmations = [];
+      }
+
       _loading = false;
       notifyListeners();
     } catch (e) {
@@ -114,6 +136,23 @@ class OwnerDashboardProvider extends ChangeNotifier {
       _error = 'Failed to load owner data: ${e.toString()}';
       notifyListeners();
     }
+  }
+
+  /// Owner responds to cash payment verification request (Doc 06).
+  Future<void> confirmCashPayment({
+    required String recordId,
+    required bool confirmed,
+    String? disputeReason,
+  }) async {
+    await _firestore.ownerConfirmCashPayment(
+      recordId: recordId,
+      confirmed: confirmed,
+      disputeReason: disputeReason,
+    );
+
+    // Remove from in-memory pending list immediately
+    _pendingCashConfirmations.removeWhere((r) => r.id == recordId);
+    notifyListeners();
   }
 
   /// SCALABILITY RULE #1 / #2:

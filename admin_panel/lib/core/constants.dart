@@ -26,12 +26,13 @@ class AppConstants {
   static const int    emulatorStoragePort   = 9199;
 
   // ── Cloud Function names ────────────────────────────────────────────────────
-  static const String fnSearchPlaces      = 'searchPlaces';
-  static const String fnGenerateBranchQr  = 'generateBranchQr';
-  /// Creates a fresh Razorpay Payment Link for a pending_payment draft,
-  /// emails it to the owner, and returns short_url for WhatsApp sharing.
-  /// (Change 3 — resend payment link)
-  static const String fnResendPaymentLink = 'resendPaymentLink';
+  static const String fnSearchPlaces                 = 'searchPlaces';
+  static const String fnGenerateBranchQr             = 'generateBranchQr';
+  static const String fnResendPaymentLink            = 'resendPaymentLink';
+  static const String fnSendCashPaymentVerification  = 'sendCashPaymentVerification';
+  static const String fnConfirmCashPaymentOwner      = 'confirmCashPaymentOwner';
+  static const String fnConfirmCashPaymentAdmin      = 'confirmCashPaymentAdmin';
+  static const String fnMarkCommissionPaidAdmin      = 'markCommissionPaidAdmin';
 
   // ── Star routing option values ──────────────────────────────────────────────
   static const String routingThankyou = 'thankyou';
@@ -39,23 +40,17 @@ class AppConstants {
   static const String routingGoogle   = 'google';
 
   // ── Subscription statuses ───────────────────────────────────────────────────
-  /// Draft — enrolled but not yet paid. Invisible to all production lifecycle
-  /// jobs (renewal, counters, notifications). Visible in the employee list only.
   static const String statusPendingPayment = 'pending_payment';
   static const String statusActive         = 'active';
   static const String statusGracePeriod    = 'grace_period';
   static const String statusDeleted        = 'deleted';
 
-  // ── Standee fulfillment statuses (Change 2) ─────────────────────────────────
-  /// Four-state lifecycle for the physical acrylic standee.
-  /// Stored on branches/{id}.standee_status; updated by the employee on-site.
-  /// Set to [standeeNotOrdered] when the branch is first activated.
+  // ── Standee fulfillment statuses ────────────────────────────────────────────
   static const String standeeNotOrdered = 'not_ordered';
   static const String standeePrinted    = 'printed';
   static const String standeeShipped    = 'shipped';
   static const String standeeDelivered  = 'delivered';
 
-  /// Ordered progression used by the standee status picker UI.
   static const List<String> standeeStatuses = [
     standeeNotOrdered,
     standeePrinted,
@@ -63,7 +58,6 @@ class AppConstants {
     standeeDelivered,
   ];
 
-  /// Human-readable labels for each standee status value.
   static const Map<String, String> standeeStatusLabels = {
     standeeNotOrdered: 'Not ordered',
     standeePrinted:    'Printed',
@@ -71,17 +65,14 @@ class AppConstants {
     standeeDelivered:  'Delivered',
   };
 
-  // ── Logo upload quality gate (Change 4) ─────────────────────────────────────
-  /// Minimum dimension (width AND height) in pixels required for a logo upload.
-  /// Logos are printed on the acrylic standee — anything below this size
-  /// will render blurry at 300 dpi. Rejection is client-side; never silently
-  /// downscale and accept.
+  // ── Logo upload quality gate ────────────────────────────────────────────────
   static const int minLogoPx = 500;
 
-  // ── Commission statuses ─────────────────────────────────────────────────────
+  // ── Commission statuses (Doc 06) ────────────────────────────────────────────
   static const String commPending  = 'pending';
   static const String commVerified = 'verified';
   static const String commPaid     = 'paid';
+  static const String commDisputed = 'disputed';
 
   // ── Renewal period ──────────────────────────────────────────────────────────
   static const int renewalDays = 365;

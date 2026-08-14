@@ -417,20 +417,175 @@ class FirestoreService {
         });
   }
 
-  /// Creates a cash commission record (status = "pending").
-  /// Two-step verification (doc 06) is deferred — record stays pending.
-  Future<void> logCashPayment({
+  /// Creates a cash commission record (status = "pending") and triggers owner verification.
+  Future<String> logCashPayment({
     required String employeeId,
     required String businessId,
     required double amount,
   }) async {
-    await _db.collection(AppConstants.colCommission).add(
+    final docRef = await _db.collection(AppConstants.colCommission).add(
       CommissionRecordModel.newCashRecord(
         employeeId: employeeId,
         businessId: businessId,
         amount: amount,
       ),
     );
+
+    // Trigger owner verification email/notification (Doc 06 & 08)
+    try {
+      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+      await fn.httpsCallable(AppConstants.fnSendCashPaymentVerification).call({
+        'commissionRecordId': docRef.id,
+      });
+    } catch (_) {
+      // Best-effort notification delivery
+    }
+
+    return docRef.id;
+  }
+
+  /// Real-time stream of pending cash payments requiring owner verification for a business.
+  Stream<List<CommissionRecordModel>> watchPendingCashConfirmationsForOwner(String businessId) {
+    return _db
+        .collection(AppConstants.colCommission)
+        .where('business_id', isEqualTo: businessId)
+        .where('payment_mode', isEqualTo: 'cash')
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => CommissionRecordModel.fromDoc(doc))
+            .where((r) => r.ownerConfirmed == null && (r.status == 'pending' || r.status == 'disputed'))
+            .toList());
+  }
+
+  /// Owner confirms (true) or disputes (false) a cash payment (Doc 06).
+  Future<void> ownerConfirmCashPayment({
+    required String recordId,
+    required bool confirmed,
+    String? disputeReason,
+  }) async {
+    try {
+      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+      await fn.httpsCallable(AppConstants.fnConfirmCashPaymentOwner).call({
+        'commissionRecordId': recordId,
+        'confirmed': confirmed,
+        if (disputeReason != null) 'disputeReason': disputeReason,
+      });
+    } catch (_) {
+      // Direct Firestore fallback
+      final docRef = _db.collection(AppConstants.colCommission).doc(recordId);
+      final snap = await docRef.get();
+      if (!snap.exists) throw Exception('Commission record not found');
+      final data = snap.data() ?? {};
+      final adminConfirmed = data['admin_confirmed'] == true;
+
+      final updateData = <String, dynamic>{
+        'owner_confirmed': confirmed,
+        'owner_confirmed_at': FieldValue.serverTimestamp(),
+        'owner_response': confirmed ? 'confirmed' : 'disputed',
+      };
+
+      if (confirmed) {
+        updateData['disputed'] = false;
+        if (adminConfirmed) {
+          updateData['status'] = AppConstants.commVerified;
+          updateData['date_verified'] = FieldValue.serverTimestamp();
+        }
+      } else {
+        updateData['disputed'] = true;
+        updateData['dispute_reason'] = disputeReason ?? 'Owner reported payment was not made';
+        updateData['status'] = AppConstants.commDisputed;
+      }
+
+      await docRef.update(updateData);
+    }
+  }
+
+  /// Admin Queue: Stream of cash commission records requiring admin verification (Doc 04 / 06).
+  Stream<List<CommissionRecordModel>> watchCommissionVerificationQueue() {
+    return _db
+        .collection(AppConstants.colCommission)
+        .where('payment_mode', isEqualTo: 'cash')
+        .snapshots()
+        .asyncMap((snap) async {
+          final results = <CommissionRecordModel>[];
+          for (final doc in snap.docs) {
+            final rec = CommissionRecordModel.fromDoc(doc);
+            if (rec.status == AppConstants.commPending || rec.status == AppConstants.commDisputed) {
+              String? bizName;
+              try {
+                final biz = await _db.collection(AppConstants.colBusinesses).doc(rec.businessId).get();
+                bizName = biz.data()?['brand_name'] as String?;
+              } catch (_) {}
+              results.add(CommissionRecordModel.fromDoc(doc, businessName: bizName));
+            }
+          }
+          return results;
+        });
+  }
+
+  /// Admin approves physical cash receipt (Doc 06).
+  Future<void> adminConfirmCashPayment({
+    required String recordId,
+    required String adminUid,
+    String? notes,
+  }) async {
+    try {
+      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+      await fn.httpsCallable(AppConstants.fnConfirmCashPaymentAdmin).call({
+        'commissionRecordId': recordId,
+        if (notes != null) 'notes': notes,
+      });
+    } catch (_) {
+      final docRef = _db.collection(AppConstants.colCommission).doc(recordId);
+      final snap = await docRef.get();
+      if (!snap.exists) throw Exception('Commission record not found');
+      final data = snap.data() ?? {};
+      final ownerConfirmed = data['owner_confirmed'] == true;
+      final isDisputed = data['disputed'] == true;
+
+      final updateData = <String, dynamic>{
+        'admin_confirmed': true,
+        'admin_confirmed_by': adminUid,
+        'admin_confirmed_at': FieldValue.serverTimestamp(),
+      };
+      if (notes != null) updateData['admin_notes'] = notes;
+
+      if (ownerConfirmed && !isDisputed) {
+        updateData['status'] = AppConstants.commVerified;
+        updateData['date_verified'] = FieldValue.serverTimestamp();
+      }
+
+      await docRef.update(updateData);
+    }
+  }
+
+  /// Admin marks a verified commission record as paid with payout reference (Doc 06).
+  Future<void> markCommissionPaid({
+    required String recordId,
+    required String payoutReference,
+    required String adminUid,
+  }) async {
+    try {
+      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+      await fn.httpsCallable(AppConstants.fnMarkCommissionPaidAdmin).call({
+        'commissionRecordId': recordId,
+        'payoutReference': payoutReference,
+      });
+    } catch (_) {
+      final docRef = _db.collection(AppConstants.colCommission).doc(recordId);
+      final snap = await docRef.get();
+      if (!snap.exists) throw Exception('Commission record not found');
+      final data = snap.data() ?? {};
+      if (data['status'] != AppConstants.commVerified) {
+        throw Exception("Only 'verified' commission records can be marked as paid.");
+      }
+
+      await docRef.update({
+        'status': AppConstants.commPaid,
+        'payout_reference': payoutReference,
+        'date_paid': FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   // ── Employee profile (My Profile screen) ────────────────────────────────

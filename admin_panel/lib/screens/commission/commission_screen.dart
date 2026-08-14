@@ -162,17 +162,42 @@ class _RecordCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '$amountStr · ${record.paymentMode} · $dateStr',
+              '$amountStr · ${record.paymentMode.toUpperCase()} · $dateStr',
               style: const TextStyle(fontSize: 12),
             ),
-            if (record.status == 'pending')
-              Text(
-                '⏳ Pending admin verification (doc 06)',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            const SizedBox(height: 4),
+            if (isCash && record.status == 'pending') ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  _VerificationChip(
+                    label: 'Admin: ${record.adminConfirmed ? '✓ Received' : 'Pending'}',
+                    confirmed: record.adminConfirmed,
+                  ),
+                  _VerificationChip(
+                    label: 'Owner: ${record.ownerConfirmed == true ? '✓ Confirmed' : (record.disputed ? '⚠️ Disputed' : 'Pending')}',
+                    confirmed: record.ownerConfirmed == true,
+                    isDisputed: record.disputed,
+                  ),
+                ],
               ),
+            ] else if (record.isDisputed) ...[
+              Text(
+                '⚠️ Disputed by business owner: ${record.disputeReason ?? "Payment unconfirmed"}',
+                style: const TextStyle(fontSize: 11, color: Colors.redAccent),
+              ),
+            ] else if (record.isPaid && record.payoutReference != null) ...[
+              Text(
+                '✓ Payout Reference: ${record.payoutReference}',
+                style: const TextStyle(fontSize: 11, color: AppColors.activeFg),
+              ),
+            ] else if (record.isVerified) ...[
+              const Text(
+                '✓ Verified (queued for payout)',
+                style: TextStyle(fontSize: 11, color: AppColors.secondary),
+              ),
+            ],
           ],
         ),
         trailing: Container(
@@ -183,15 +208,54 @@ class _RecordCard extends StatelessWidget {
             border:       Border.all(color: statusFg.withValues(alpha: 0.4), width: 0.8),
           ),
           child: Text(
-            record.status,
+            record.status.toUpperCase(),
             style: TextStyle(
-              fontSize:   11,
-              fontWeight: FontWeight.w600,
+              fontSize:   10,
+              fontWeight: FontWeight.w700,
               color:      statusFg,
             ),
           ),
         ),
         isThreeLine: true,
+      ),
+    );
+  }
+}
+
+class _VerificationChip extends StatelessWidget {
+  final String label;
+  final bool confirmed;
+  final bool isDisputed;
+
+  const _VerificationChip({
+    required this.label,
+    required this.confirmed,
+    this.isDisputed = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDisputed
+        ? Colors.red.withValues(alpha: 0.12)
+        : confirmed
+            ? AppColors.activeBg
+            : AppColors.pendingBg;
+    final fg = isDisputed
+        ? Colors.red
+        : confirmed
+            ? AppColors.activeFg
+            : AppColors.pendingFg;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: fg.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg),
       ),
     );
   }
@@ -250,7 +314,7 @@ class _LogCashDialogState extends State<_LogCashDialog> {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:         Text('✅ Cash payment logged (pending verification)'),
+          content:         Text('✅ Cash payment logged (verification request sent to owner)'),
           backgroundColor: AppColors.activeFg,
         ),
       );
@@ -300,14 +364,35 @@ class _LogCashDialogState extends State<_LogCashDialog> {
                   style: TextStyle(color: scheme.error, fontSize: 12),
                 ),
               ],
-              const SizedBox(height: 8),
-              Text(
-                // [NOTE] Two-step verification (doc 06) is not yet built.
-                '⚠️ This creates a pending record. '
-                'Admin will verify the payment before it counts as commission.',
-                style: TextStyle(
-                  fontSize: 11,
-                  color:    scheme.onSurfaceVariant,
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.shield_outlined, size: 16, color: scheme.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Two-Step Fraud Prevention Gate (Doc 06)',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: scheme.primary),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '1. An automated verification notice is sent to the business owner.\n'
+                      '2. Admin verifies physical cash receipt in the verification queue.\n'
+                      'Status flips to "verified" only when BOTH confirmations are in.',
+                      style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, height: 1.4),
+                    ),
+                  ],
                 ),
               ),
             ],

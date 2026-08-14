@@ -29,6 +29,9 @@
  *   renewalLifecycle   (scheduled) — Daily: active → grace_period →
  *                                    deleted. Never deletes
  *                                    commission_records.
+ *   cleanupAbandonedDrafts (scheduled) — Daily cleanup of old drafts.
+ *   resendPaymentLink  (callable) — Resends payment link to draft owner.
+ *   provisionOwner     (callable) — Provisions owner Firebase Auth account.
  *
  * ─── Notifications (doc 08) ──────────────────────────────────────
  * (see docs/08-notifications-system.md)
@@ -40,6 +43,12 @@
  *   sendCashPaymentVerification (callable) — doc 06 fraud prevention;
  *                            "Did you pay ₹X in cash to [Employee]?"
  *                            Reuses same email + notifications infra.
+ *
+ * ─── Commission Tracking (doc 06) ────────────────────────────────
+ * (see docs/06-commission-tracking.md)
+ *   confirmCashPaymentOwner (callable) — Owner confirms/disputes cash payment.
+ *   confirmCashPaymentAdmin (callable) — Admin approves physical cash receipt.
+ *   markCommissionPaidAdmin (callable) — Admin marks verified record as paid.
  */
 
 import {setGlobalOptions} from "firebase-functions/v2";
@@ -61,7 +70,6 @@ export {
   razorpayWebhook,
   renewalLifecycle,
   cleanupAbandonedDrafts,
-  /// Change 3: resend a Razorpay Payment Link to a pending_payment draft owner.
   resendPaymentLink,
   provisionOwner,
 } from "./razorpay.js";
@@ -70,3 +78,9 @@ export {
   sendAdminDigest,
   sendCashPaymentVerification,
 } from "./notifications.js";
+export {
+  onCashCommissionCreated,
+  confirmCashPaymentOwner,
+  confirmCashPaymentAdmin,
+  markCommissionPaidAdmin,
+} from "./commissions.js";

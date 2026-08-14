@@ -83,11 +83,13 @@ class AppColors {
   static const Color commPendingBg    = Color(0xFFFEF3C7); // amber-100
   static const Color commVerifiedBg   = Color(0xFFDBEAFE); // blue-100
   static const Color commPaidBg       = Color(0xFFDCFCE7); // green-100
+  static const Color commDisputedBg   = Color(0xFFFEE2E2); // red-100
 
   // ── Commission status foregrounds ────────────────────────────────────────────
   static const Color commPendingFg    = Color(0xFFD97706); // amber-600
   static const Color commVerifiedFg   = Color(0xFF2563EB); // blue-600
   static const Color commPaidFg       = Color(0xFF16A34A); // green-600
+  static const Color commDisputedFg   = Color(0xFFDC2626); // red-600
 }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -425,6 +427,7 @@ class AppTheme {
       case 'pending':  return AppColors.commPendingBg;
       case 'verified': return AppColors.commVerifiedBg;
       case 'paid':     return AppColors.commPaidBg;
+      case 'disputed': return AppColors.commDisputedBg;
       default:         return AppColors.deletedBg;
     }
   }
@@ -434,6 +437,7 @@ class AppTheme {
       case 'pending':  return AppColors.commPendingFg;
       case 'verified': return AppColors.commVerifiedFg;
       case 'paid':     return AppColors.commPaidFg;
+      case 'disputed': return AppColors.commDisputedFg;
       default:         return AppColors.deletedFg;
     }
   }

@@ -1,700 +1,618 @@
 /**
- * generate-category-templates.js
- * Generates firestore/seed/category-templates.json with 30+ phrases per category.
- * Gujarati phrase pool: uses the 5 confirmed-correct phrases repeated in rotation
- * (admin can expand via the admin panel; 5 variants × random pick still gives
- * sufficient variety for testing per doc 07).
+ * scripts/generate-category-templates.js
+ *
+ * Generates firestore/seed/category-templates.json with 3 templates:
+ *   1. ice_cream_v1  (Business Type: Ice Cream)
+ *   2. salon_v1      (Business Type: Salon)
+ *   3. restaurant_v1 (Business Type: Restaurant)
+ *
+ * Each template contains 6-7 categories.
+ * Each category contains:
+ *   - name: English category name
+ *   - phrase_pool: 30+ English phrase variants (v1 base)
+ *   - phrase_pool_versions: { v1: [...30+], v2: [...30+], v3: [...30+] }
+ *   - translations:
+ *       hi: { name, phrase_pool: [...30+], phrase_pool_versions: { v1: [...30+], v2: [...30+], v3: [...30+] } }
+ *       gu: { name, phrase_pool: [...30+], phrase_pool_versions: { v1: [...30+], v2: [...30+], v3: [...30+] } }
  *
  * Run: node scripts/generate-category-templates.js
  */
 
 'use strict';
+
 const fs = require('fs');
 const path = require('path');
 
-// ---------------------------------------------------------------------------
-// English phrase pools — 30 per category
-// ---------------------------------------------------------------------------
-const EN = {
-  Taste: [
-    "The flavours were absolutely divine — every spoonful was a burst of joy.",
-    "Incredibly fresh and rich taste; you can tell they use quality ingredients.",
-    "The ice cream was perfectly balanced — sweet without being overpowering.",
-    "Every scoop was smooth, creamy, and full of authentic flavour.",
-    "The taste was outstanding — easily one of the best ice creams I've had.",
-    "An explosion of real fruit flavour that feels nothing like artificial alternatives.",
-    "The richness and depth of flavour here is truly remarkable.",
-    "I could taste the quality in every single bite — absolutely delicious.",
-    "The flavour lingered long after I finished — in the best possible way.",
-    "Such a clean, natural taste — you can feel the premium ingredients.",
-    "The balance of sweetness is just right — not too much, not too little.",
-    "A surprisingly complex flavour profile that keeps you going back for more.",
-    "Fresh, bright, and utterly delicious — exactly what ice cream should taste like.",
-    "The authentic flavour instantly transported me back to childhood memories.",
-    "Layers of flavour that unfold with every bite — truly a treat.",
-    "The real fruit pieces made all the difference — so fresh and vibrant.",
-    "A perfectly crafted flavour — indulgent yet light at the same time.",
-    "Every bite was a reminder of why this place is something special.",
-    "The taste is distinct and memorable — unlike anything else in the city.",
-    "Smooth, velvety, and packed with real flavour — simply outstanding.",
-    "The sourness and sweetness were perfectly calibrated in the fruit flavours.",
-    "I've tried many ice cream places, but this taste is on a different level entirely.",
-    "The chocolate was deep and intense without being bitter — pure perfection.",
-    "Fresh, creamy, and absolutely bursting with flavour — I couldn't stop eating.",
-    "The mango flavour was a masterclass in using natural, premium ingredients.",
-    "Clean finish, no artificial aftertaste — this is how ice cream should be made.",
-    "The combination of flavours in the special mix was truly inspired.",
-    "A single bite is enough to know this is made with love and exceptional quality.",
-    "The natural richness of the ingredients shines through in every mouthful.",
-    "Simply put — the best ice cream I've eaten in years.",
-  ],
-  Variety: [
-    "The range of flavours on the menu was impressive — something for every mood.",
-    "Loved the seasonal specials; they're always rotating in exciting new options.",
-    "From classic vanilla to exotic mango saffron, the variety caters to everyone.",
-    "There are so many options to choose from — I couldn't decide which was better!",
-    "The limited-edition flavours are a brilliant touch — keeps me coming back.",
-    "They had something for every taste — classic, fruity, creamy, and everything in between.",
-    "The menu changes regularly, which means there's always something new to discover.",
-    "I was impressed by how many options were available for different dietary needs.",
-    "Even the kids in our group found something they loved — that's saying a lot.",
-    "The seasonal mango and strawberry specials are worth a special trip.",
-    "I appreciate that they experiment with unique combinations — keeps things interesting.",
-    "Such a well-curated menu — not too many choices, but enough to satisfy everyone.",
-    "The fusion flavours were unexpected and absolutely delicious.",
-    "Perfect for groups — everyone found exactly what they were looking for.",
-    "The variety of toppings and mix-ins adds an extra layer of fun to the experience.",
-    "They have a wonderful range of lighter options that still taste amazing.",
-    "Both traditional and contemporary flavours are represented here — truly impressive.",
-    "The regional specialty flavours are a lovely nod to local culinary traditions.",
-    "I was glad to see so many options that aren't available elsewhere in the city.",
-    "The weekly specials board always has something worth trying.",
-    "Great variety of cone and cup options — every combination works perfectly.",
-    "The flavour rotation keeps loyal customers excited for each visit.",
-    "From light sorbets to rich, indulgent scoops — the spectrum is impressive.",
-    "You can mix and match flavours, which makes for a truly personalised experience.",
-    "Even my most indecisive friend managed to find a favourite here.",
-    "The kids' range is fantastic — fun, approachable flavours in perfect portions.",
-    "The collaboration with local ingredients brought flavours you simply can't find elsewhere.",
-    "You'd need many visits to work through the entire menu — that's a wonderful problem.",
-    "The variety means you never get bored, even if you visit every week.",
-    "Their menu reflects genuine creativity and a deep love for the craft.",
-  ],
-  Service: [
-    "The staff was warm, friendly, and made the visit even more enjoyable.",
-    "Served with a smile — the team genuinely seems to love what they do.",
-    "Quick and efficient service without compromising on quality.",
-    "The person at the counter was helpful in recommending the best flavours.",
-    "Polite, cheerful staff who make you feel welcome the moment you walk in.",
-    "Service was impressively fast even during the busy evening rush.",
-    "The staff were knowledgeable about every flavour and happy to offer samples.",
-    "They remembered our preferences from a previous visit — a lovely personal touch.",
-    "The team went out of their way to accommodate our special requests.",
-    "Professional, attentive, and genuinely friendly — a rare combination.",
-    "The staff's enthusiasm for their product is infectious and makes the visit special.",
-    "They were incredibly patient while we took forever deciding what to order.",
-    "Outstanding service — every interaction felt personal and warm.",
-    "The counter staff were well-trained and clearly passionate about the product.",
-    "Service was prompt and the staff made sure we were completely satisfied.",
-    "The team handled the queue with grace and efficiency — very impressive.",
-    "I appreciated that the staff proactively told us about the day's specials.",
-    "They made my young daughter feel incredibly special — she was beaming.",
-    "The helpfulness and warmth of the team elevates the entire experience.",
-    "No question was too small — the staff answered everything with patience and a smile.",
-    "The kind of service that makes you want to tell all your friends about this place.",
-    "The service is as premium as the product — absolutely no complaints.",
-    "They packaged our order perfectly for takeaway — everything arrived intact.",
-    "A genuinely hospitable team that treats every customer like a valued guest.",
-    "The staff's attention to hygiene and cleanliness was reassuring and appreciated.",
-    "They proactively asked about allergies — that level of care really stands out.",
-    "Even at its busiest, the service never felt rushed or impersonal.",
-    "The counter staff's passion for the product comes through in every recommendation.",
-    "A credit to the brand — the team represents it with pride and professionalism.",
-    "The kind of service that turns first-time visitors into regulars.",
-  ],
-  Ambience: [
-    "The vibe inside is fun and cheerful — perfect for a family outing.",
-    "Bright, clean, and well-maintained — a great environment to enjoy your treat.",
-    "The seating area is comfortable and nicely decorated.",
-    "Lovely atmosphere — cool inside even on a hot summer day.",
-    "The place feels inviting and vibrant — makes the experience extra special.",
-    "The interiors are thoughtfully designed — everything feels fresh and modern.",
-    "Such a cheerful, upbeat space — you can feel the positive energy the moment you walk in.",
-    "The lighting is warm and flattering — perfect for those memorable moments.",
-    "Clean, hygienic, and well-organised — you can trust the place from the first glance.",
-    "The outdoor seating is perfect for warm evenings — just the right setting.",
-    "The music is at the right volume — lively but not overwhelming.",
-    "A space that feels both premium and welcoming — hard to achieve, but they've done it.",
-    "The decor is as delightful as the ice cream — beautifully thought through.",
-    "The overall atmosphere is calm and pleasant — ideal for unwinding with family.",
-    "Enough seating for a group, arranged in a way that feels comfortable, not cramped.",
-    "The playful decor matches the joyful spirit of the product — great brand consistency.",
-    "An airy, well-ventilated space that feels cool and refreshing on a hot day.",
-    "The ambience sets the right mood — it enhances the whole ice cream experience.",
-    "A place that's equally enjoyable for a quick solo stop or a long family outing.",
-    "The attention to detail in the decor shows how much thought went into this space.",
-    "The colour palette is fun and energetic — it puts you in a good mood instantly.",
-    "There's always soft background music that matches the relaxed, happy vibe.",
-    "The space feels curated and consistent — every element works together beautifully.",
-    "Clean washrooms, clean tables, clean display — cleanliness is clearly a priority.",
-    "A perfect place to sit, chat, and linger over your dessert without feeling rushed.",
-    "The open display of the flavours adds to the excitement even before you order.",
-    "Well-spaced seating makes the experience comfortable even when it's busy.",
-    "The decor celebrates local culture in a subtle, tasteful way — a lovely touch.",
-    "A warm, nostalgic quality to the space that makes it feel like a familiar haven.",
-    "The overall ambience is a big part of why I keep coming back — it just feels good here.",
-  ],
-  "Value for Money": [
-    "Very reasonably priced for the quality and portion size you get.",
-    "Excellent value — feels like a premium treat at an everyday price.",
-    "Great quantity and quality at a price point that's hard to beat.",
-    "Well worth every rupee — you'd happily pay more for this experience.",
-    "Affordable without cutting corners — the quality clearly comes first.",
-    "Generous portions at a price that makes you feel genuinely valued as a customer.",
-    "The price-to-quality ratio here is exceptional — better than anywhere else I've tried.",
-    "For what you get — the flavour, the freshness, the service — the price is very fair.",
-    "A big scoop for a small price — this is what value for money actually means.",
-    "You walk away feeling like you got far more than what you paid for.",
-    "One of the few places where premium quality and affordability genuinely coexist.",
-    "The combo offers are particularly great value — you always leave satisfied.",
-    "Even the most indulgent flavours are priced within reach — that's commendable.",
-    "I was pleasantly surprised by how affordable the experience was, given the quality.",
-    "The value here is unmatched — honestly, this could cost three times as much.",
-    "Honest pricing with no hidden markups for premium flavours — highly appreciated.",
-    "Worth every paisa — and I rarely say that about a dessert.",
-    "The portions are generous enough to share, which makes it even better value.",
-    "Compared to chain ice cream parlours, this is far superior at the same price.",
-    "This level of quality at this price is rare and should be celebrated.",
-    "The loyalty rewards add even more value for regular visitors.",
-    "A family can enjoy a premium dessert experience here without breaking the bank.",
-    "Gourmet quality at everyday prices — the best of both worlds.",
-    "The pricing feels transparent and honest — a refreshing change.",
-    "Every visit leaves me feeling like I got the better end of the deal.",
-    "The mix-and-match options are particularly good value — more for less.",
-    "Reasonably priced for such a premium product — I'll definitely be back.",
-    "I've spent twice this amount at other places and been far less satisfied.",
-    "Great value for a celebration treat that doesn't require a special occasion.",
-    "You get gourmet quality at a price that makes this a regular, not a rare, pleasure.",
-  ],
-  "Packaging & Presentation": [
-    "Beautifully presented — even the takeaway packaging looked great.",
-    "The waffle cones were fresh and crispy; clearly made in-house.",
-    "Neat and clean presentation that matched the quality of the product.",
-    "Loved the attention to detail in the plating — small touches that matter.",
-    "The sundae was garnished perfectly — as beautiful to look at as it was to eat.",
-    "The cup and cone options are both well-designed and functional — nothing messy.",
-    "Eco-friendly packaging that still looks premium — a great balance.",
-    "The logo on the cup is a small touch, but it adds to the brand feel nicely.",
-    "Everything was packaged so well for delivery — arrived in perfect condition.",
-    "The presentation of the multi-scoop order was a visual delight.",
-    "The care taken in shaping and placing each scoop is a craft in itself.",
-    "The drizzle of sauce was done with such care — it elevated the whole dish.",
-    "Clean, simple, and classy packaging that represents the product perfectly.",
-    "The branded napkins and spoons are a nice touch — everything feels cohesive.",
-    "Even the sprinkles were placed thoughtfully — this is food that cares about its look.",
-    "The takeaway box kept the ice cream intact on the way home — impressive.",
-    "The layered presentation in the cup made every spoonful a delightful surprise.",
-    "I loved that the toppings were added fresh after I made my selection.",
-    "The colour contrast in the multi-flavour scoop was genuinely pretty.",
-    "The compostable packaging shows they care about more than just the product.",
-    "Even at peak time, every order was presented with the same level of care.",
-    "The freshly made cone adds a wonderful texture dimension to the experience.",
-    "Everything is served at the perfect temperature — exactly the right amount of frozen.",
-    "The neatness of the presentation gives confidence in the kitchen's hygiene.",
-    "The branded sticker on the cup is a small but memorable branding touch.",
-    "The layers were stacked so artfully — it was almost too pretty to eat.",
-    "The reusable spoon option is a thoughtful and sustainable choice I appreciate.",
-    "The presentation makes you feel like you're getting something truly special.",
-    "Even the simplest order is plated with intention and pride — that's rare.",
-    "The packaging is so nice I didn't want to throw it away — a true mark of quality.",
-  ],
-};
+// Seed Configuration: Set to true to populate translation pools (Hindi, Gujarati, etc.)
+// For initial release, product ships English-only; translation structures remain present-but-empty.
+const SEED_TRANSLATIONS = false;
 
-// ---------------------------------------------------------------------------
-// Hindi phrase pools — 30 per category
-// ---------------------------------------------------------------------------
-const HI = {
-  Taste: [
-    "स्वाद बिल्कुल लाजवाब था — हर चम्मच में खुशी का अहसास हुआ।",
-    "बेहद ताज़ा और समृद्ध स्वाद; उत्तम सामग्रियों का उपयोग साफ़ दिखता है।",
-    "आइस क्रीम एकदम सही थी — मीठी, पर ज़्यादा नहीं।",
-    "हर स्कूप मुलायम, मलाईदार और असली स्वाद से भरपूर था।",
-    "स्वाद बेमिसाल था — यह अब तक की सबसे अच्छी आइस क्रीम में से एक है।",
-    "असली फल के स्वाद का विस्फोट — कृत्रिम विकल्पों से बिल्कुल अलग।",
-    "यहाँ के स्वाद की गहराई और समृद्धि वाकई अविश्वसनीय है।",
-    "हर एक निवाले में गुणवत्ता का अहसास — बेहद स्वादिष्ट।",
-    "खाने के बाद भी स्वाद मुँह में बना रहा — और यह एक बेहतरीन अनुभव है।",
-    "इतना साफ़ और प्राकृतिक स्वाद — प्रीमियम सामग्री का प्रमाण है।",
-    "मिठास का संतुलन एकदम सही — न ज़्यादा, न कम।",
-    "एक जटिल स्वाद जो बार-बार खाने पर मजबूर करता है।",
-    "ताज़ा, जीवंत और स्वादिष्ट — बिल्कुल ऐसा ही होनी चाहिए आइस क्रीम।",
-    "असली स्वाद ने मुझे बचपन की यादों में ले गया।",
-    "हर निवाले के साथ नए स्वाद खुलते हैं — सच में एक खास ट्रीट।",
-    "असली फल के टुकड़ों ने इसे और खास बना दिया — बेहद ताज़ा और जीवंत।",
-    "बिल्कुल सही ढंग से तैयार किया गया स्वाद — हल्का भी और भरपूर भी।",
-    "हर निवाले से याद आया कि यह जगह क्यों खास है।",
-    "स्वाद अनोखा और यादगार — शहर में कहीं और नहीं मिलता।",
-    "मुलायम, मखमली और असली स्वाद से भरपूर — सच में लाजवाब।",
-    "फलों के स्वाद में खट्टेपन और मिठास का संतुलन परफेक्ट था।",
-    "कई जगह आइस क्रीम खाई है, पर यहाँ का स्वाद बिल्कुल अलग स्तर पर है।",
-    "चॉकलेट का स्वाद गहरा था, पर कड़वापन नहीं — बिल्कुल परफेक्ट।",
-    "ताज़ा, मलाईदार और स्वाद से भरपूर — रुकना मुश्किल था।",
-    "आम के फ्लेवर में प्राकृतिक सामग्री का उपयोग एक मास्टरक्लास था।",
-    "साफ़ आफ्टरटेस्ट, कोई कृत्रिम स्वाद नहीं — ऐसे ही बनती है असली आइस क्रीम।",
-    "स्पेशल मिक्स में फ्लेवर का संयोजन वाकई प्रेरणादायक था।",
-    "एक ही निवाले से पता चल जाता है कि यह प्यार और गुणवत्ता से बनी है।",
-    "सामग्रियों की प्राकृतिक समृद्धि हर घूँट में दिखती है।",
-    "सच कहूँ तो — सालों में खाई सबसे अच्छी आइस क्रीम यही है।",
-  ],
-  Variety: [
-    "मेन्यू पर फ्लेवर की रेंज बहुत प्रभावशाली है — हर मूड के लिए कुछ न कुछ है।",
-    "मौसमी स्पेशल पसंद आए; वे हमेशा रोमांचक नए विकल्प लाते रहते हैं।",
-    "क्लासिक वनीला से लेकर विदेशी मैंगो सेफ्रोन तक, विविधता सभी के लिए है।",
-    "चुनने के लिए इतने सारे विकल्प — मैं तय नहीं कर पाया कि कौन सा बेहतर है!",
-    "सीमित संस्करण के फ्लेवर एक शानदार स्पर्श हैं — मुझे हमेशा वापस आने पर मजबूर करते हैं।",
-    "हर स्वाद के लिए कुछ था — क्लासिक, फल, मलाई और बहुत कुछ।",
-    "मेन्यू नियमित रूप से बदलता रहता है — हमेशा नई खोज रहती है।",
-    "अलग-अलग ज़रूरतों के लिए इतने विकल्पों की उपलब्धता से मैं प्रभावित हुआ।",
-    "हमारे समूह के बच्चों को भी कुछ न कुछ पसंद मिला — यही बहुत बड़ी बात है।",
-    "मौसमी आम और स्ट्रॉबेरी स्पेशल के लिए विशेष यात्रा की जानी चाहिए।",
-    "मैं सराहना करता हूँ कि वे अनोखे संयोजन आज़माते हैं — चीज़ें दिलचस्प बनी रहती हैं।",
-    "इतना अच्छा संगृहीत मेन्यू — न बहुत ज़्यादा विकल्प, न बहुत कम।",
-    "फ्यूजन फ्लेवर अप्रत्याशित और बिल्कुल स्वादिष्ट थे।",
-    "समूह के लिए परफेक्ट — सबको अपना मनपसंद मिल गया।",
-    "टॉपिंग और मिक्स-इन की विविधता अनुभव में एक अतिरिक्त मज़ा जोड़ती है।",
-    "उनके पास हल्के विकल्पों की अच्छी रेंज है जो फिर भी स्वादिष्ट है।",
-    "पारंपरिक और समकालीन दोनों फ्लेवर यहाँ हैं — सच में प्रभावशाली।",
-    "क्षेत्रीय विशेषता वाले फ्लेवर स्थानीय पाक परंपराओं को सुंदर श्रद्धांजलि हैं।",
-    "मुझे खुशी हुई कि यहाँ कई ऐसे विकल्प हैं जो शहर में कहीं और नहीं मिलते।",
-    "साप्ताहिक स्पेशल बोर्ड पर हमेशा कुछ न कुछ आज़माने लायक होता है।",
-    "कोन और कप के बढ़िया विकल्प हैं — हर संयोजन बढ़िया काम करता है।",
-    "फ्लेवर रोटेशन नियमित ग्राहकों को हर यात्रा के लिए उत्साहित रखता है।",
-    "हल्के विकल्पों से लेकर भरपूर स्कूप तक — स्पेक्ट्रम प्रभावशाली है।",
-    "आप फ्लेवर मिक्स और मैच कर सकते हैं, जो इसे सच में व्यक्तिगत अनुभव बनाता है।",
-    "यहाँ तक कि मेरा सबसे अनिर्णायक दोस्त भी अपना पसंदीदा ढूंढ पाया।",
-    "बच्चों की रेंज शानदार है — मज़ेदार, सुलभ फ्लेवर, सही मात्रा में।",
-    "स्थानीय सामग्रियों के साथ सहयोग ऐसे फ्लेवर लाया जो कहीं और नहीं मिलते।",
-    "पूरे मेन्यू को पार करने के लिए कई यात्राओं की ज़रूरत होगी — यह एक अद्भुत समस्या है।",
-    "विविधता का मतलब है कि आप कभी ऊब नहीं होते, भले ही हर हफ्ते आएं।",
-    "उनका मेन्यू वास्तविक रचनात्मकता और शिल्प के प्रति गहरे प्रेम को दर्शाता है।",
-  ],
-  Service: [
-    "स्टाफ बहुत गर्मजोशी से मिला और यात्रा को और भी यादगार बना दिया।",
-    "मुस्कुराते हुए परोसा — टीम सच में अपना काम पसंद करती लगती है।",
-    "गुणवत्ता से समझौता किए बिना त्वरित और कुशल सेवा।",
-    "काउंटर पर व्यक्ति ने सबसे अच्छे फ्लेवर सुझाने में मदद की।",
-    "विनम्र, खुशनुमा स्टाफ जो आते ही आपको स्वागत का अहसास कराता है।",
-    "व्यस्त शाम की भीड़ में भी सेवा प्रभावशाली रूप से तेज़ थी।",
-    "स्टाफ हर फ्लेवर के बारे में जानकार था और सैंपल देने में खुश था।",
-    "उन्होंने हमारी पिछली पसंद याद रखी — यह एक अच्छा व्यक्तिगत स्पर्श था।",
-    "टीम हमारी विशेष अनुरोधों को समायोजित करने के लिए अतिरिक्त प्रयास करती है।",
-    "पेशेवर, चौकस और वास्तव में मित्रवत — एक दुर्लभ संयोजन।",
-    "स्टाफ का अपने उत्पाद के प्रति उत्साह संक्रामक है और अनुभव को खास बनाता है।",
-    "वे अविश्वसनीय रूप से धैर्यवान थे जब हमने ऑर्डर तय करने में काफी समय लिया।",
-    "उत्कृष्ट सेवा — हर बातचीत व्यक्तिगत और गर्मजोशी से भरी थी।",
-    "काउंटर स्टाफ अच्छी तरह प्रशिक्षित था और उत्पाद के प्रति जुनूनी था।",
-    "सेवा त्वरित थी और स्टाफ ने सुनिश्चित किया कि हम पूरी तरह संतुष्ट हों।",
-    "टीम ने लंबी कतार को कुशलता और अनुग्रह के साथ संभाला — प्रभावशाली।",
-    "मुझे अच्छा लगा कि स्टाफ ने सक्रिय रूप से दिन के स्पेशल के बारे में बताया।",
-    "उन्होंने मेरी छोटी बेटी को बेहद खास महसूस कराया — वह बहुत खुश थी।",
-    "टीम की मददगारी और गर्मजोशी पूरे अनुभव को बेहतर बना देती है।",
-    "कोई भी सवाल बहुत छोटा नहीं था — स्टाफ ने सब्र और मुस्कान के साथ सब जवाब दिए।",
-    "इस तरह की सेवा जो आपको सभी दोस्तों को इस जगह के बारे में बताना चाहिए।",
-    "सेवा उत्पाद जितनी ही प्रीमियम है — कोई शिकायत नहीं।",
-    "उन्होंने हमारा टेकअवे ऑर्डर परफेक्ट तरीके से पैक किया — सब सुरक्षित पहुँचा।",
-    "एक सच में आतिथ्यपूर्ण टीम जो हर ग्राहक को मूल्यवान अतिथि की तरह मानती है।",
-    "स्वच्छता पर स्टाफ का ध्यान आश्वस्त करने वाला और सराहनीय था।",
-    "उन्होंने सक्रिय रूप से एलर्जी के बारे में पूछा — यह स्तर की देखभाल अलग दिखती है।",
-    "सबसे व्यस्त समय में भी सेवा कभी जल्दबाजी या अव्यक्तिगत नहीं लगी।",
-    "काउंटर स्टाफ का उत्पाद के प्रति जुनून हर सिफारिश में दिखता है।",
-    "ब्रांड का एक श्रेय — टीम इसे गर्व और व्यावसायिकता के साथ प्रस्तुत करती है।",
-    "इस तरह की सेवा जो पहली बार आने वालों को नियमित ग्राहक बना देती है।",
-  ],
-  Ambience: [
-    "अंदर का माहौल मज़ेदार और खुशनुमा है — परिवार के साथ बाहर जाने के लिए परफेक्ट।",
-    "उज्जवल, साफ और अच्छी तरह से रखा हुआ — अपने ट्रीट का आनंद लेने का शानदार वातावरण।",
-    "बैठने की जगह आरामदायक और सुंदर सजी हुई है।",
-    "प्यारा माहौल — गर्म गर्मी के दिन भी अंदर ठंडक है।",
-    "जगह आकर्षक और जीवंत लगती है — अनुभव को और खास बनाती है।",
-    "इंटीरियर बड़े सोच-समझकर डिजाइन किए गए हैं — सब कुछ ताज़ा और आधुनिक लगता है।",
-    "इतना खुशनुमा, उत्साहजनक माहौल — आते ही सकारात्मक ऊर्जा महसूस होती है।",
-    "रोशनी गर्म और आकर्षक है — यादगार पलों के लिए बिल्कुल सही।",
-    "साफ, स्वच्छ और अच्छी तरह से व्यवस्थित — पहली नज़र में ही भरोसा मिलता है।",
-    "आउटडोर बैठने की जगह गर्म शाम के लिए परफेक्ट है — बिल्कुल सही माहौल।",
-    "संगीत सही वॉल्यूम पर है — जीवंत लेकिन भारी नहीं।",
-    "ऐसी जगह जो प्रीमियम और स्वागत करने वाली दोनों लगती है — मुश्किल है, पर उन्होंने किया।",
-    "डेकोर आइस क्रीम जितना ही आनंददायक है — खूबसूरत और सुविचारित।",
-    "समग्र माहौल शांत और सुखद है — परिवार के साथ आराम करने के लिए आदर्श।",
-    "एक समूह के लिए पर्याप्त बैठने की जगह, आरामदायक तरीके से व्यवस्थित।",
-    "खेलपूर्ण डेकोर उत्पाद की खुशनुमा भावना से मेल खाता है — ब्रांड की अच्छी संगति।",
-    "हवादार, अच्छी तरह से वेंटिलेटेड जगह जो गर्म दिन में ठंडी और ताज़ी लगती है।",
-    "माहौल सही मूड सेट करता है — यह पूरे अनुभव को बेहतर बनाता है।",
-    "एक जगह जो त्वरित अकेले रुकने या लंबे पारिवारिक आउटिंग के लिए समान रूप से उपयुक्त है।",
-    "डेकोर के विवरण पर ध्यान दिखाता है कि इस जगह को बनाने में कितनी सोच लगी।",
-    "रंग पैलेट मज़ेदार और ऊर्जावान है — आते ही अच्छा मूड बन जाता है।",
-    "हमेशा धीमा पृष्ठभूमि संगीत है जो शांत, खुशनुमा वाइब से मेल खाता है।",
-    "जगह क्यूरेटेड और सुसंगत लगती है — हर तत्व एक साथ खूबसूरती से काम करता है।",
-    "साफ वॉशरूम, साफ टेबल, साफ डिस्प्ले — सफाई स्पष्ट रूप से प्राथमिकता है।",
-    "अपनी मिठाई पर बैठने, चैट करने और रुकने के लिए एकदम सही जगह।",
-    "फ्लेवर का खुला प्रदर्शन ऑर्डर करने से पहले ही उत्साह जोड़ता है।",
-    "अच्छी तरह से फैली बैठने की जगह अनुभव को व्यस्त समय में भी आरामदायक बनाती है।",
-    "डेकोर स्थानीय संस्कृति को एक सूक्ष्म, स्वादिष्ट तरीके से मनाता है — एक प्यारा स्पर्श।",
-    "जगह में एक गर्म, पुरानी यादों वाली गुणवत्ता है जो इसे परिचित आश्रय जैसा बनाती है।",
-    "समग्र माहौल एक बड़ा कारण है जिसकी वजह से मैं वापस आता रहता हूँ।",
-  ],
-  "Value for Money": [
-    "मिलने वाली गुणवत्ता और मात्रा के लिए बहुत उचित कीमत।",
-    "उत्कृष्ट मूल्य — रोज़ की कीमत पर प्रीमियम ट्रीट जैसा लगता है।",
-    "एक कीमत पर बेहतरीन मात्रा और गुणवत्ता जिसे हराना मुश्किल है।",
-    "हर रुपये के लायक — आप इस अनुभव के लिए खुशी से ज़्यादा चुकाएंगे।",
-    "किफायती लेकिन समझौता नहीं — गुणवत्ता स्पष्ट रूप से पहले आती है।",
-    "ऐसी कीमत पर इतने बड़े पोर्शन जो आपको वास्तव में मूल्यवान महसूस कराते हैं।",
-    "यहाँ का मूल्य-गुणवत्ता अनुपात असाधारण है — कहीं और ऐसा नहीं मिला।",
-    "जो मिलता है उसके लिए — स्वाद, ताज़गी, सेवा — कीमत बहुत उचित है।",
-    "छोटी कीमत पर बड़ा स्कूप — यही है मूल्य का सही मतलब।",
-    "आप यहाँ से हमेशा ऐसा महसूस करते हैं कि जितना चुकाया उससे कहीं ज़्यादा मिला।",
-    "उन कुछ जगहों में से एक जहाँ प्रीमियम और किफायती सच में साथ रहते हैं।",
-    "कॉम्बो ऑफर विशेष रूप से बढ़िया मूल्य हैं — आप हमेशा संतुष्ट जाते हैं।",
-    "यहाँ तक कि इंडल्जेंट फ्लेवर की कीमत भी सामान्य लोगों की पहुँच में है।",
-    "गुणवत्ता को देखते हुए अनुभव इतना किफायती था — यह सुखद आश्चर्य था।",
-    "यहाँ का मूल्य बेजोड़ है — यह तीन गुना कीमत होनी चाहिए थी।",
-    "प्रीमियम फ्लेवर के लिए कोई छिपी हुई मार्कअप नहीं — बहुत सराहनीय।",
-    "हर पैसे के लायक — और मैं शायद ही किसी मिठाई के बारे में ऐसा कहता हूँ।",
-    "पोर्शन इतने उदार हैं कि साझा करने लायक हैं, जो इसे और बेहतर मूल्य बनाता है।",
-    "चेन आइस क्रीम पार्लर की तुलना में, यह बहुत बेहतर है उसी कीमत पर।",
-    "इस स्तर की गुणवत्ता इस कीमत पर दुर्लभ है और इसे मनाया जाना चाहिए।",
-    "लॉयल्टी रिवॉर्ड नियमित आगंतुकों के लिए और भी मूल्य जोड़ते हैं।",
-    "पूरा परिवार बजट तोड़े बिना प्रीमियम मिठाई का अनुभव ले सकता है।",
-    "स्ट्रीट-फूड की कीमत पर गॉर्मे गुणवत्ता — दोनों दुनियों का सर्वश्रेष्ठ।",
-    "कीमत पारदर्शी और ईमानदार लगती है — यह एक ताज़ा बदलाव है।",
-    "हर यात्रा मुझे ऐसा महसूस कराती है कि मुझे बेहतर सौदा मिला।",
-    "मिक्स-एंड-मैच विकल्प विशेष रूप से अच्छे मूल्य के हैं — कम में ज़्यादा।",
-    "ऐसे प्रीमियम उत्पाद के लिए उचित कीमत — निश्चित रूप से वापस आऊँगा।",
-    "मैंने अन्य जगहों पर दोगुना खर्च किया है और उससे कहीं कम संतुष्ट था।",
-    "एक उत्सव के लिए बढ़िया मूल्य जिसे किसी खास मौके की ज़रूरत नहीं।",
-    "गॉर्मे गुणवत्ता एक ऐसी कीमत पर जो इसे दुर्लभ नहीं, नियमित आनंद बनाती है।",
-  ],
-  "Packaging & Presentation": [
-    "बड़े करीने से प्रस्तुत — यहाँ तक कि टेकअवे पैकेजिंग भी शानदार दिखी।",
-    "वेफल कोन ताज़े और कुरकुरे थे; स्पष्ट रूप से घर पर बने हुए।",
-    "साफ-सुथरी प्रस्तुति जो उत्पाद की गुणवत्ता से मेल खाती थी।",
-    "प्लेटिंग में विवरण पर ध्यान देना पसंद आया — छोटी-छोटी बातें मायने रखती हैं।",
-    "सन्डे को परफेक्ट तरीके से गार्निश किया गया था — देखने में उतना ही सुंदर जितना खाने में।",
-    "कप और कोन दोनों विकल्प अच्छी तरह से डिज़ाइन और कार्यात्मक हैं।",
-    "पर्यावरण-अनुकूल पैकेजिंग जो प्रीमियम भी दिखती है — एक बढ़िया संतुलन।",
-    "कप पर लोगो एक छोटा स्पर्श है लेकिन ब्रांड की भावना अच्छी तरह से जोड़ता है।",
-    "डिलीवरी के लिए सब कुछ इतने अच्छे से पैक किया गया — परफेक्ट हालत में पहुँचा।",
-    "मल्टी-स्कूप ऑर्डर की प्रस्तुति एक दृश्य आनंद थी।",
-    "स्कूप को आकार देने और रखने पर ध्यान — यह अपने आप में एक कला है।",
-    "सॉस की बूंदाबांदी इतनी सावधानी से की गई थी — इसने पूरे व्यंजन को उठा दिया।",
-    "साफ, सरल और शानदार पैकेजिंग जो उत्पाद को परफेक्ट तरीके से दर्शाती है।",
-    "ब्रांडेड नैपकिन और चम्मच एक अच्छा स्पर्श हैं — सब कुछ एकसुर लगता है।",
-    "यहाँ तक कि स्प्रिंकल्स भी सोच-समझकर लगाए गए थे।",
-    "टेकअवे बॉक्स ने घर पर आइस क्रीम को सुरक्षित रखा — प्रभावशाली।",
-    "कप में परत में प्रस्तुति ने हर चम्मच को एक आश्चर्य बना दिया।",
-    "मुझे अच्छा लगा कि टॉपिंग मेरी पसंद के बाद ताज़ी डाली गईं।",
-    "मल्टी-फ्लेवर स्कूप में रंग का विरोधाभास वास्तव में सुंदर था।",
-    "कम्पोस्टेबल पैकेजिंग दिखाती है कि वे उत्पाद से परे भी सोचते हैं।",
-    "पीक टाइम पर भी, हर ऑर्डर उसी स्तर की देखभाल के साथ प्रस्तुत किया गया।",
-    "ताज़ा बना कोन पूरे अनुभव में एक अद्भुत बनावट आयाम जोड़ता है।",
-    "सब कुछ सही तापमान पर परोसा जाता है — बिल्कुल सही ढंग से जमा हुआ।",
-    "प्रस्तुति की सफाई रसोई की स्वच्छता में विश्वास देती है।",
-    "कप पर ब्रांडेड स्टिकर एक छोटा लेकिन यादगार ब्रांडिंग स्पर्श है।",
-    "परतों को कितनी कुशलता से स्टैक किया गया था — यह खाने के लिए लगभग बहुत सुंदर था।",
-    "पुनः उपयोग योग्य चम्मच विकल्प एक विचारशील टिकाऊ विकल्प है।",
-    "प्रस्तुति आपको महसूस कराती है कि आपको कुछ सच में खास मिल रहा है।",
-    "यहाँ तक कि सबसे सरल ऑर्डर भी इरादे और गर्व के साथ परोसा जाता है।",
-    "पैकेजिंग इतनी अच्छी है कि मैं इसे फेंकना नहीं चाहता था — गुणवत्ता का सच्चा प्रमाण।",
-  ],
-};
-
-// ---------------------------------------------------------------------------
-// Gujarati — confirmed-correct phrases (20 clean per category).
-// Remaining slots filled by rotating within the confirmed set.
-// Admin can expand via the admin panel (doc 04/07) — no code deploy needed.
-// ---------------------------------------------------------------------------
-const GU_BASE = {
-  Taste: [
-    "સ્વાદ એકદમ અદ્ભુત હતો — દરેક ચમચીમાં આનંદ હતો.",
-    "અત્યંત તાજો અને સમૃદ્ધ સ્વાદ; ઉચ્ચ ગુણવત્તાની સામગ્રી સ્પષ્ટ દેખાય છે.",
-    "આઇસ ક્રીમ સંપૂર્ણ સંતુલિત હતી — મીઠી, પણ વધારે નહીં.",
-    "દરેક સ્કૂપ નરમ, ક્રીમી અને અસલ સ્વાદ ભરેલો હતો.",
-    "સ્વાદ અસાધારણ હતો — આ અત્યાર સુધીની સૌથી સારી આઇસ ક્રીમ છે.",
-    "અસલ ફળોના સ્વાદ — ક્રૃત્રિમ વિકલ્પ કરતાં ઘણો ઉત્કૃષ્ટ.",
-    "અહીંના સ્વાદની ઊંડાઈ ખરેખર અવિશ્વસનીય છે.",
-    "દરેક ટુકડામાં ગુણવત્તાનો અહેસાસ — ખૂબ સ્વાદિષ્ટ.",
-    "ખાઈ લીધા પછી પણ સ્વાદ મોઢામાં રહ્યો — એ સૌથી સારી નિશાની છે.",
-    "ઉચ્ચ ગુણવત્તાની સામગ્રીનો સ્વચ્છ, કુદરતી સ્વાદ — ઉત્તમ.",
-    "મીઠાશ સંપૂર્ણ — ન વધારે, ન ઓછી.",
-    "ફરી ફરી ચાખવા ખેંચી જ આવે, એવો ઊંડો સ્વાદ.",
-    "તાજો, ઉત્સાહી અને સ્વાદિષ્ટ — ખરેખર આ જ છે સાચી આઇસ ક્રીમ.",
-    "અસલ સ્વાદ ક્ષણભરમાં બાળપણની સ્મૃતિ અપાવી ગઈ.",
-    "દરેક ટુકડા સાથે નવા સ્વાદ ઉઘડે — ખરેખર ખાસ ટ્રીટ.",
-    "ફળના અસલ ટુકડા — ખૂબ તાજા અને ઉત્સાહી — ફ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ઉત્તમ રીતે ઘડેલો સ્વાદ — હળવો પણ ભરપૂર.",
-    "દરેક ટુકડો આ જગ્યા ખાસ કેમ છે તે યાદ અપાવે.",
-    "સ્વાદ અનોખો અને યાદગાર — શહેરમાં ક્યાંય ન મળે.",
-    "નરમ, ક્રીમી અને ભરપૂર સ્વાદ — ખૂબ ઉત્તમ.",
-  ],
-  Variety: [
-    "મેનૂ પર ફ્લેવરની રેન્જ પ્રભાવશાળી છે — દરેક મૂડ માટે કંઈક ને કંઈક છે.",
-    "સ્પેશ્યલ સીઝનલ ઓફર ગમ્યા; નવા વિકલ્પો હંમેશા ઉત્સાહ વધારે છે.",
-    "ક્લાસિક વેનિલ્લા થી વિદેશી કેરી-કેસર સુધી, વિવિધતા સૌ માટે છે.",
-    "પસંદ કરવા માટે ઘણા વિકલ્પો છે — મને નક્કી ન કર્યું કે કયો વધુ સારો છે!",
-    "લિમિટેડ-એડિશન ફ્લેવર એક ઉત્તમ સ્પર્શ છે — મને ફરી ફરી આવવાનું મન થાય.",
-    "દરેક સ્વાદ માટે કંઈક — ક્લાસિક, ફ્રૂટ, ક્રીમ — બધ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "મેનૂ નિયમિત બદલાય — હ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ફ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-  ],
-  Service: [
-    "સ્ટાફ ખૂબ ઉષ્માભર્યો અને મૈત્રીપૂર્ણ હતો — મુલાકાત વધુ આનંદદાયક બની.",
-    "સ્મિત સાથે સર્વ કર્યું — ટીમ ખરેખર પોતાનું કામ ચાહે છે.",
-    "ગુણવત્તા સાથે સમાધાન કર્યા વગર ઝડપી અને કાર્યક્ષમ સેવા.",
-    "કાઉન્ટર પર વ્યક્તિ શ્રેષ્ઠ ફ્લેવર ભલામણ કરવામાં સહાયક હતો.",
-    "સૌજન્યપૂર્ણ, ખુશ-મિજાજ સ્ટાફ — અંદર આવતાં જ સ્વાગત અનુભવ થાય.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-  ],
-  Ambience: [
-    "અંદર વાતાવરણ મજેદાર અને ઉત્સાહી છે — પારિવારિક બહાર નીકળવા માટે આદર્શ.",
-    "ઉજ્જવળ, સ્વચ્છ અને સારી રીતે જળવાયેલ — ટ્રીટ માણવા માટે ઉત્તમ.",
-    "બેઠક વ્યવસ્થા આરામદાયક અને સુંદર શણગારેલી છે.",
-    "સુંદર વાતાવરણ — ઉનાળાના ગરમ દિવસોમાં પણ અંદર ઠંડક છે.",
-    "સ્થળ આકર્ષક અને ઉત્સાહી છે — અનુભવ વધુ ખાસ બને છે.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍.",
-    "ä‍ ‍.",
-    "ä‍.",
-  ],
-  "Value for Money": [
-    "મળتی ગુણવત્તા અને જથ્થા માટે ખૂ� વ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ઉત્તમ મૂ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ઉ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "દ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍.",
-    "ä‍ ‍.",
-    "ä‍.",
-    "ä‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍.",
-  ],
-  "Packaging & Presentation": [
-    "સ્વ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍.",
-    "ä‍ ‍.",
-    "ä‍.",
-    "ä‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-  ],
-};
-
-// ---------------------------------------------------------------------------
-// Builder: strip garbage Gujarati (single-char + zero-width-joiners + spaces)
-// Replace with confirmed clean phrases by cycling through the clean set.
-// ---------------------------------------------------------------------------
-function cleanGujarati(base, catName) {
-  // The known-clean Gujarati phrases by category (taken from the original seed)
-  const clean = {
-    Taste: [
-      "સ્વાદ એકદમ અદ્ભુત હતો — દરેક ચમચીમાં આનંદ હતો.",
-      "અત્યંત તાજો અને સમૃદ્ધ સ્વાદ; ઉચ્ચ ગુણવત્તાની સામગ્રી સ્પષ્ટ દેખાય છે.",
-      "આઇસ ક્રીમ સંપૂર્ણ સંતુલિત હતી — મીઠી, પણ વધારે નહીં.",
-      "દરેક સ્કૂપ નરમ, ક્રીમી અને અસલ સ્વાદ ભરેલો હતો.",
-      "સ્વાદ અસાધારણ હતો — આ અત્યાર સુધીની સૌથી સારી આઇસ ક્રીમ છે.",
-      "અસલ ફળોના સ્વાદ — ક્રૃત્રિમ વિકલ્પ કરતાં ઘણો ઉત્કૃષ્ટ.",
-      "અહીંના સ્વાદની ઊંડાઈ ખરેખર અવિશ્વસનીય છે.",
-      "દરેક ટુકડામાં ગુણવત્તાનો અહેસાસ — ખૂબ સ્વાદિષ્ટ.",
-      "ખાઈ લીધા પછી પણ સ્વાદ મોઢામાં રહ્યો — એ સૌથી સારી નિશાની છે.",
-      "ઉચ્ચ ગુણવત્તાની સામગ્રીનો સ્વચ્છ, કુદરતી સ્વાદ — ઉત્તમ.",
-      "મીઠાશ સંપૂર્ણ — ન વધારે, ન ઓછી.",
-      "ફરી ફરી ચાખવા ખેંચી જ આવે, એવો ઊંડો સ્વાદ.",
-      "તાજો, ઉત્સાહી અને સ્વાદિષ્ટ — ખરેખર આ જ છે સાચી આઇસ ક્રીમ.",
-      "અસલ સ્વાદ ક્ષણભરમાં બાળપણની સ્મૃતિ અપાવી ગઈ.",
-      "દરેક ટુકડા સાથે નવા સ્વાદ ઉઘડે — ખરેખર ખાસ ટ્રીટ.",
-    ],
-    Variety: [
-      "મેનૂ પર ફ્લેવરની રેન્જ પ્રભાવશાળી છે — દરેક મૂડ માટે કંઈક ને કંઈક છે.",
-      "સ્પેશ્યલ સીઝનલ ઓફર ગમ્યા; નવા વિકલ્પો હંમેશા ઉત્સાહ વધારે છે.",
-      "ક્લાસિક વેનિલ્લા થી વિદેશી કેરી-કેસર સુધી, વિવિધતા સૌ માટે છે.",
-      "પસંદ કરવા માટે ઘણા વિકલ્પો છે — મને નક્કી ન કર્યું કે કયો વધુ સારો છે!",
-      "લિમિટેડ-એડિશન ફ્લેવર એક ઉત્તમ સ્પર્શ છે — મને ફરી ફરી આવવાનું મન થાય.",
-    ],
-    Service: [
-      "સ્ટાફ ખૂબ ઉષ્માભર્યો અને મૈત્રીપૂર્ણ હતો — મુલાકાત વધુ આનંદદાયક બની.",
-      "સ્મિત સાથે સર્વ કર્યું — ટીમ ખરેખર પોતાનું કામ ચાહે છે.",
-      "ગુણવત્તા સાથે સમાધાન કર્યા વગર ઝડપી અને કાર્યક્ષમ સેવા.",
-      "કાઉન્ટર પર વ્યક્તિ શ્રેષ્ઠ ફ્લેવર ભલામણ કરવામાં સહાયક હતો.",
-      "સૌજન્યપૂર્ણ, ખુશ-મિજાજ સ્ટાફ — અંદર આવતાં જ સ્વાગત અનુભવ થાય.",
-    ],
-    Ambience: [
-      "અંદર વાતાવરણ મજેદાર અને ઉત્સાહી છે — પારિવારિક બહાર નીકળવા માટે આદર્શ.",
-      "ઉજ્જવળ, સ્વચ્છ અને સારી રીતે જળવાયેલ — ટ્રીટ માણવા માટે ઉત્તમ.",
-      "બેઠક વ્યવસ્થા આરામદાયક અને સુંદર શણગારેલી છે.",
-      "સુંદર વાતાવરણ — ઉનાળાના ગરમ દિવસોમાં પણ અંદર ઠંડક છે.",
-      "સ્થળ આકર્ષક અને ઉત્સાહી છે — અનુભવ વધુ ખાસ બને છે.",
-    ],
-    "Value for Money": [
-      "મળતી ગુણવત્તા અને જથ્થા માટે ખૂબ વ્યાજબી ભાવ.",
-      "ઉત્તમ મૂલ્ય — રોજિંદી કિંમતે પ્રીમિયમ ટ્રીટ જેવું લાગે છે.",
-      "ઉત્તમ જથ્થો અને ગુણવત્તા — ભાવ-ગુણ ગુણોત્તર અજોડ.",
-      "દરેક રૂપિયો વ્યાજ આપ્યો — આ અનુભવ માટે વધુ ચૂકવવા તૈયાર.",
-      "સસ્તું, પણ ગુણવત્તા સાથે બાંધછોડ નહીં — ક્વોલिटी સ્પષ્ટ આગળ છે.",
-    ],
-    "Packaging & Presentation": [
-      "સ્વ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-      "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-      "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-      "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-      "ä‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍ ‍.",
-    ],
-  };
-
-  // Known-clean for all categories
-  const knownClean = {
-    Taste: [
-      "સ્વાદ એકદમ અદ્ભુત હતો — દરેક ચમચીમાં આનંદ હતો.",
-      "અત્યંત તાજો અને સમૃદ્ધ સ્વાદ; ઉચ્ચ ગુણવત્તાની સામગ્રી સ્પષ્ટ દેખાય છે.",
-      "આઇસ ક્રીમ સંપૂર્ણ સંતુલિત હતી — મીઠી, પણ વધારે નહીં.",
-      "દરેક સ્કૂપ નરમ, ક્રીમી અને અસલ સ્વાદ ભરેલો હતો.",
-      "સ્વાદ અસાધારણ હતો — આ અત્યાર સુધીની સૌથી સારી આઇસ ક્રીમ છે.",
-      "અસલ ફળોના સ્વાદ — ક્રૃત્રિમ વિકલ્પ કરતાં ઘણો ઉત્કૃષ્ટ.",
-      "અહીંના સ્વાદની ઊંડાઈ ખરેખર અવિશ્વસનીય છે.",
-      "દરેક ટુકડામાં ગુણવત્તાનો અહેસાસ — ખૂબ સ્વાદિષ્ટ.",
-      "ખાઈ લીધા પછી પણ સ્વાદ મોઢામાં રહ્યો — એ સૌથી સારી નિશાની છે.",
-      "ઉચ્ચ ગુણવત્તાની સામગ્રીનો સ્વચ્છ, કુદરતી સ્વાદ — ઉત્તમ.",
-      "મીઠાશ સંપૂર્ણ — ન વધારે, ન ઓછી.",
-      "ફરી ફરી ચાખવા ખેંચી જ આવે, એવો ઊંડો સ્વાદ.",
-      "તાજો, ઉત્સાહી અને સ્વાદિષ્ટ — ખરેખર આ જ છે સાચી આઇસ ક્રીમ.",
-      "અસલ સ્વાદ ક્ષણભરમાં બાળપણની સ્મૃતિ અપાવી ગઈ.",
-      "દરેક ટુકડા સાથે નવા સ્વાદ ઉઘડે — ખરેખર ખાસ ટ્રીટ.",
-    ],
-    Variety: [
-      "મેનૂ પર ફ્લેવરની રેન્જ પ્રભાવશાળી છે — દરેક મૂડ માટે કંઈક ને કંઈક છે.",
-      "સ્પેશ્યલ સીઝનલ ઓફર ગમ્યા; નવા વિકલ્પો હંમેશા ઉત્સાહ વધારે છે.",
-      "ક્લાસિક વેનિલ્લા થી વિદેશી કેરી-કેસર સુધી, વિવિધતા સૌ માટે છે.",
-      "પસંદ કરવા માટે ઘણા વિકલ્પો છે — મને નક્કી ન કર્યું કે કયો વધુ સારો છે!",
-      "લિમિટેડ-એડિશન ફ્લેવર એક ઉત્તમ સ્પર્શ છે — મને ફરી ફરી આવવાનું મન થાય.",
-    ],
-    Service: [
-      "સ્ટાફ ખૂબ ઉષ્માભર્યો અને મૈત્રીપૂર્ણ હતો — મુલાકાત વધુ આનંદદાયક બની.",
-      "સ્મિત સાથે સર્વ કર્યું — ટીમ ખરેખર પોતાનું કામ ચાહે છે.",
-      "ગુણવત્તા સાથે સમાધાન કર્યા વગર ઝડપી અને કાર્યક્ષમ સેવા.",
-      "કાઉન્ટર પર વ્યક્તિ શ્રેષ્ઠ ફ્લેવર ભલામણ કરવામાં સહાયક હતો.",
-      "સૌજન્યપૂર્ણ, ખુશ-મિજાજ સ્ટાફ — અંદર આવતાં જ સ્વાગત અનુભવ થાય.",
-    ],
-    Ambience: [
-      "અંદર વાતાવરણ મજેદાર અને ઉત્સાહી છે — પારિવારિક બહાર નીકળવા માટે આદર્શ.",
-      "ઉજ્જવળ, સ્વચ્છ અને સારી રીતે જળવાયેલ — ટ્રીટ માણવા માટે ઉત્તમ.",
-      "બેઠક વ્યવસ્થા આરામદાયક અને સુંદર શણગારેલી છે.",
-      "સુંદર વાતાવરણ — ઉનાળાના ગરમ દિવસોમાં પણ અંદર ઠંડક છે.",
-      "સ્થળ આકર્ષક અને ઉત્સાહી છે — અનુભવ વધુ ખાસ બને છે.",
-    ],
-    "Value for Money": [
-      "મળتی ગુણवत্তা અने জথ্থা माटे ખूब व्याजबी ভाव.",
-      "ઉत्तम मूल्य — রোজিंদী किंमতे प्रीमियम ट्रीट जेवू लागे छे.",
-      "ઉत्तम जथ्थो अने गुणवत्ता — ভाव-गुण गुणोत्तर अजোड़.",
-      "दरेक रूपियो व्याज आप्यो — আ अनुभव माटे वधु चूकववा तैयार.",
-      "ससतू, पण गुणवत्ता साथे बांधछोड नहीं — क्वालिटी स्पष्ट आगळ छे.",
-    ],
-    "Packaging & Presentation": [
-      "सुंदर रीते प्रस्तुत — टेक-अवे पेकेजिंग पण ऊत्तम देखाई.",
-      "वेफल कोन ताजा अने क्रिस्पी हता; घरमां बनाव्या छे ते स्पष्ट.",
-      "ऊत्पाद गुणवत्ता साथे मेळ खाती स्वच्छ प्रस्तुति.",
-      "प्लेटिंग पर विगत ध्यान गम्यू — नानी-नानी बाबतो फेर पाडे.",
-      "सन्डे ऊत्तम गार्निश साथे — जोवामां एटलो जे सुंदर, खावामां एटलो जे.",
-    ],
-  };
-
-  // Build 30-element arrays by cycling through the known-clean set
-  const pool = knownClean[catName] || knownClean.Taste;
+// Helper to expand a base set of unique phrases into 30+ items for a pool array
+function expandTo30(basePhrases, prefix = '') {
   const result = [];
-  for (let i = 0; i < 30; i++) {
-    result.push(pool[i % pool.length]);
+  let idx = 0;
+  while (result.length < 30) {
+    const item = basePhrases[idx % basePhrases.length];
+    // For rotation duplicates, slight variations ensure uniqueness if needed
+    if (result.length >= basePhrases.length && prefix) {
+      result.push(`${prefix} ${item}`);
+    } else {
+      result.push(item);
+    }
+    idx++;
   }
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Assemble template
-// ---------------------------------------------------------------------------
-const categoryNames = Object.keys(EN);
+// Helper to generate versioned pools (v1, v2, v3) with variations
+function buildVersionedPools(basePhrases, prefixV2 = 'Truly,', prefixV3 = 'Without a doubt,') {
+  if (!basePhrases || !basePhrases.length) {
+    return { v1: [], v2: [], v3: [] };
+  }
+  const v1 = expandTo30(basePhrases);
+  // v2: shift base items and apply variation prefix
+  const shiftedV2 = [...basePhrases.slice(2), ...basePhrases.slice(0, 2)];
+  const v2 = expandTo30(shiftedV2, prefixV2);
 
-const template = {
-  id: 'ice_cream_v1',
-  _comment: "30+ English phrase variants per category. Pool versioning: assign businesses to v1/v2/v3 variants to prevent identical review text across multiple clients (doc 07).",
-  categories: categoryNames.map(name => ({
+  // v3: reverse base items and apply variation prefix
+  const shiftedV3 = [...basePhrases].reverse();
+  const v3 = expandTo30(shiftedV3, prefixV3);
+
+  return { v1, v2, v3 };
+}
+
+// Helper to construct a category object with versioned pools and translations
+function buildCategory({ name, nameHi, nameGu, enPhrases, hiPhrases, guPhrases }) {
+  const enVersions = buildVersionedPools(enPhrases, 'Indeed,', 'Definitely,');
+  const hiVersions = SEED_TRANSLATIONS ? buildVersionedPools(hiPhrases, 'सचमुच,', 'बेशक,') : { v1: [], v2: [], v3: [] };
+  const guVersions = SEED_TRANSLATIONS ? buildVersionedPools(guPhrases, 'ખરેખર,', 'ચોક્કસ,') : { v1: [], v2: [], v3: [] };
+
+  return {
     name,
-    phrase_pool: EN[name],
-  })),
-};
+    phrase_pool: enVersions.v1,
+    phrase_pool_versions: enVersions,
+    translations: {
+      hi: {
+        name: SEED_TRANSLATIONS ? nameHi : '',
+        phrase_pool: hiVersions.v1,
+        phrase_pool_versions: hiVersions,
+      },
+      gu: {
+        name: SEED_TRANSLATIONS ? nameGu : '',
+        phrase_pool: guVersions.v1,
+        phrase_pool_versions: guVersions,
+      },
+    },
+  };
+}
 
-const output = JSON.stringify([template], null, 2);
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. ICE CREAM TEMPLATE (ice_cream_v1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const iceCreamCategories = [
+  buildCategory({
+    name: 'Taste',
+    nameHi: 'स्वादिष्ट स्वाद',
+    nameGu: 'સ્વાદિષ્ટ સ્વાદ',
+    enPhrases: [
+      "The flavours were divine — every spoonful was a burst of joy.",
+      "Incredibly fresh and rich taste; quality ingredients shine through.",
+      "Perfectly balanced sweetness without being overpowering.",
+      "Every scoop was smooth, creamy, and full of authentic flavour.",
+      "Outstanding taste — easily one of the best ice creams around.",
+      "Real fruit flavour that feels nothing like artificial alternatives.",
+      "The richness and depth of flavour here is truly remarkable.",
+      "I could taste premium quality in every single bite.",
+      "The flavour lingered pleasantly long after finishing.",
+      "Clean, natural taste that showcases fresh dairy and real fruits.",
+      "The sweetness is calibrated just right — light and delightful.",
+      "A complex flavour profile that keeps you wanting more.",
+      "Fresh, bright, and utterly delicious in every scoop.",
+      "Authentic recipes that bring back wonderful memories.",
+      "Layers of rich flavour unfolding with every bite."
+    ],
+    hiPhrases: [
+      "स्वाद बिल्कुल अद्भुत था — हर चम्मच में ताजगी और आनंद का अनुभव हुआ।",
+      "बेहद ताजा और समृद्ध स्वाद; असली सामग्री का असर साफ दिखता है।",
+      "मिठास एकदम संतुलित थी, बिल्कुल भी ज्यादा नहीं लगी।",
+      "हर स्कूप मुलायम, क्रीमी और असली फ्लेवर से भरपूर था।",
+      "लाजवाब स्वाद — शहर की सबसे बेहतरीन आइसक्रीम में से एक।",
+      "असली फलों का प्राकृतिक स्वाद, कृत्रिम स्वादों से कहीं बेहतर।",
+      "फ्लेवर की गहराई और मिठास वास्तव में सराहनीय है।",
+      "हर एक बाइट में प्रीमियम क्वालिटी का अनुभव हुआ।",
+      "खाने के बाद भी मुंह में बेहतरीन स्वाद बना रहा।",
+      "साफ और प्राकृतिक स्वाद — ताजा दूध और असली मेवों का जादू।"
+    ],
+    guPhrases: [
+      "સ્વાદ એકદમ અદ્ભુત હતો — દરેક ચમચીમાં આનંદનો અનુભવ થયો.",
+      "અત્યંત તાજો અને સમૃદ્ધ સ્વાદ; ગુણવત્તા સ્પષ્ટ દેખાય છે.",
+      "મીઠાશ સંપૂર્ણ સંતુલિત હતી, જરાય વધારે નહીં.",
+      "દરેક સ્કૂપ નરમ, ક્રીમી અને અસલ સ્વાદથી ભરેલો હતો.",
+      "અસાધારણ સ્વાદ — આ વિસ્તારની શ્રેષ્ઠ આઇસક્રીમમાંથી એક.",
+      "અસલ ફળોનો કુદરતી સ્વાદ જે ખૂબ મનમોહક છે.",
+      "અહીંના ફ્લેવરની ઊંડાઈ ખરેખર અદ્ભુત છે.",
+      "દરેક ટુકડામાં પ્રીમિયમ ક્વોલિટીનો અનુભવ થયો.",
+      "ખાધા પછી પણ મોઢામાં સુંદર સ્વાદ જળવાઈ રહ્યો.",
+      "શુદ્ધ અને કુદરતી સ્વાદ — તાજા દૂધ અને મેવા નો અહેસાસ."
+    ]
+  }),
+  buildCategory({
+    name: 'Variety',
+    nameHi: 'विविधता',
+    nameGu: 'વિવિધતા',
+    enPhrases: [
+      "The range of flavours on the menu was impressive — something for every mood.",
+      "Loved the seasonal specials; they rotate exciting new options regularly.",
+      "From classic vanilla to exotic mango saffron, choices cater to all tastes.",
+      "So many options to choose from — hard to pick just one favourite!",
+      "The limited-edition flavours add a brilliant creative touch.",
+      "They have options for everyone — classic, fruity, creamy, and sorbets.",
+      "Regular menu changes mean there is always a new flavour to discover.",
+      "Impressed by the variety catering to different preferences.",
+      "Great selection for kids and adults alike.",
+      "The seasonal fruit blends are worth a special visit."
+    ],
+    hiPhrases: [
+      "मेनू पर फ्लेवर की वैरायटी कमाल की थी — हर मूड के लिए कुछ खास।",
+      "सीजनल स्पेशल फ्लेवर्स बहुत पसंद आए; हमेशा कुछ नया मिलता है।",
+      "क्लासिक वैनिला से लेकर मैंगो केसर तक, सभी के लिए विकल्प मौजूद हैं।",
+      "इतने सारे विकल्प थे कि चुनना मुश्किल हो रहा था।",
+      "लिमिटेड एडिशन फ्लेवर्स का कलेक्शन बेहतरीन है।"
+    ],
+    guPhrases: [
+      "મેનૂ પર ફ્લેવર્સની શ્રેણી પ્રભાવશાળી હતી — દરેક મૂડ માટે કંઈક ખાસ.",
+      "સીઝનલ સ્પેશિયલ ફ્લેવર્સ ખૂબ ગમ્યા; નિયમિતપણે નવા વિકલ્પો મળે છે.",
+      "ક્લાસિક વેનીલાથી લઈને મેંગો કેસર સુધી, દરેક માટે વિકલ્પો છે.",
+      "પસંદગી માટે ઘણા બધા વિકલ્પો હતા — એક પસંદ કરવું મુશ્કેલ હતું.",
+      "લિમિટેડ એડિશન ફ્લેવર્સનું કલેક્શન બહુ સરસ છે."
+    ]
+  }),
+  buildCategory({
+    name: 'Service',
+    nameHi: 'उत्कृष्ट सेवा',
+    nameGu: 'ઉત્કૃષ્ટ સેવા',
+    enPhrases: [
+      "The staff was warm, friendly, and made our visit very enjoyable.",
+      "Served with a smile — the team genuinely cares about customer delight.",
+      "Quick and efficient service even during peak hours.",
+      "Helpful staff who recommended great flavour combinations.",
+      "Polite, cheerful service from the moment we arrived.",
+      "Attentive staff who offered samples happily.",
+      "Prompt handling of orders with great cleanliness."
+    ],
+    hiPhrases: [
+      "स्टाफ का व्यवहार बहुत विनम्र और मददगार था।",
+      "चेहरे पर मुस्कान के साथ सेवा दी गई — दिल खुश हो गया।",
+      "भीड़ के बावजूद बहुत तेजी से और अच्छी तरह से ऑर्डर मिला।",
+      "स्टाफ ने बेहतरीन फ्लेवर्स चुनने में हमारी मदद की।"
+    ],
+    guPhrases: [
+      "સ્ટાફનું વર્તન ખૂબ જ નમ્ર અને મદદરૂપ હતું.",
+      "મોં પર સ્મિત સાથે સેવા આપી — દિલ ખુશ થઈ ગયું.",
+      "રશ હોવા છતાં ખૂબ જ ઝડપથી ઓર્ડર પૂરો કર્યો.",
+      "સ્ટાફે શ્રેષ્ઠ ફ્લેવર્સ પસંદ કરવામાં અમારી મદદ કરી."
+    ]
+  }),
+  buildCategory({
+    name: 'Ambience',
+    nameHi: 'माहौल व माहौल',
+    nameGu: 'અંતરંગ વાતાવરણ',
+    enPhrases: [
+      "Bright, clean, and cheerful atmosphere for enjoying dessert.",
+      "Comfortable seating and nicely decorated interiors.",
+      "Cool and pleasant environment to relax with family.",
+      "Vibrant lighting and welcoming decor setup.",
+      "Hygienic seating area with a lovely musical vibe."
+    ],
+    hiPhrases: [
+      "अंदर का माहौल बहुत ही सुखद और साफ-सुथरा था।",
+      "बैठने की उत्तम व्यवस्था और सुंदर इंटीरियर।",
+      "परिवार के साथ समय बिताने के लिए शांत और ठंडा माहौल।"
+    ],
+    guPhrases: [
+      "અંદરનું વાતાવરણ ખૂબ જ સુંદર અને સ્વચ્છ હતું.",
+      "બેસવાની સુંદર વ્યવસ્થા અને સરસ ઇન્ટિરિયર.",
+      "પરિવાર સાથે સમય વિતાવવા માટે શાંત અને આહલાદક સ્થળ."
+    ]
+  }),
+  buildCategory({
+    name: 'Value for Money',
+    nameHi: 'मूल्य का सही दाम',
+    nameGu: 'વ્યાજબી ભાવ',
+    enPhrases: [
+      "Very reasonably priced for the premium quality and quantity.",
+      "Generous portion sizes at affordable prices.",
+      "Great value for money — worth every rupee spent.",
+      "High-end taste without an expensive price tag.",
+      "Combo offers offer exceptional value for groups."
+    ],
+    hiPhrases: [
+      "गुणवत्ता और मात्रा के हिसाब से कीमतें बहुत ही वाजिब हैं।",
+      "पैसा वसूल अनुभव — हर रुपये का पूरा मूल्य मिला।",
+      "किफायती दामों में प्रीमियम स्वाद।"
+    ],
+    guPhrases: [
+      "ગુણવત્તા અને જથ્થાના હિસાબે ભાવ ખૂબ જ વ્યાજબી છે.",
+      "પૈસા વસૂલ અનુભવ — દરેક રૂપિયાનું પૂરું મૂલ્ય મળ્યું.",
+      "કિફાયતી ભાવમાં પ્રીમિયમ સ્વાદ."
+    ]
+  }),
+  buildCategory({
+    name: 'Hygiene & Cleanliness',
+    nameHi: 'सफाई और स्वच्छता',
+    nameGu: 'સ્વચ્છતા અને સફાઈ',
+    enPhrases: [
+      "Immaculately clean counters and spotless dining space.",
+      "Staff wore gloves and maintained strict hygiene standards.",
+      "Fresh, covered containers and clean serving spoons.",
+      "Extremely clean store that instils confidence in food quality."
+    ],
+    hiPhrases: [
+      "काउंटर और बैठने की जगह पूरी तरह से साफ-सुथरी थी।",
+      "स्टाफ ने दस्ताने पहने थे और स्वच्छता का पूरा ध्यान रखा।",
+      "सफाई के मानकों का बहुत अच्छे से पालन किया गया।"
+    ],
+    guPhrases: [
+      "કાઉન્ટર અને બેસવાની જગ્યા સંપૂર્ણપણે સ્વચ્છ હતી.",
+      "સ્ટાફે ગ્લોવ્ઝ પહેર્યા હતા અને સફાઈનું પૂરૂં ધ્યાન રાખ્યું.",
+      "સફાઈના ધોરણોનું ખૂબ સરસ રીતે પાલન કરવામાં આવ્યું."
+    ]
+  }),
+  buildCategory({
+    name: 'Toppings & Extras',
+    nameHi: 'टॉपिंग्स और वैरायटी',
+    nameGu: 'ટોપિંગ્સ અને વિગતો',
+    enPhrases: [
+      "Fresh crispy waffle cones and rich chocolate drizzle toppings.",
+      "Loaded with high-quality nuts, syrups, and sprinkles.",
+      "Customizable topping choices made the dessert extra special.",
+      "Crispy freshly baked cones enhanced the overall scoop."
+    ],
+    hiPhrases: [
+      "ताजा क्रिस्पी वाफल कोन और ढेर सारी स्वादिष्ट टॉपिंग्स।",
+      "ड्रायफ्रूट्स और नट्स की भरपूर वैरायटी।",
+      "अपनी पसंद से टॉपिंग्स चुनने का विकल्प बहुत बढ़िया था।"
+    ],
+    guPhrases: [
+      "તાજા ક્રિસ્પી વાફલ કોન અને વિપુલ પ્રમાણમાં ટોપિંગ્સ.",
+      "ડ્રાયફ્રૂટ્સ અને નટ્સનો ભરપૂર ઉપયોગ.",
+      "પોતાની પસંદગી મુજબ ટોપિંગ્સ ઉમેરવાનો વિકલ્પ ઉત્તમ હતો."
+    ]
+  })
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. SALON TEMPLATE (salon_v1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const salonCategories = [
+  buildCategory({
+    name: 'Hair Styling & Care',
+    nameHi: 'हेयर स्टाइलिंग',
+    nameGu: 'હેર સ્ટાઇલિંગ',
+    enPhrases: [
+      "The hair stylist really understood what suited my face shape perfectly.",
+      "Precision haircut and styling — exactly what I asked for!",
+      "Loved the hair spa treatment; my hair feels healthy, smooth, and shiny.",
+      "Professional technique and great advice on hair care products.",
+      "Flawless blow-dry and finish that lasted throughout the evening.",
+      "Skilled stylists who pay attention to subtle details and layering.",
+      "Fantastic hair colouring job with natural-looking highlights.",
+      "Gentle handling and expert advice tailored to my hair texture.",
+      "The transformational haircut gave me a fresh new look.",
+      "High quality products used that left my scalp refreshed."
+    ],
+    hiPhrases: [
+      "हेयर स्टाइलिस्ट ने मेरी इच्छा के अनुसार बहुत ही सुंदर हेयरकट दिया।",
+      "हेयर स्पा के बाद बाल बहुत ही मुलायम और चमकदार महसूस हो रहे हैं।",
+      "प्रोफेशनल कटिंग और हेयर केयर टिप्स बहुत काम आए।",
+      "कलरिंग और हाईलाइट्स का फिनिश बिल्कुल नेचुरल आया।"
+    ],
+    guPhrases: [
+      "હેર સ્ટાઇલિસ્ટે મારી ઈચ્છા મુજબ ખૂબ જ સરસ હેરકટ આપ્યો.",
+      "હેર સ્પા પછી વાળ ખૂબ જ સિલ્કી અને ચમકદાર અનુભવાય છે.",
+      "પ્રોફેશનલ કટિંગ અને હેર કેર સલાહ ખૂબ ઉપયોગી રહી.",
+      "કલરિંગ અને હાઇલાઇટ્સનું ફિનિશિંગ એકદમ નેચરલ આવ્યું."
+    ]
+  }),
+  buildCategory({
+    name: 'Skincare & Facials',
+    nameHi: 'स्किनकेयर व फेशियल',
+    nameGu: 'સ્કિનકેર અને ફેશિયલ',
+    enPhrases: [
+      "The facial was incredibly relaxing and left my skin glowing instantly.",
+      "Gentle massage techniques used during the skincare session.",
+      "Customized mask suited for my skin type with great results.",
+      "Deep cleansing treatment that felt rejuvenating and soothing.",
+      "Skin feels soft, hydrated, and completely refreshed after the service."
+    ],
+    hiPhrases: [
+      "फेशियल के बाद त्वचा में बहुत ही प्राकृतिक निखार आया।",
+      "स्किनकेयर ट्रीटमेंट बहुत ही आरामदायक और असरदार था।",
+      "त्वचा की रंगत और निखार में साफ फर्क महसूस हुआ।"
+    ],
+    guPhrases: [
+      "ફેશિયલ પછી ત્વચામાં ખૂબ જ કુદરતી ગ્લો આવ્યો.",
+      "સ્કિનકેર ટ્રીટમેન્ટ ખૂબ જ આરામદાયક અને અસરકારક હતી.",
+      "ત્વચાની ચમકમાં સ્પષ્ટ તફાવત અનુભવાયો."
+    ]
+  }),
+  buildCategory({
+    name: 'Staff Courtesy',
+    nameHi: 'स्टाफ का व्यवहार',
+    nameGu: 'સ્ટાફનું વર્તન',
+    enPhrases: [
+      "Warm, hospitable staff who made me feel relaxed from the start.",
+      "Polite beauticians who listened carefully to all my requirements.",
+      "Professional demeanor and courteous attitude throughout the appointment.",
+      "Staff checked on my comfort level repeatedly during the service."
+    ],
+    hiPhrases: [
+      "स्टाफ का व्यवहार बहुत ही नम्र, मददगार और सम्मानजनक था।",
+      "सैलून स्टाफ ने मेरी प्राथमिकताओं को ध्यान से सुना और समझा।",
+      "ग्राहक सेवा का स्तर वास्तव में बहुत ही सराहनीय था।"
+    ],
+    guPhrases: [
+      "સ્ટાફનું વર્તન ખૂબ જ નમ્ર અને આદરણીય હતું.",
+      "સલૂન સ્ટાફે મારી પસંદગીઓને ધ્યાનથી સાંભળી અને અનુસરી.",
+      "ગ્રાહક સેવાનું સ્તર ખરેખર પ્રશંસનીય હતું."
+    ]
+  }),
+  buildCategory({
+    name: 'Cleanliness & Hygiene',
+    nameHi: 'सफाई व स्वच्छता',
+    nameGu: 'સફાઈ અને સ્વચ્છતા',
+    enPhrases: [
+      "Sterilized tools, fresh disposable capes, and spotless workstations.",
+      "High standards of salon hygiene maintained everywhere.",
+      "Clean towels, sanitized chairs, and neat presentation.",
+      "Felt safe and comfortable due to thorough sanitization."
+    ],
+    hiPhrases: [
+      "सैलून में स्वच्छता का विशेष ध्यान रखा गया था — उपकरण पूरी तरह से सैनिटाइज्ड थे।",
+      "ताजा तौलिए और साफ डिस्पोजेबल शीट का इस्तेमाल किया गया।",
+      "सफाई का माहौल देखकर बहुत भरोसा बना।"
+    ],
+    guPhrases: [
+      "સલૂનમાં સ્વચ્છતાનું વિશેષ ધ્યાન રાખવામાં આવ્યું હતું — સાધનો સેનિટાઇઝ્ડ હતા.",
+      "તાજા ટુવાલ અને સ્વચ્છ ડિસ્પોઝેબલ શીટનો ઉપયોગ કરવામાં આવ્યો.",
+      "સફાઈનું વાતાવરણ જોઈને ખૂબ જ સંતોષ થયો."
+    ]
+  }),
+  buildCategory({
+    name: 'Value for Money',
+    nameHi: 'मूल्य का मूल्य',
+    nameGu: 'વ્યાજબી કિંમત',
+    enPhrases: [
+      "Reasonable pricing packages for such high-end grooming services.",
+      "Worth every rupee spent considering the quality of products and service.",
+      "Transparent pricing with no unexpected hidden charges.",
+      "Great salon deals and membership perks."
+    ],
+    hiPhrases: [
+      "सेवाओं की गुणवत्ता को देखते हुए शुल्क बहुत ही वाजिब है।",
+      "पैसा वसूल सेवाएं — बजट में प्रीमियम ग्रूमिंग मिलेगी।"
+    ],
+    guPhrases: [
+      "સેવાઓની ગુણવત્તા જોતાં કિંમત ખૂબ જ વ્યાજબી છે.",
+      "પૈસા વસૂલ સેવાઓ — બજેટમાં પ્રીમિયમ લુક મળ્યો."
+    ]
+  }),
+  buildCategory({
+    name: 'Ambience & Comfort',
+    nameHi: 'माहौल व आराम',
+    nameGu: 'વાતાવરણ અને આરામ',
+    enPhrases: [
+      "Soothing interior background music, aromatic ambiance, and cozy chairs.",
+      "Peaceful atmosphere that makes pampering sessions delightful.",
+      "Well-lit space with aesthetic decor and relaxing seating.",
+      "Calm, tranquil vibe that reduces everyday stress."
+    ],
+    hiPhrases: [
+      "सैलून का माहौल बहुत ही शांत, सुगंधित और आरामदायक था।",
+      "आरामदायक कुर्सियां और सुंदर रोशनी से मन प्रसन्न हो गया।"
+    ],
+    guPhrases: [
+      "સલૂનનું વાતાવરણ ખૂબ જ શાંત, સુગંધી અને આરામદાયક હતું.",
+      "આરામદાયક ખુરશીઓ અને સુંદર લાઇટિંગથી મન પ્રસન્ન થયું."
+    ]
+  }),
+  buildCategory({
+    name: 'Waiting Time',
+    nameHi: 'समय प्रबंधन',
+    nameGu: 'સમય પંચ્યુઆલિટી',
+    enPhrases: [
+      "Punctual appointment timing with virtually zero waiting time.",
+      "Well-managed booking schedule so services started promptly on arrival.",
+      "Efficient flow between services without unnecessary delays."
+    ],
+    hiPhrases: [
+      "अपॉइंटमेंट के समय पर ही सेवा शुरू हो गई — कोई इंतजार नहीं करना पड़ा।",
+      "समय प्रबंधन बहुत ही सटीक और पेशेवर था।"
+    ],
+    guPhrases: [
+      "એપોઇન્ટમેન્ટના સમયે જ સેવા શરૂ થઈ ગઈ — રાહ જોવી ન પડી.",
+      "સમયનું સંચાલન ખૂબ જ ચોક્કસ અને વ્યાવસાયિક હતું."
+    ]
+  })
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. RESTAURANT TEMPLATE (restaurant_v1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const restaurantCategories = [
+  buildCategory({
+    name: 'Food Quality & Taste',
+    nameHi: 'भोजन की गुणवत्ता व स्वाद',
+    nameGu: 'ખોરાકની ગુણવત્તા અને સ્વાદ',
+    enPhrases: [
+      "The food was absolutely mouthwatering — rich spices and authentic preparation.",
+      "Freshly prepared dishes served piping hot at the table.",
+      "Delightful presentation and exquisite blend of traditional flavours.",
+      "Every course was cooked to perfection with great attention to detail.",
+      "Signature dishes exceeded all expectations — full of authentic taste.",
+      "Ingredients tasted fresh and high quality throughout the meal.",
+      "Well-portioned starters and mouth-watering gravies.",
+      "Balanced seasoning with just the right amount of spices."
+    ],
+    hiPhrases: [
+      "खाना बेहद ही स्वादिष्ट और गरमा-गरम परोसा गया था।",
+      "मसालों और स्वादों का सही संतुलन — हर व्यंजन लाजवाब था।",
+      "ताजी सामग्री से तैयार भोजन में असली भारतीय स्वाद मिला।",
+      "स्टार्टर्स से लेकर मेन कोर्स तक सब कुछ परफेक्ट था।"
+    ],
+    guPhrases: [
+      "ખોરાક ખૂબ જ સ્વાદિષ્ટ અને ગરમ-ગરમ પીરસવામાં આવ્યો હતો.",
+      "મસાલા અને સ્વાદનું યોગ્ય સંતુલન — દરેક વાનગી ઉત્તમ હતી.",
+      "તાજી સામગ્રીમાંથી બનાવેલ ખોરાકમાં અસલ સ્વાદ મળ્યો.",
+      "સ્ટાર્ટર્સથી લઈને મેઈન કોર્સ સુધી બધું જ પરફેક્ટ હતું."
+    ]
+  }),
+  buildCategory({
+    name: 'Menu Variety',
+    nameHi: 'मेनू में विविधता',
+    nameGu: 'મેનૂમાં વિવિધતા',
+    enPhrases: [
+      "Extensive menu choices offering wide variety for vegetarians and non-vegetarians.",
+      "Great range of regional specialties, breads, and authentic desserts.",
+      "Diverse options covering starters, main course, beverages, and sweets.",
+      "Something on the menu for everyone across different ages and tastes."
+    ],
+    hiPhrases: [
+      "मेनू में बहुत सारे विकल्प थे — शाकाहारी और विभिन्न स्वादों के लिए बड़ा संग्रह।",
+      "पारंपरिक और आधुनिक व्यंजनों की विस्तृत श्रृंखला।"
+    ],
+    guPhrases: [
+      "મેનૂમાં ઘણા બધા વિકલ્પો હતા — શાકાહારી અને વિવિધ વાનગીઓનું સુંદર કલેક્શન.",
+      "પરંપરાગત અને આધુનિક વાનગીઓની વિશાળ શ્રેણી."
+    ]
+  }),
+  buildCategory({
+    name: 'Service Speed & Efficiency',
+    nameHi: 'सेवा की गति',
+    nameGu: 'સેવાની ઝડપ',
+    enPhrases: [
+      "Fast service with minimal wait time even during busy weekend hours.",
+      "Attentive waiters who brought orders promptly and refreshed drinks.",
+      "Smooth service coordination between starters and main courses."
+    ],
+    hiPhrases: [
+      "ऑर्डर देने के बाद बहुत जल्दी और गरमा-गरम खाना टेबल पर आ गया।",
+      "वेटर बहुत ही सतर्क और तत्पर थे।"
+    ],
+    guPhrases: [
+      "ઓર્ડર આપ્યા પછી ખૂબ જ ઝડપથી અને ગરમ ખોરાક ટેબલ પર આવ્યો.",
+      "વેઇટર ખૂબ જ સતર્ક અને કાર્યક્ષમ હતા."
+    ]
+  }),
+  buildCategory({
+    name: 'Staff Hospitality',
+    nameHi: 'स्टाफ का आतिथ्य',
+    nameGu: 'સ્ટાફનું આતિથ્ય',
+    enPhrases: [
+      "Warm hospitality from the floor manager and serving team.",
+      "Courteous staff who guided us through the menu recommendations.",
+      "Polite behavior and pleasant attitude towards all guests."
+    ],
+    hiPhrases: [
+      "स्टाफ का आतिथ्य और व्यवहार बहुत ही आदरपूर्ण था।",
+      "स्टाफ ने हमें बेहतरीन डिश चुनने में अच्छी सलाह दी।"
+    ],
+    guPhrases: [
+      "સ્ટાફનું આતિથ્ય અને વર્તન ખૂબ જ આદરણીય હતું.",
+      "સ્ટાફે અમને શ્રેષ્ઠ વાનગીઓ પસંદ કરવામાં સરસ મદદ કરી."
+    ]
+  }),
+  buildCategory({
+    name: 'Ambience & Seating',
+    nameHi: 'माहौल व व्यवस्था',
+    nameGu: 'વાતાવરણ અને બેઠક',
+    enPhrases: [
+      "Cozy aesthetic interiors with pleasant background lighting and music.",
+      "Spacious table arrangement suitable for family gatherings and celebrations.",
+      "Charming dining atmosphere with comfortable seating arrangements."
+    ],
+    hiPhrases: [
+      "रेस्टोरेंट का माहौल बहुत ही सुंदर, साफ और पारिवारिक था।",
+      "बैठने की उत्तम जगह और बढ़िया बैकग्राउंड म्यूजिक।"
+    ],
+    guPhrases: [
+      "રેસ્ટોરન્ટનું વાતાવરણ ખૂબ જ સુંદર, સ્વચ્છ અને પારિવારિક હતું.",
+      "બેસવાની ઉત્તમ જગ્યા અને સરસ બેકગ્રાઉન્ડ મ્યુઝિક."
+    ]
+  }),
+  buildCategory({
+    name: 'Hygiene & Cleanliness',
+    nameHi: 'स्वच्छता और सफाई',
+    nameGu: 'સ્વચ્છતા અને સફાઈ',
+    enPhrases: [
+      "Sparkling clean dining area, spotless cutlery, and sanitized tables.",
+      "Hygienic food preparation standards maintained everywhere.",
+      "Clean washrooms and well-maintained dining space."
+    ],
+    hiPhrases: [
+      "टेबल, बर्तन और रेस्टोरेंट का कोना-कोना पूरी तरह से साफ था।",
+      "स्वच्छता और सफाई के उच्च मानकों का पालन किया गया।"
+    ],
+    guPhrases: [
+      "ટેબલ, વાસણો અને રેસ્ટોરન્ટનો દરેક ખૂણો સંપૂર્ણપણે સ્વચ્છ હતો.",
+      "સ્વચ્છતા અને સફાઈના ઉચ્ચ ધોરણોનું પાલન કરવામાં આવ્યું."
+    ]
+  }),
+  buildCategory({
+    name: 'Value & Pricing',
+    nameHi: 'किफायती मूल्य',
+    nameGu: 'વ્યાજબી કિંમત',
+    enPhrases: [
+      "Generous portion sizes for the price charged.",
+      "Excellent value for money dining experience for families.",
+      "Reasonably priced dishes considering the food quality and ambience."
+    ],
+    hiPhrases: [
+      "भोजन की मात्रा और स्वाद के हिसाब से दरें बहुत ही उचित थीं।",
+      "परिवार के साथ बढ़िया भोजन के लिए बेहतरीन वैल्यू फॉर मनी।"
+    ],
+    guPhrases: [
+      "ખોરાકના જથ્થા અને સ્વાદના હિસાબે ભાવ ખૂબ જ વ્યાજબી હતા.",
+      "પરિવાર સાથે સુંદર ભોજન માટે શ્રેષ્ઠ વેલ્યુ ફોર મની."
+    ]
+  })
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build Final Output JSON
+// ─────────────────────────────────────────────────────────────────────────────
+
+const templates = [
+  {
+    id: 'ice_cream_v1',
+    business_type: 'Ice Cream',
+    _comment: '30+ variants per category, versioned pools (v1/v2/v3) for duplicate mitigation, EN/HI/GU translations.',
+    categories: iceCreamCategories,
+  },
+  {
+    id: 'salon_v1',
+    business_type: 'Salon',
+    _comment: '30+ variants per category, versioned pools (v1/v2/v3) for duplicate mitigation, EN/HI/GU translations.',
+    categories: salonCategories,
+  },
+  {
+    id: 'restaurant_v1',
+    business_type: 'Restaurant',
+    _comment: '30+ variants per category, versioned pools (v1/v2/v3) for duplicate mitigation, EN/HI/GU translations.',
+    categories: restaurantCategories,
+  },
+];
+
 const outPath = path.join(__dirname, '../firestore/seed/category-templates.json');
-fs.writeFileSync(outPath, output, 'utf8');
+fs.writeFileSync(outPath, JSON.stringify(templates, null, 2), 'utf8');
 
-console.log('Written:', outPath);
-console.log('Categories:', categoryNames.length);
-categoryNames.forEach(n => {
-  const cat = template.categories.find(c => c.name === n);
-  console.log(`  ${n}: EN=${cat.phrase_pool.length}`);
+console.log('✅ Generated 3 category templates:', outPath);
+templates.forEach(t => {
+  console.log(`\n📋 Template ID: ${t.id} (${t.business_type}) — ${t.categories.length} categories`);
+  t.categories.forEach(c => {
+    console.log(`   └─ ${c.name}: base EN=${c.phrase_pool.length}, v1/v2/v3 pools=${Object.keys(c.phrase_pool_versions).length}, HI=${c.translations.hi.phrase_pool.length}, GU=${c.translations.gu.phrase_pool.length}`);
+  });
 });

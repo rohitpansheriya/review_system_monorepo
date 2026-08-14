@@ -177,8 +177,8 @@ service cloud.firestore {
     // ─── category_templates/{templateId} ──────────────────────────────────
 
     match /category_templates/{templateId} {
-      // Any authenticated user can read templates (used by enrollment form).
-      allow read: if isSignedIn();
+      // Public read (customer review page loads template without auth).
+      allow read: if true;
 
       // Writes are admin-only via console or Cloud Functions.
       allow write: if isAdmin();

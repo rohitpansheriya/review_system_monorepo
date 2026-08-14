@@ -97,106 +97,141 @@
       padding: 28px 24px;
     }
 
-    /* ─── Header band ────────────────────────────────────────────────── */
-    #header-band {
+    /* ─── Language Bar ───────────────────────────────────────────────── */
+    .lang-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       width: 100%;
       max-width: 480px;
-      padding: 24px 0 12px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    #biz-logo {
-      width: 52px;
-      height: 52px;
-      border-radius: 14px;
-      object-fit: cover;
-      background: var(--c-surface2);
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: var(--c-surface);
       border: 1px solid var(--c-border);
-      flex-shrink: 0;
+      border-radius: var(--radius-md);
     }
 
-    #biz-logo-placeholder {
-      width: 52px;
-      height: 52px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--c-accent), #5c4fe0);
+    .lang-label {
+      font-size: 13px;
+      color: var(--c-text-muted);
+      font-weight: 500;
+    }
+
+    .lang-options {
+      display: flex;
+      gap: 6px;
+    }
+
+    .lang-btn {
+      background: transparent;
+      border: 1px solid var(--c-border);
+      color: var(--c-text-muted);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .lang-btn.active {
+      background: var(--c-accent);
+      color: #fff;
+      border-color: var(--c-accent);
+      font-weight: 600;
+    }
+
+    /* ─── Header band ────────────────────────────────────────────────── */
+    .header-band {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px 0 12px;
+    }
+
+    .biz-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-md);
+      object-fit: cover;
+      border: 2px solid var(--c-border);
+    }
+
+    .biz-logo-placeholder {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-md);
+      background: var(--c-accent);
+      color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
-      flex-shrink: 0;
-    }
-
-    #biz-name {
-      font-size: 1.2rem;
       font-weight: 700;
-      letter-spacing: -0.3px;
+      font-size: 22px;
     }
 
-    #biz-branch {
-      font-size: 0.82rem;
+    .biz-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .biz-name {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .biz-branch {
+      font-size: 13px;
       color: var(--c-text-muted);
-      margin-top: 2px;
     }
 
+    /* ─── Typography & Form Components ───────────────────────────────── */
+    .screen-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
 
-
-    /* ─── Thank-you message ───────────────────────────────────────────── */
-    .thankyou-msg {
-      text-align: center;
+    .screen-sub {
+      font-size: 14px;
       color: var(--c-text-muted);
-      font-size: 0.95rem;
-      line-height: 1.6;
+      line-height: 1.5;
     }
 
-    .thankyou-msg strong {
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
       color: var(--c-text);
+      margin-bottom: 14px;
     }
 
-    /* ─── Star Selector ──────────────────────────────────────────────── */
-    #star-row {
+    /* ─── Stars ──────────────────────────────────────────────────────── */
+    .star-grid {
       display: flex;
       justify-content: center;
-      gap: 10px;
-      padding: 8px 0;
+      gap: 12px;
+      margin: 20px 0 10px;
     }
 
     .star-btn {
-      width: 52px;
-      height: 52px;
-      font-size: 38px;
-      line-height: 1;
       background: none;
       border: none;
-      cursor: pointer;
+      font-size: 38px;
       color: var(--c-star-off);
-      transition: color var(--transition), transform var(--transition), filter var(--transition);
-      will-change: transform;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .star-btn.lit {
-      color: var(--c-star-on);
-    }
-
-    .star-btn.lit {
-      filter: drop-shadow(0 0 6px rgba(255, 204, 68, 0.5));
+      cursor: pointer;
+      transition: transform 0.15s ease, color 0.15s ease;
+      line-height: 1;
     }
 
     .star-btn:active {
       transform: scale(1.25);
     }
 
-    /* ─── Section headings ────────────────────────────────────────────── */
-    .section-title {
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--c-text-muted);
-      margin-bottom: 10px;
+    .star-btn.lit {
+      color: var(--c-star-on);
+      text-shadow: 0 0 12px rgba(255, 204, 68, 0.4);
     }
 
     /* ─── Category chips ──────────────────────────────────────────────── */
@@ -207,118 +242,75 @@
     }
 
     .chip {
-      padding: 9px 16px;
-      border-radius: 50px;
-      border: 1.5px solid var(--c-border);
       background: var(--c-surface2);
-      color: var(--c-text);
+      border: 1px solid var(--c-border);
+      color: var(--c-text-muted);
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
       font-family: var(--font);
-      font-size: 0.9rem;
-      font-weight: 500;
       cursor: pointer;
-      transition: background var(--transition), border-color var(--transition),
-        color var(--transition), transform var(--transition);
-      -webkit-tap-highlight-color: transparent;
+      transition: var(--transition);
       user-select: none;
+    }
+
+    .chip:hover {
+      border-color: var(--c-accent);
+      color: var(--c-text);
     }
 
     .chip.selected {
       background: var(--c-accent);
       border-color: var(--c-accent);
       color: #fff;
-      box-shadow: 0 0 16px var(--c-accent-glow);
+      box-shadow: 0 0 14px var(--c-accent-glow);
     }
 
-    .chip:active {
-      transform: scale(0.96);
-    }
-
-    /* ─── Review text area ────────────────────────────────────────────── */
-    #review-text {
+    /* ─── Textarea & Buttons ─────────────────────────────────────────── */
+    textarea {
       width: 100%;
-      min-height: 140px;
       background: var(--c-surface2);
-      border: 1.5px solid var(--c-border);
+      border: 1px solid var(--c-border);
       border-radius: var(--radius-md);
       color: var(--c-text);
       font-family: var(--font);
-      font-size: 0.95rem;
+      font-size: 14px;
       line-height: 1.6;
-      padding: 14px 16px;
+      padding: 14px;
       resize: vertical;
       outline: none;
-      transition: border-color var(--transition);
+      transition: var(--transition);
     }
 
-    #review-text:focus {
+    textarea:focus {
       border-color: var(--c-accent);
+      box-shadow: 0 0 12px var(--c-accent-glow);
     }
 
-    #review-text::placeholder {
-      color: var(--c-text-muted);
-    }
-
-    /* ─── WhatsApp textarea ───────────────────────────────────────────── */
-    #wa-text {
-      width: 100%;
-      min-height: 120px;
-      background: var(--c-surface2);
-      border: 1.5px solid var(--c-border);
-      border-radius: var(--radius-md);
-      color: var(--c-text);
-      font-family: var(--font);
-      font-size: 0.95rem;
-      line-height: 1.6;
-      padding: 14px 16px;
-      resize: vertical;
-      outline: none;
-      transition: border-color var(--transition);
-    }
-
-    #wa-text:focus {
-      border-color: var(--c-whatsapp);
-    }
-
-    #wa-text::placeholder {
-      color: var(--c-text-muted);
-    }
-
-    /* ─── Buttons ─────────────────────────────────────────────────────── */
     .btn {
       width: 100%;
-      padding: 15px 20px;
+      padding: 16px;
       border-radius: var(--radius-md);
       border: none;
       font-family: var(--font);
-      font-size: 1rem;
+      font-size: 16px;
       font-weight: 600;
       cursor: pointer;
-      transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
-      -webkit-tap-highlight-color: transparent;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      text-decoration: none;
+      transition: var(--transition);
     }
 
-    .btn:active {
-      transform: scale(0.97);
-    }
-
-    .btn:disabled {
-      opacity: 0.45;
-      pointer-events: none;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--c-accent), #5c4fe0);
+    .btn-google {
+      background: var(--c-google);
       color: #fff;
-      box-shadow: 0 4px 20px var(--c-accent-glow);
     }
 
-    .btn-primary:hover {
-      box-shadow: 0 6px 28px var(--c-accent-glow);
+    .btn-google:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
     }
 
     .btn-whatsapp {
@@ -326,70 +318,57 @@
       color: #fff;
     }
 
-    .btn-whatsapp:hover {
-      opacity: 0.92;
-    }
-
-    .btn-google {
-      background: var(--c-google);
-      color: #fff;
-      box-shadow: 0 4px 20px rgba(66, 133, 244, 0.3);
-    }
-
-    .btn-google:hover {
-      box-shadow: 0 6px 28px rgba(66, 133, 244, 0.4);
-    }
-
     .btn-outline {
       background: transparent;
-      border: 1.5px solid var(--c-border);
-      color: var(--c-text);
+      border: 1px solid var(--c-border);
+      color: var(--c-text-muted);
     }
 
-    .btn-outline:hover {
-      border-color: var(--c-accent);
-      color: var(--c-accent);
-    }
-
-    /* ─── Icon SVGs inline ────────────────────────────────────────────── */
     .icon {
       width: 20px;
       height: 20px;
-      flex-shrink: 0;
     }
 
-    /* ─── ToS text ────────────────────────────────────────────────────── */
-    .tos-text {
-      font-size: 0.73rem;
-      color: var(--c-text-muted);
-      line-height: 1.55;
-      text-align: center;
-      padding: 0 4px;
+    /* ─── Terms of Service policy box (Doc 07) ───────────────────────── */
+    .tos-card {
+      background: var(--c-surface2);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
     }
 
-    .tos-text a {
-      color: var(--c-accent);
-      text-decoration: none;
+    .tos-heading {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--c-text);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    /* ─── Loading / error states ──────────────────────────────────────── */
-    #screen-loading {
+    .tos-list {
+      list-style-type: disc;
+      padding-left: 18px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 60vh;
-      gap: 20px;
-      padding-top: 40px;
+      gap: 6px;
     }
 
+    .tos-list li {
+      font-size: 11px;
+      color: var(--c-text-muted);
+      line-height: 1.45;
+    }
+
+    /* ─── Utility ────────────────────────────────────────────────────── */
     .spinner {
-      width: 44px;
-      height: 44px;
+      width: 36px;
+      height: 36px;
       border: 3px solid var(--c-border);
       border-top-color: var(--c-accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
+      margin: 40px auto;
     }
 
     @keyframes spin {
@@ -398,121 +377,78 @@
       }
     }
 
-    #screen-error,
-    #screen-unavailable,
-    #screen-done {
-      text-align: center;
-      padding-top: 40px;
-    }
-
     .big-icon {
-      font-size: 56px;
-      line-height: 1;
-      margin-bottom: 16px;
-    }
-
-    .screen-title {
-      font-size: 1.4rem;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-
-    .screen-sub {
-      font-size: 0.95rem;
-      color: var(--c-text-muted);
-      line-height: 1.6;
-    }
-
-    /* ─── Already-submitted banner ────────────────────────────────────── */
-    .already-banner {
-      background: rgba(124, 108, 252, 0.12);
-      border: 1px solid rgba(124, 108, 252, 0.25);
-      border-radius: var(--radius-md);
-      padding: 14px 18px;
-      font-size: 0.88rem;
-      color: var(--c-text-muted);
-      text-align: center;
-    }
-
-    /* ─── Divider ─────────────────────────────────────────────────────── */
-    .divider {
-      height: 1px;
-      background: var(--c-border);
-      margin: 4px 0;
-    }
-
-    /* ─── Responsive ──────────────────────────────────────────────────── */
-    @media (max-width: 360px) {
-      .star-btn {
-        width: 44px;
-        height: 44px;
-        font-size: 32px;
-      }
-
-      #star-row {
-        gap: 6px;
-      }
+      font-size: 54px;
+      margin-bottom: 12px;
     }
   </style>
 </head>
 
 <body>
   <div id="app">
+    <!-- Header band (Logo + Business Name) -->
+    <div class="header-band" id="header-band" style="display:none;">
+      <img id="biz-logo" class="biz-logo" src="" alt="Logo" style="display:none;" />
+      <div id="biz-logo-placeholder" class="biz-logo-placeholder">B</div>
+      <div class="biz-meta">
+        <div class="biz-name" id="biz-name">Business</div>
+        <div class="biz-branch" id="biz-branch">Location</div>
+      </div>
+    </div>
 
-    <!-- Loading -->
-    <div id="screen-loading">
+    <!-- Language selector bar -->
+    <div class="lang-bar" id="lang-bar" style="display:none;">
+      <span class="lang-label" id="lbl-lang-label">Language:</span>
+      <div class="lang-options">
+        <button class="lang-btn active" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="hi">हिन्दी</button>
+        <button class="lang-btn" data-lang="gu">ગુજરાતી</button>
+      </div>
+    </div>
+
+    <!-- Screen 0: Loading -->
+    <div id="screen-loading" class="screen active">
       <div class="spinner"></div>
-      <p style="color:var(--c-text-muted); font-size:0.9rem;">Loading…</p>
     </div>
 
-    <!-- Error: branch not found -->
+    <!-- Screen 0B: Error -->
     <div id="screen-error" class="screen" style="display:none;">
-      <div class="big-icon">😕</div>
-      <div class="screen-title">Page Not Found</div>
-      <div class="screen-sub">We couldn't find this review page. Please check the QR code and try again.</div>
+      <div class="card" style="text-align:center;">
+        <div class="big-icon">⚠️</div>
+        <div class="screen-title">Link Invalid</div>
+        <p class="screen-sub">This review link is missing parameters or no longer valid.</p>
+      </div>
     </div>
 
-    <!-- Subscription expired / deleted -->
+    <!-- Screen 0C: Unavailable / Deactivated -->
     <div id="screen-unavailable" class="screen" style="display:none;">
-      <div class="big-icon">🔒</div>
-      <div class="screen-title">Temporarily Unavailable</div>
-      <div class="screen-sub">This review page is currently unavailable. Please visit the store and try again later.
+      <div class="card" style="text-align:center;">
+        <div class="big-icon">🔒</div>
+        <div class="screen-title">Temporarily Unavailable</div>
+        <p class="screen-sub">This business page is currently not accepting reviews.</p>
       </div>
     </div>
 
-    <!-- Already submitted this session -->
+    <!-- Screen 0D: Already Submitted -->
     <div id="screen-done" class="screen" style="display:none;">
-      <div class="big-icon">🎉</div>
-      <div class="screen-title">Thank You!</div>
-      <div class="screen-sub">You've already shared your feedback this visit. We really appreciate it!</div>
-    </div>
-
-    <!-- ─── MAIN FLOW ─────────────────────────────────────────────────────── -->
-
-    <!-- Header band (shared across screens 1 & 2) -->
-    <div id="header-band" style="display:none;">
-      <div id="biz-logo-placeholder">🍦</div>
-      <img id="biz-logo" alt="Business logo" style="display:none;" />
-      <div>
-        <div id="biz-name">…</div>
-        <div id="biz-branch"></div>
+      <div class="card" style="text-align:center;">
+        <div class="big-icon">✨</div>
+        <div class="screen-title">Already Submitted</div>
+        <p class="screen-sub">Thank you! You've already submitted feedback for this visit.</p>
       </div>
     </div>
 
-
-
-    <!-- Screen 1: Landing -->
+    <!-- Screen 1: Landing (Rating Star Selection) -->
     <div id="screen-landing" class="screen">
       <div class="card" style="text-align:center;">
-        <p class="thankyou-msg" style="margin-bottom:20px;">
-          Thanks for visiting! How was your experience?
-        </p>
-        <div id="star-row" role="group" aria-label="Star rating">
-          <button class="star-btn" id="star-1" data-val="1" aria-label="1 star">★</button>
-          <button class="star-btn" id="star-2" data-val="2" aria-label="2 stars">★</button>
-          <button class="star-btn" id="star-3" data-val="3" aria-label="3 stars">★</button>
-          <button class="star-btn" id="star-4" data-val="4" aria-label="4 stars">★</button>
-          <button class="star-btn" id="star-5" data-val="5" aria-label="5 stars">★</button>
+        <div class="screen-title">Thank you for visiting!</div>
+        <p class="screen-sub" id="lbl-landing-sub">How was your experience today?</p>
+        <div class="star-grid">
+          <button class="star-btn" data-val="1">★</button>
+          <button class="star-btn" data-val="2">★</button>
+          <button class="star-btn" data-val="3">★</button>
+          <button class="star-btn" data-val="4">★</button>
+          <button class="star-btn" data-val="5">★</button>
         </div>
       </div>
     </div>
@@ -520,18 +456,17 @@
     <!-- Screen 2A: Low Rating — WhatsApp path -->
     <div id="screen-low-wa" class="screen">
       <div class="card">
-        <p class="thankyou-msg">
-          We're sorry to hear that. Would you mind telling us what went wrong? Your feedback helps us improve.
-        </p>
-        <textarea id="wa-text" rows="5" placeholder="Tell us what happened…"></textarea>
-        <button class="btn btn-whatsapp" id="btn-wa-send" style="margin-top:12px;">
+        <div class="screen-title" id="lbl-wa-title">Sorry to hear that</div>
+        <p class="screen-sub" id="lbl-wa-sub">Please tell us what went wrong so we can make it right.</p>
+        <textarea id="wa-text" rows="5" placeholder="Describe your experience…" style="margin-top:14px;"></textarea>
+        <button class="btn btn-whatsapp" id="btn-wa-send" style="margin-top:14px;">
           <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
             <path
               d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
             <path
               d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.531 5.848L0 24l6.335-1.509A11.932 11.932 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.798 9.798 0 0 1-5.031-1.388l-.361-.214-3.741.981.999-3.647-.236-.374A9.774 9.774 0 0 1 2.182 12c0-5.413 4.405-9.818 9.818-9.818 5.413 0 9.818 4.405 9.818 9.818 0 5.413-4.405 9.818-9.818 9.818z" />
           </svg>
-          <span>Send via WhatsApp</span>
+          <span id="lbl-wa-send">Send via WhatsApp</span>
         </button>
         <button class="btn btn-outline" id="btn-low-skip" style="margin-top:10px;">Skip</button>
       </div>
@@ -541,33 +476,40 @@
     <div id="screen-low-thanks" class="screen">
       <div class="card" style="text-align:center;">
         <div class="big-icon">🙏</div>
-        <div class="screen-title">We appreciate your honesty</div>
-        <p class="screen-sub">Thank you for taking the time to share your experience. We'll work to do better.</p>
+        <div class="screen-title" id="lbl-thanks-title">We appreciate your honesty</div>
+        <p class="screen-sub" id="lbl-thanks-sub">Thank you for taking the time to share your experience.</p>
       </div>
     </div>
 
     <!-- Screen 2B: High Rating — Category + phrases -->
     <div id="screen-high" class="screen">
       <div class="card">
-        <div class="section-title">What did you love? (select all that apply)</div>
+        <div class="section-title" id="lbl-what-loved">What did you love? (select all that apply)</div>
         <div id="chip-grid"></div>
       </div>
       <div class="card" id="review-card" style="display:none;">
-        <div class="section-title">Your review (feel free to edit)</div>
+        <div class="section-title" id="lbl-your-review">Your review (feel free to edit)</div>
         <textarea id="review-text" rows="7" placeholder="Select categories above to build your review…"></textarea>
       </div>
-      <p class="tos-text">
-        By posting this review you confirm the experience described is genuine and based on your personal visit.
-        Review text is pre-composed from common customer feedback themes and edited to reflect your experience.
-        <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Google's Terms of Service</a> apply
-        to the review once posted.
-      </p>
+
+      <!-- Persistent Review Integrity Policy (Terms of Service - Doc 07) -->
+      <div class="card tos-card">
+        <div class="tos-heading" id="lbl-tos-heading">Review Integrity Policy:</div>
+        <ul class="tos-list">
+          <li id="lbl-tos-1">Suggested phrases are provided only as a starting point — they don't replace your own words.</li>
+          <li id="lbl-tos-2">You are free to edit the review before posting it.</li>
+          <li id="lbl-tos-3">You should only describe your own genuine experience.</li>
+          <li id="lbl-tos-4">Fake or false reviews must not be posted.</li>
+          <li id="lbl-tos-5">You have complete freedom to give any rating, regardless of the review content.</li>
+        </ul>
+      </div>
+
       <button class="btn btn-google" id="btn-google-post">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
           <path
             d="M21.35 11.1H12.18V13.83H18.69C18.36 17.64 15.19 19.27 12.19 19.27C8.36 19.27 5 16.25 5 12C5 7.9 8.2 4.73 12.2 4.73C15.29 4.73 17.1 6.7 17.1 6.7L19 4.72C19 4.72 16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12C2.03 17.05 6.16 22 12.25 22C17.6 22 21.5 18.33 21.5 12.91C21.5 11.76 21.35 11.1 21.35 11.1Z" />
         </svg>
-        <span>Copy & Open Google Maps</span>
+        <span id="lbl-google-post">Copy & Open Google Maps</span>
       </button>
     </div>
 
@@ -575,24 +517,22 @@
     <div id="screen-posted" class="screen" style="display:none;">
       <div class="card" style="text-align:center;">
         <div class="big-icon">✅</div>
-        <div class="screen-title">Almost there!</div>
-        <p class="screen-sub">Your review has been copied. Google Maps should open — just paste and post!</p>
+        <div class="screen-title" id="lbl-posted-title">Almost there!</div>
+        <p class="screen-sub" id="lbl-posted-sub">Your review has been copied. Google Maps should open — just paste and post!</p>
         <div class="divider" style="margin:18px 0;"></div>
-        <p class="tos-text">Can't see Google Maps? Open it manually and search for the business.</p>
+        <p class="screen-sub" style="font-size:12px;">Can't see Google Maps? Open it manually and search for the business.</p>
       </div>
     </div>
 
   </div><!-- #app -->
 
-  <!-- ─── Firebase SDK (modular, compat layer for simple inline usage) ─────── -->
+  <!-- ─── Firebase SDK (modular) ────────────────────────────────────────────── -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
     import { getFirestore, doc, getDoc, addDoc, collection, serverTimestamp, connectFirestoreEmulator }
       from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
     // ─── Firebase config ────────────────────────────────────────────────────
-    // The API key here is a client/public key — it's safe to embed in HTML.
-    // Access is governed entirely by Firestore Security Rules.
     const firebaseConfig = {
       apiKey: "AIzaSyCzP1jhiOrhBJ8A2y5fxs2ducbxT9UqT90",
       authDomain: "review-system-prod-49b7a.firebaseapp.com",
@@ -606,16 +546,89 @@
     const fbApp = initializeApp(firebaseConfig);
     const db = getFirestore(fbApp);
 
-    // ─── Local dev: route Firestore reads to the emulator ───────────────────
-    // connectFirestoreEmulator() must be called before any read/write.
-    // The hostname check ensures this is a no-op in production.
+    // ─── Local dev emulator connection ─────────────────────────────────────
     const _host = window.location.hostname;
     if (_host === 'localhost' || _host === '127.0.0.1') {
       connectFirestoreEmulator(db, '127.0.0.1', 8080);
     }
 
+    // ─── UI Strings Dictionary (EN, HI, GU) ──────────────────────────────────
+    const UI_STRINGS = {
+      en: {
+        langLabel: "Language:",
+        landingSub: "How was your experience today?",
+        whatLoved: "What did you love? (select all that apply)",
+        yourReview: "Your review (feel free to edit)",
+        reviewPlaceholder: "Select categories above to build your review…",
+        googlePost: "Copy & Open Google Maps",
+        postedTitle: "Almost there!",
+        postedSub: "Your review has been copied. Google Maps should open — just paste and post!",
+        waTitle: "Sorry to hear that",
+        waSub: "Please tell us what went wrong so we can make it right.",
+        waPlaceholder: "Describe your experience…",
+        waSend: "Send via WhatsApp",
+        skip: "Skip",
+        thanksTitle: "We appreciate your honesty",
+        thanksSub: "Thank you for taking the time to share your experience.",
+        tosHeading: "Review Integrity Policy:",
+        tos1: "Suggested phrases are provided only as a starting point — they don't replace your own words.",
+        tos2: "You are free to edit the review before posting it.",
+        tos3: "You should only describe your own genuine experience.",
+        tos4: "Fake or false reviews must not be posted.",
+        tos5: "You have complete freedom to give any rating, regardless of the review content.",
+      },
+      hi: {
+        langLabel: "भाषा:",
+        landingSub: "आज आपका अनुभव कैसा रहा?",
+        whatLoved: "आपको क्या पसंद आया? (सभी उपयुक्त चुनें)",
+        yourReview: "आपकी समीक्षा (आप संपादन कर सकते हैं)",
+        reviewPlaceholder: "समीक्षा बनाने के लिए ऊपर की श्रेणियां चुनें…",
+        googlePost: "कॉपी करें और गूगल मैप्स खोलें",
+        postedTitle: "बस एक कदम दूर!",
+        postedSub: "आपकी समीक्षा कॉपी हो गई है। गूगल मैप्स खुलेगा — बस पेस्ट करें और पोस्ट करें!",
+        waTitle: "हमें खेद है",
+        waSub: "कृपया हमें बताएं कि क्या समस्या हुई ताकि हम इसे सुधार सकें।",
+        waPlaceholder: "अपना अनुभव लिखें…",
+        waSend: "व्हाट्सएप पर भेजें",
+        skip: "छोड़ें",
+        thanksTitle: "हम आपकी ईमानदारी की सराहना करते हैं",
+        thanksSub: "अपना अनुभव साझा करने के लिए समय निकालने के लिए धन्यवाद।",
+        tosHeading: "समीक्षा अखंडता नीति:",
+        tos1: "सुझाए गए वाक्यांश केवल एक शुरुआती बिंदु के रूप में दिए गए हैं — वे आपके अपने शब्दों का स्थान नहीं लेते हैं।",
+        tos2: "आप पोस्ट करने से पहले समीक्षा को संपादित करने के लिए स्वतंत्र हैं।",
+        tos3: "आपको केवल अपने वास्तविक अनुभव का वर्णन करना चाहिए।",
+        tos4: "नकली या झूठी समीक्षाएं पोस्ट नहीं की जानी चाहिए।",
+        tos5: "समीक्षा सामग्री की परवाह किए बिना आपको कोई भी रेटिंग देने की पूर्ण स्वतंत्रता है।",
+      },
+      gu: {
+        langLabel: "ભાષા:",
+        landingSub: "આજે તમારો અનુભવ કેવો રહ્યો?",
+        whatLoved: "તમને શું પસંદ આવ્યું? (લાગુ પડતા તમામ પસંદ કરો)",
+        yourReview: "તમારી સમીક્ષા (તમે ફેરફાર કરી શકો છો)",
+        reviewPlaceholder: "સમીક્ષા બનાવવા માટે ઉપરના કેટેગરીઝ પસંદ કરો…",
+        googlePost: "કોપી કરો અને ગુગલ મેપ્સ ખોલો",
+        postedTitle: "બસ એક પગલું દૂર!",
+        postedSub: "તમારી સમીક્ષા કોપી થઈ ગઈ છે. ગુગલ મેપ્સ ખુલશે — બસ પેસ્ટ કરો અને પોસ્ટ કરો!",
+        waTitle: "અમને દિલગીરી છે",
+        waSub: "કૃપા કરીને અમને જણાવો કે શું મુશ્કેલી પડી જેથી અમે તેને સુધારી શકીએ.",
+        waPlaceholder: "તમારો અનુભવ લખો…",
+        waSend: "વોટ્સએપ દ્વારા મોકલો",
+        skip: "છોડો",
+        thanksTitle: "અમે તમારી પ્રામાણિકતાની પ્રશંસા કરીએ છીએ",
+        thanksSub: "તમારો અનુભવ શેર કરવા માટે સમય કાઢવા બદલ આભાર.",
+        tosHeading: "સમીક્ષા અખંડિતતા નીતિ:",
+        tos1: "સૂચવેલ શબ્દસમૂહો માત્ર એક શરૂઆતના બિંદુ તરીકે આપવામાં આવ્યા છે — તે તમારા પોતાના શબ્દોનું સ્થાન લેતા નથી.",
+        tos2: "પોસ્ટ કરતા પહેલા સમીક્ષામાં ફેરફાર કરવા માટે તમે મુક્ત છો.",
+        tos3: "તમારે માત્ર તમારા પોતાના વાસ્તવિક અનુભવનું વર્ણન કરવું જોઈએ.",
+        tos4: "નકલી અથવા ખોટી સમીક્ષાઓ પોસ્ટ કરવી જોઈએ નહીં.",
+        tos5: "સમીક્ષા સામગ્રીને ધ્યાનમાં લીધા વિના તમને કોઈપણ રેટિંગ આપવાની સંપૂર્ણ સ્વતંત્રતા છે.",
+      }
+    };
 
-
+    // ─── Feature Flags ───────────────────────────────────────────────────────
+    // Multi-language support flag. Product ships English-only for initial release (false).
+    // Set to true to display language selector and enable dynamic translation rendering.
+    const ENABLE_TRANSLATIONS = false;
 
     // ─── State ──────────────────────────────────────────────────────────────
     let state = {
@@ -624,9 +637,11 @@
       branch: null,
       business: null,
       template: null,
+      assignedPoolVersion: 'v1',
+      lang: 'en',
       starRating: 0,
-      selectedCategories: new Set(),   // category names
-      phraseMap: {},                    // catName → chosen phrase string
+      selectedCategories: new Set(),   // Category index or base name
+      phraseMap: {},                    // index/name → phrase string
       sessionToken: null,
       submitted: false,
     };
@@ -669,13 +684,12 @@
         target.classList.add('active');
       }
 
-      // Header band visibility
       const showHeader = ['landing', 'low-wa', 'low-thanks', 'high', 'posted'].includes(name);
       $('header-band').style.display = showHeader ? 'flex' : 'none';
-
+      $('lang-bar').style.display = (showHeader && ENABLE_TRANSLATIONS) ? 'flex' : 'none';
     }
 
-    // ─── Session token ────────────────────────────────────────────────────────
+    // ─── Session token & submission guard ─────────────────────────────────────
     function getOrCreateSessionToken(branchId) {
       const key = `session_token_${branchId}`;
       let token = sessionStorage.getItem(key);
@@ -692,6 +706,114 @@
 
     function markSubmitted(branchId) {
       sessionStorage.setItem(`submitted_${branchId}`, '1');
+    }
+
+    // ─── Deterministic Pool Version Resolution ───────────────────────────────
+    function resolvePoolVersion(branch, business) {
+      if (branch && branch.pool_version) return branch.pool_version;
+      if (business && business.pool_version) return business.pool_version;
+      // Hash fallback for duplicate content mitigation
+      const seed = (branch && branch.id) || (business && business.id) || 'default';
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) {
+        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+        hash |= 0;
+      }
+      const versions = ['v1', 'v2', 'v3'];
+      return versions[Math.abs(hash) % versions.length];
+    }
+
+    // ─── Language & UI Translation Update ────────────────────────────────────
+    function applyLanguage(lang) {
+      const activeLang = ENABLE_TRANSLATIONS ? lang : 'en';
+      state.lang = activeLang;
+      const dict = UI_STRINGS[activeLang] || UI_STRINGS.en;
+
+      $('lbl-lang-label').textContent = dict.langLabel;
+      $('lbl-landing-sub').textContent = dict.landingSub;
+      $('lbl-what-loved').textContent = dict.whatLoved;
+      $('lbl-your-review').textContent = dict.yourReview;
+      $('review-text').placeholder = dict.reviewPlaceholder;
+      $('lbl-google-post').textContent = dict.googlePost;
+      $('lbl-posted-title').textContent = dict.postedTitle;
+      $('lbl-posted-sub').textContent = dict.postedSub;
+      $('lbl-wa-title').textContent = dict.waTitle;
+      $('lbl-wa-sub').textContent = dict.waSub;
+      $('wa-text').placeholder = dict.waPlaceholder;
+      $('lbl-wa-send').textContent = dict.waSend;
+      $('btn-low-skip').textContent = dict.skip;
+      $('lbl-thanks-title').textContent = dict.thanksTitle;
+      $('lbl-thanks-sub').textContent = dict.thanksSub;
+      $('lbl-tos-heading').textContent = dict.tosHeading;
+      $('lbl-tos-1').textContent = dict.tos1;
+      $('lbl-tos-2').textContent = dict.tos2;
+      $('lbl-tos-3').textContent = dict.tos3;
+      $('lbl-tos-4').textContent = dict.tos4;
+      $('lbl-tos-5').textContent = dict.tos5;
+
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === activeLang);
+      });
+
+      // If category chips are visible, re-render and re-assemble
+      if (state.template) {
+        buildChips();
+        // Re-pick phrases for selected categories in new language
+        state.selectedCategories.forEach(catIdx => {
+          const cat = state.template.categories[catIdx];
+          if (cat) {
+            state.phraseMap[catIdx] = pickPhraseForCategory(cat);
+          }
+        });
+        rebuildReviewText();
+      }
+    }
+
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (ENABLE_TRANSLATIONS) {
+          applyLanguage(btn.dataset.lang);
+        }
+      });
+    });
+
+    // ─── Phrase Pool Resolution per Category / Lang / Version ─────────────────
+    function getCategoryPhrasePool(cat) {
+      const lang = ENABLE_TRANSLATIONS ? state.lang : 'en';
+      const ver  = state.assignedPoolVersion;
+
+      let poolSource = cat;
+      if (lang !== 'en' && cat.translations && cat.translations[lang]) {
+        poolSource = cat.translations[lang];
+      }
+
+      // Check versioned pool
+      if (poolSource.phrase_pool_versions && poolSource.phrase_pool_versions[ver] && poolSource.phrase_pool_versions[ver].length) {
+        return poolSource.phrase_pool_versions[ver];
+      }
+      // Check standard phrase pool
+      if (poolSource.phrase_pool && poolSource.phrase_pool.length) {
+        return poolSource.phrase_pool;
+      }
+      // Fallback to English base version
+      if (cat.phrase_pool_versions && cat.phrase_pool_versions[ver] && cat.phrase_pool_versions[ver].length) {
+        return cat.phrase_pool_versions[ver];
+      }
+      return cat.phrase_pool || [];
+    }
+
+    function getCategoryDisplayName(cat) {
+      const lang = ENABLE_TRANSLATIONS ? state.lang : 'en';
+      if (lang !== 'en' && cat.translations && cat.translations[lang] && cat.translations[lang].name) {
+        return cat.translations[lang].name;
+      }
+      return cat.name;
+    }
+
+    function pickPhraseForCategory(cat) {
+      const pool = getCategoryPhrasePool(cat);
+      if (!pool.length) return '';
+      return pool[Math.floor(Math.random() * pool.length)];
     }
 
     // ─── Star UI ──────────────────────────────────────────────────────────────
@@ -724,35 +846,32 @@
       }
     }
 
-    // ─── Category chips ───────────────────────────────────────────────────────
-    function pickPhrase(cat) {
-      const pool = cat.phrase_pool || [];
-      if (!pool.length) return '';
-      return pool[Math.floor(Math.random() * pool.length)];
-    }
-
+    // ─── Category chips & Text Assembly ───────────────────────────────────────
     function buildChips() {
-      if (!state.template) return;
+      if (!state.template || !state.template.categories) return;
       const grid = $('chip-grid');
       grid.innerHTML = '';
-      state.template.categories.forEach(cat => {
+
+      state.template.categories.forEach((cat, idx) => {
         const btn = document.createElement('button');
         btn.className = 'chip';
-        btn.textContent = cat.name;
-        btn.dataset.cat = cat.name;
-        btn.addEventListener('click', () => toggleChip(cat, btn));
+        btn.textContent = getCategoryDisplayName(cat);
+        if (state.selectedCategories.has(idx)) {
+          btn.classList.add('selected');
+        }
+        btn.addEventListener('click', () => toggleChip(cat, idx, btn));
         grid.appendChild(btn);
       });
     }
 
-    function toggleChip(cat, btn) {
-      if (state.selectedCategories.has(cat.name)) {
-        state.selectedCategories.delete(cat.name);
-        delete state.phraseMap[cat.name];
+    function toggleChip(cat, idx, btn) {
+      if (state.selectedCategories.has(idx)) {
+        state.selectedCategories.delete(idx);
+        delete state.phraseMap[idx];
         btn.classList.remove('selected');
       } else {
-        state.selectedCategories.add(cat.name);
-        state.phraseMap[cat.name] = pickPhrase(cat);
+        state.selectedCategories.add(idx);
+        state.phraseMap[idx] = pickPhraseForCategory(cat);
         btn.classList.add('selected');
       }
       rebuildReviewText();
@@ -766,17 +885,14 @@
         return;
       }
       card.style.display = '';
-      // Build review in selection order
       const phrases = [];
-      state.template.categories.forEach(cat => {
-        if (state.selectedCategories.has(cat.name)) {
-          phrases.push(state.phraseMap[cat.name]);
+      state.template.categories.forEach((cat, idx) => {
+        if (state.selectedCategories.has(idx) && state.phraseMap[idx]) {
+          phrases.push(state.phraseMap[idx]);
         }
       });
       ta.value = phrases.join(' ');
     }
-
-
 
     // ─── Log scan to Firestore ────────────────────────────────────────────────
     async function logScan({ actionTaken }) {
@@ -790,7 +906,6 @@
           action_taken: actionTaken,
         });
       } catch (e) {
-        // Non-fatal — best-effort logging
         console.warn('scan_logs write failed', e);
       }
     }
@@ -817,11 +932,9 @@
       const reviewText = $('review-text').value.trim();
       if (!reviewText) return;
 
-      // Copy to clipboard
       try {
         await navigator.clipboard.writeText(reviewText);
       } catch {
-        // Fallback: select text
         const ta = $('review-text');
         ta.select();
         document.execCommand('copy');
@@ -830,7 +943,6 @@
       await logScan({ actionTaken: 'google_maps' });
       markSubmitted(state.branchId);
 
-      // Open Google Maps write-review URL
       const placeId = state.branch.place_id || '';
       const mobileUrl = `https://search.google.com/local/writereview/mobile?placeid=${placeId}`;
       const desktopUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
@@ -842,21 +954,24 @@
 
     // ─── Load data on page init ───────────────────────────────────────────────
     async function init() {
-      // URL format: /r/{businessId}/{branchId}
-      // Both IDs are required — the branch is a subcollection of the business.
-      // The QR code generator (Cloud Function) must encode both IDs in the URL.
+      // Format: /r/{businessId}/{branchId} or fallback /r/{branchId}
       const parts = window.location.pathname.split('/').filter(Boolean);
-      // parts[0] === 'r',  parts[1] === businessId,  parts[2] === branchId
-      const businessId = parts[1] || null;
-      const branchId = parts[2] || null;
+      let businessId = null;
+      let branchId = null;
 
-      if (!businessId || !branchId) {
+      if (parts.length >= 3) {
+        businessId = parts[1];
+        branchId = parts[2];
+      } else if (parts.length === 2) {
+        branchId = parts[1];
+      }
+
+      if (!branchId) {
         showScreen('error');
         return;
       }
 
       state.branchId = branchId;
-      state.businessId = businessId;
       state.sessionToken = getOrCreateSessionToken(branchId);
 
       if (isAlreadySubmitted(branchId)) {
@@ -864,41 +979,58 @@
         return;
       }
 
-      await loadWithIds(businessId, branchId);
+      await loadData(businessId, branchId);
     }
 
-    async function loadWithIds(businessId, branchId) {
-      state.businessId = businessId;
-      state.branchId = branchId;
-
+    async function loadData(businessId, branchId) {
       try {
-        const [bizSnap, branchSnap] = await Promise.all([
-          getDoc(doc(db, 'businesses', businessId)),
-          getDoc(doc(db, 'businesses', businessId, 'branches', branchId)),
-        ]);
+        let branchSnap, bizSnap;
 
-        if (!bizSnap.exists() || !branchSnap.exists()) {
+        if (businessId) {
+          [bizSnap, branchSnap] = await Promise.all([
+            getDoc(doc(db, 'businesses', businessId)),
+            getDoc(doc(db, 'businesses', businessId, 'branches', branchId)),
+          ]);
+        } else {
+          // Collection group query if businessId is omitted
+          branchSnap = await getDoc(doc(db, 'branches', branchId));
+          if (branchSnap.exists()) {
+            const bizRef = branchSnap.ref.parent.parent;
+            businessId = bizRef.id;
+            bizSnap = await getDoc(bizRef);
+          }
+        }
+
+        if (!branchSnap || !branchSnap.exists() || !bizSnap || !bizSnap.exists()) {
           showScreen('error');
           return;
         }
 
+        state.businessId = businessId;
         state.business = bizSnap.data();
         state.branch = branchSnap.data();
 
         // Check subscription status
         const status = state.business.subscription_status;
-        // RULE 5: pending_payment (draft, not yet paid) is treated as not-live.
-        // QR is not generated until activation, so this is mostly defensive.
         if (status === 'deleted' || status === 'suspended' || status === 'pending_payment') {
           showScreen('unavailable');
           return;
         }
 
-        // Load category template
+        // Pool version resolution (duplicate content mitigation)
+        state.assignedPoolVersion = resolvePoolVersion(state.branch, state.business);
+
+        // Load category template from Firestore (cached in state.template for session)
         const templateId = state.branch.category_override_id
           || state.business.default_category_template_id
           || 'ice_cream_v1';
-        const tplSnap = await getDoc(doc(db, 'category_templates', templateId));
+        
+        let tplSnap = await getDoc(doc(db, 'category_templates', templateId));
+        if (!tplSnap.exists()) {
+          // Fallback to default ice_cream_v1 if templateId missing
+          tplSnap = await getDoc(doc(db, 'category_templates', 'ice_cream_v1'));
+        }
+
         state.template = tplSnap.exists() ? tplSnap.data() : null;
 
         // Populate header
@@ -912,7 +1044,7 @@
           $('biz-logo-placeholder').style.display = 'none';
         }
 
-        $('header-band').style.display = 'flex';
+        applyLanguage('en');
         showScreen('landing');
 
       } catch (err) {

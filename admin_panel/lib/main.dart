@@ -24,6 +24,7 @@ import 'providers/commission_provider.dart';
 import 'providers/enroll_provider.dart';
 import 'providers/my_businesses_provider.dart';
 import 'providers/owner_dashboard_provider.dart';
+import 'providers/admin_dashboard_provider.dart';
 import 'providers/profile_provider.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
@@ -35,6 +36,7 @@ import 'screens/enroll/enroll_screen.dart';
 import 'screens/enroll/payment_screen.dart';
 import 'screens/my_businesses/my_businesses_screen.dart';
 import 'screens/owner/owner_dashboard_screen.dart';
+import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/business_detail/business_detail_screen.dart';
 import 'screens/business_detail/business_edit_screen.dart';
 import 'screens/commission/commission_screen.dart';
@@ -169,19 +171,8 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
           },
         ),
 
-        // ── Admin placeholder (doc 04 — not yet built) ─────────────────────
-        GoRoute(
-          path: '/admin',
-          builder: (_, __) => Scaffold(
-            appBar: AppBar(title: const Text('Admin Panel')),
-            body: const Center(
-              child: Text(
-                '[Doc 04 — Admin panel not yet built]\n\nAdmin screens will be added here.',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ),
+        // ── Admin Dashboard (Doc 04 Admin Panel) ───────────────────────────
+        GoRoute(path: '/admin', builder: (_, __) => const AdminDashboardScreen()),
       ],
 
       errorBuilder: (_, state) => Scaffold(
@@ -217,6 +208,9 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
         ),
         ChangeNotifierProvider(
           create: (_) => OwnerDashboardProvider(firestoreService: _firestoreService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AdminDashboardProvider(firestoreService: _firestoreService),
         ),
         ChangeNotifierProvider(
           create: (_) => CommissionProvider(firestoreService: _firestoreService),

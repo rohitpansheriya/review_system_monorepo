@@ -84,3 +84,8 @@ export {
   confirmCashPaymentAdmin,
   markCommissionPaidAdmin,
 } from "./commissions.js";
+export {
+  createEmployeeAccount,
+  offboardEmployee,
+  verifyEmployeeDocumentsAdmin,
+} from "./employees.js";

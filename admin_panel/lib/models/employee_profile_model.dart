@@ -1,14 +1,13 @@
 // lib/models/employee_profile_model.dart
 //
 // Extends the employees/{uid} schema with:
+//   uid, status, totalEnrollments, thisMonthEnrollments
 //   profile.*      — personal details the employee maintains
 //   payout.*       — bank or UPI payout details
 //   documents      — list of uploaded KYC doc references (Storage paths, NOT bytes)
-//   documents_verified — "pending" | "verified"  (set to "pending" by client,
-//                        only admin/Cloud Function may flip to "verified")
+//   documents_verified — "pending" | "verified" | "rejected"
 //
 // Firestore path: employees/{uid}  (same doc as EmployeeModel — merged schema)
-// This model is read alongside EmployeeModel; neither replaces the other.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -25,8 +24,6 @@ extension PayoutMethodLabel on PayoutMethod {
 }
 
 // ── EmployeeDocument ──────────────────────────────────────────────────────────
-// A single uploaded KYC / ID document reference.
-// Bytes are NEVER stored in Firestore — only the Storage path + metadata.
 
 class EmployeeDocument {
   final String    storagePath;   // e.g. "employee_docs/{uid}/aadhaar_1691234567.jpg"
@@ -57,6 +54,11 @@ class EmployeeDocument {
 // ── EmployeeProfileModel ──────────────────────────────────────────────────────
 
 class EmployeeProfileModel {
+  final String uid;
+  final String status; // "active" | "inactive"
+  final int totalEnrollments;
+  final int thisMonthEnrollments;
+
   // ── Profile section ──────────────────────────────────────────────────────
   final String fullName;
   final String email;
@@ -71,9 +73,13 @@ class EmployeeProfileModel {
 
   // ── Documents section ─────────────────────────────────────────────────────
   final List<EmployeeDocument> documents;
-  final String                 documentsVerified; // "pending" | "verified"
+  final String                 documentsVerified; // "pending" | "verified" | "rejected"
 
   const EmployeeProfileModel({
+    required this.uid,
+    this.status = 'active',
+    this.totalEnrollments = 0,
+    this.thisMonthEnrollments = 0,
     required this.fullName,
     required this.email,
     required this.phone,
@@ -86,8 +92,12 @@ class EmployeeProfileModel {
     required this.documentsVerified,
   });
 
+  bool get isActive => status == 'active';
+  String get name => fullName.isNotEmpty ? fullName : email;
+
   // ── Empty state ───────────────────────────────────────────────────────────
   static const empty = EmployeeProfileModel(
+    uid:               '',
     fullName:          '',
     email:             '',
     phone:             '',
@@ -105,11 +115,19 @@ class EmployeeProfileModel {
     final payout  = d['payout']  as Map<String, dynamic>? ?? {};
     final rawDocs = d['documents'] as List<dynamic>? ?? [];
 
+    final topName  = d['name'] as String? ?? '';
+    final topEmail = d['email'] as String? ?? d['contact'] as String? ?? '';
+    final topPhone = d['phone'] as String? ?? '';
+
     return EmployeeProfileModel(
-      fullName:  profile['full_name'] as String? ?? '',
-      email:     profile['email']     as String? ?? '',
-      phone:     profile['phone']     as String? ?? '',
-      address:   profile['address']   as String? ?? '',
+      uid:                  doc.id,
+      status:               d['status'] as String? ?? (d['active'] == false ? 'inactive' : 'active'),
+      totalEnrollments:     (d['total_enrollments'] as num?)?.toInt() ?? 0,
+      thisMonthEnrollments: (d['this_month_enrollments'] as num?)?.toInt() ?? 0,
+      fullName:             topName.isNotEmpty ? topName : (profile['full_name'] as String? ?? ''),
+      email:                topEmail.isNotEmpty ? topEmail : (profile['email'] as String? ?? ''),
+      phone:                topPhone.isNotEmpty ? topPhone : (profile['phone'] as String? ?? ''),
+      address:              profile['address'] as String? ?? '',
 
       payoutMethod:  PayoutMethodLabel.fromString(payout['payout_method'] as String?),
       bankAccountNo: payout['bank_account_no'] as String?,
@@ -123,9 +141,6 @@ class EmployeeProfileModel {
     );
   }
 
-  // ── Firestore payloads (never write the whole model — write only the
-  //    sub-map that changed so we don't accidentally clobber sibling fields) ─
-
   Map<String, dynamic> profilePayload() => {
         'profile.full_name': fullName,
         'profile.email':     email,
@@ -136,23 +151,25 @@ class EmployeeProfileModel {
   Map<String, dynamic> payoutPayload() {
     final m = <String, dynamic>{
       'payout.payout_method': payoutMethod.value,
-      // Reset verification whenever payout details change (security safeguard).
       'documents_verified': 'pending',
     };
     if (payoutMethod == PayoutMethod.bank) {
       m['payout.bank_account_no'] = bankAccountNo ?? '';
       m['payout.bank_ifsc']       = bankIfsc      ?? '';
-      m['payout.upi_id']          = null; // clear old UPI when switching to bank
+      m['payout.upi_id']          = null;
     } else {
       m['payout.upi_id']           = upiId         ?? '';
-      m['payout.bank_account_no']  = null; // clear old bank when switching to UPI
+      m['payout.bank_account_no']  = null;
       m['payout.bank_ifsc']        = null;
     }
     return m;
   }
 
-  // ── copyWith ──────────────────────────────────────────────────────────────
   EmployeeProfileModel copyWith({
+    String?               uid,
+    String?               status,
+    int?                  totalEnrollments,
+    int?                  thisMonthEnrollments,
     String?               fullName,
     String?               email,
     String?               phone,
@@ -164,6 +181,10 @@ class EmployeeProfileModel {
     List<EmployeeDocument>? documents,
     String?               documentsVerified,
   }) => EmployeeProfileModel(
+    uid:                  uid                  ?? this.uid,
+    status:               status               ?? this.status,
+    totalEnrollments:     totalEnrollments     ?? this.totalEnrollments,
+    thisMonthEnrollments: thisMonthEnrollments ?? this.thisMonthEnrollments,
     fullName:          fullName          ?? this.fullName,
     email:             email             ?? this.email,
     phone:             phone             ?? this.phone,

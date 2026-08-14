@@ -36,6 +36,8 @@ class AppAuthProvider extends ChangeNotifier {
   bool get isOwner    => _role == AppConstants.roleOwner;
 
   String? get uid => _authService.currentUid;
+  User? get user => FirebaseAuth.instance.currentUser;
+  String? get email => user?.email;
 
   AppAuthProvider({
     required AuthService authService,

@@ -67,10 +67,14 @@ service cloud.firestore {
       // No client-side create.
       allow create: if false;
 
-      // UPDATE: Only allowed via Cloud Functions (payment webhook, renewal, etc).
-      // Employees and owners MUST NOT change subscription_status, renewal_date,
-      // or any billing field directly.
-      allow update: if false;
+      // UPDATE: 
+      // - Cloud Functions handles billing/status/dates.
+      // - Owner: may update ONLY active_categories on their business, and ONLY when subscription_status == 'active'.
+      allow update: if isOwner()
+        && resource.data.owner_auth_uid == request.auth.uid
+        && resource.data.subscription_status == 'active'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['active_categories']);
 
       // DELETE: Not allowed from client side.
       allow delete: if false;
@@ -86,29 +90,29 @@ service cloud.firestore {
         // CREATE: Only via Cloud Functions (enrollment batch write, Admin SDK).
         allow create: if false;
 
-        // UPDATE: Employees (and admins) may update ONLY the standee tracking
-        //   fields and whatsapp_monitored_by. All other branch fields (address,
-        //   routing config, QR IDs, nfc_url, place_id, etc.) are immutable
-        //   from the client — updates go through Cloud Functions.
-        //
-        // The hasOnly() check ensures the request does not sneak in any
-        // other keys beyond the allowed set. Server timestamp is written
-        // by the client as FieldValue.serverTimestamp() — this is the
-        // expected pattern and allowed.
-        allow update: if isEmployeeOrAdmin()
+        // UPDATE:
+        // - Employees/Admins: standee tracking fields & whatsapp_monitored_by.
+        // - Owners: star_routing_config & active_categories.
+        allow update: if (
+          isEmployeeOrAdmin()
           && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly([
                 'standee_status',
                 'standee_status_updated_at',
                 'whatsapp_monitored_by',
               ])
-          // Constrain standee_status to valid enum values.
           && (
             !('standee_status' in request.resource.data.diff(resource.data).affectedKeys())
             || request.resource.data.standee_status in [
                 'not_ordered', 'printed', 'shipped', 'delivered'
                ]
-          );
+          )
+        ) || (
+          isOwner()
+          && get(/databases/$(database)/documents/businesses/$(bizId)).data.owner_auth_uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['star_routing_config', 'active_categories'])
+        );
 
         // DELETE: Not allowed from client side.
         allow delete: if false;

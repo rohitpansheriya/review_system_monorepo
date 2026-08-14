@@ -63,6 +63,7 @@ export {
   cleanupAbandonedDrafts,
   /// Change 3: resend a Razorpay Payment Link to a pending_payment draft owner.
   resendPaymentLink,
+  provisionOwner,
 } from "./razorpay.js";
 export {
   sendRenewalReminders,

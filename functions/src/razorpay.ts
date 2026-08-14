@@ -145,6 +145,52 @@ function safeEqual(a: string, b: string): boolean {
   }
 }
 
+/**
+ * Provisions a Firebase Auth user account for the business owner, sets the
+ * role = "owner" custom claim, updates businesses/{businessId}.owner_auth_uid,
+ * and generates a magic password-reset / setup link.
+ */
+export async function provisionOwnerAccount(
+  db: Firestore,
+  businessId: string,
+  ownerEmail: string,
+  ownerName?: string
+): Promise<string> {
+  const auth = admin.auth();
+  let uid: string;
+  try {
+    const existing = await auth.getUserByEmail(ownerEmail);
+    uid = existing.uid;
+  } catch {
+    const newUser = await auth.createUser({
+      email: ownerEmail,
+      displayName: ownerName || "Business Owner",
+    });
+    uid = newUser.uid;
+  }
+
+  // Assign role: 'owner' custom claim
+  await auth.setCustomUserClaims(uid, { role: "owner" });
+
+  // Update business document with owner_auth_uid
+  await db.collection("businesses").doc(businessId).update({
+    owner_auth_uid: uid,
+  });
+
+  try {
+    const link = await auth.generatePasswordResetLink(ownerEmail);
+    logger.info("provisionOwnerAccount: magic setup link generated", {
+      ownerEmail,
+      businessId,
+      link,
+    });
+  } catch (err) {
+    logger.warn("provisionOwnerAccount: password reset link generation warning", {err});
+  }
+
+  return uid;
+}
+
 // ---------------------------------------------------------------------------
 // createOrder  (callable)
 // ---------------------------------------------------------------------------
@@ -563,6 +609,9 @@ async function handleSuccessfulPayment(
     enrolled_by?: string;
     subscription_status?: string;
     renewal_date?: Timestamp;
+    owner_email?: string;
+    owner_name?: string;
+    owner_auth_uid?: string | null;
   };
 
   const now = new Date();
@@ -624,6 +673,25 @@ async function handleSuccessfulPayment(
     eventName,
     amountRupees:   amountPaise / 100,
   });
+
+  // Provision owner Auth user + assign role: 'owner' claim if email present
+  if (bizData.owner_email && (!bizData.owner_auth_uid || isPendingDraft)) {
+    try {
+      const ownerUid = await provisionOwnerAccount(
+        db,
+        businessId,
+        bizData.owner_email,
+        bizData.owner_name
+      );
+      logger.info("handleSuccessfulPayment: owner account provisioned", {
+        businessId, ownerUid,
+      });
+    } catch (ownerErr) {
+      logger.error("handleSuccessfulPayment: owner provisioning failed", {
+        businessId, err: ownerErr,
+      });
+    }
+  }
 
   // 4. Generate QR PNGs for every branch (doc 09).
   //    Both standee QR and plain printable QR are generated per branch.
@@ -1089,6 +1157,36 @@ export const resendPaymentLink = onCall(
       shortUrl: paymentLink.short_url,
       paymentLinkId: paymentLink.id,
     };
+  }
+);
+
+/**
+ * Callable function to provision or re-provision an owner Firebase Auth account.
+ */
+export const provisionOwner = onCall(
+  { region: "asia-south1" },
+  async (request) => {
+    requireAuth(request.auth);
+    const { businessId } = request.data as { businessId?: string };
+    if (!businessId) {
+      throw new HttpsError("invalid-argument", "businessId is required.");
+    }
+    const db = getFirestore();
+    const bizSnap = await db.collection("businesses").doc(businessId).get();
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", "Business not found.");
+    }
+    const bizData = bizSnap.data() as { owner_email?: string; owner_name?: string };
+    if (!bizData.owner_email) {
+      throw new HttpsError("failed-precondition", "Business has no owner_email.");
+    }
+    const ownerUid = await provisionOwnerAccount(
+      db,
+      businessId,
+      bizData.owner_email,
+      bizData.owner_name
+    );
+    return { success: true, ownerUid };
   }
 );
 

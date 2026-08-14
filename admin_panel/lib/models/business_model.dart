@@ -17,6 +17,7 @@ class BusinessModel {
   final String? ownerEmail;
   final String? ownerName;
   final String? ownerPhone;
+  final Map<String, bool> activeCategories;
 
   const BusinessModel({
     required this.id,
@@ -34,10 +35,12 @@ class BusinessModel {
     this.ownerEmail,
     this.ownerName,
     this.ownerPhone,
+    this.activeCategories = const {},
   });
 
   factory BusinessModel.fromDoc(DocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>;
+    final rawActive = d['active_categories'] as Map<String, dynamic>? ?? {};
     return BusinessModel(
       id:                         doc.id,
       brandName:                  d['brand_name']                    as String? ?? '',
@@ -54,6 +57,7 @@ class BusinessModel {
       ownerEmail:                 d['owner_email']                   as String?,
       ownerName:                  d['owner_name']                    as String?,
       ownerPhone:                 d['owner_phone']                   as String?,
+      activeCategories:           rawActive.map((k, v) => MapEntry(k, v as bool? ?? true)),
     );
   }
 
@@ -67,8 +71,6 @@ class BusinessModel {
   bool get isReassigned => currentlyManagedBy == 'admin';
 
   /// Creates a copy with specified employee-editable fields replaced.
-  /// Used by BusinessEditScreen after a successful save to update the
-  /// in-memory model in MyBusinessesProvider without a Firestore round-trip.
   BusinessModel copyWith({
     String?  brandName,
     String?  logoUrl,
@@ -77,6 +79,7 @@ class BusinessModel {
     String?  ownerName,
     String?  ownerEmail,
     String?  ownerPhone,
+    Map<String, bool>? activeCategories,
   }) => BusinessModel(
     id:                        id,
     brandName:                 brandName ?? this.brandName,
@@ -93,5 +96,6 @@ class BusinessModel {
     ownerEmail:                ownerEmail ?? this.ownerEmail,
     ownerName:                 ownerName  ?? this.ownerName,
     ownerPhone:                ownerPhone ?? this.ownerPhone,
+    activeCategories:           activeCategories ?? this.activeCategories,
   );
 }

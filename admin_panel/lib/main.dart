@@ -23,6 +23,7 @@ import 'providers/auth_provider.dart';
 import 'providers/commission_provider.dart';
 import 'providers/enroll_provider.dart';
 import 'providers/my_businesses_provider.dart';
+import 'providers/owner_dashboard_provider.dart';
 import 'providers/profile_provider.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
@@ -33,6 +34,7 @@ import 'screens/login/login_screen.dart';
 import 'screens/enroll/enroll_screen.dart';
 import 'screens/enroll/payment_screen.dart';
 import 'screens/my_businesses/my_businesses_screen.dart';
+import 'screens/owner/owner_dashboard_screen.dart';
 import 'screens/business_detail/business_detail_screen.dart';
 import 'screens/business_detail/business_edit_screen.dart';
 import 'screens/commission/commission_screen.dart';
@@ -128,7 +130,9 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
 
         // Authenticated + on login page → send to role home
         if (status == AuthStatus.authenticated && isLoginPage) {
-          return _authProvider.isAdmin ? '/admin' : '/businesses';
+          if (_authProvider.isAdmin) return '/admin';
+          if (_authProvider.isOwner) return '/owner';
+          return '/businesses';
         }
 
         return null;
@@ -137,6 +141,7 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
       routes: [
         GoRoute(path: '/login',      builder: (_, __) => const LoginScreen()),
         GoRoute(path: '/businesses', builder: (_, __) => const MyBusinessesScreen()),
+        GoRoute(path: '/owner',      builder: (_, __) => const OwnerDashboardScreen()),
         GoRoute(path: '/enroll',     builder: (_, __) => const EnrollScreen()),
         GoRoute(path: '/commission', builder: (_, __) => const CommissionScreen()),
         GoRoute(path: '/profile',    builder: (_, __) => const ProfileScreen()),
@@ -209,6 +214,9 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
         ),
         ChangeNotifierProvider(
           create: (_) => MyBusinessesProvider(firestoreService: _firestoreService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => OwnerDashboardProvider(firestoreService: _firestoreService),
         ),
         ChangeNotifierProvider(
           create: (_) => CommissionProvider(firestoreService: _firestoreService),

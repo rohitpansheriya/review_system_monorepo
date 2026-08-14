@@ -33,6 +33,7 @@ class AppAuthProvider extends ChangeNotifier {
 
   bool get isEmployee => _role == AppConstants.roleEmployee;
   bool get isAdmin    => _role == AppConstants.roleAdmin;
+  bool get isOwner    => _role == AppConstants.roleOwner;
 
   String? get uid => _authService.currentUid;
 
@@ -72,10 +73,12 @@ class AppAuthProvider extends ChangeNotifier {
 
     final role = token.claims?[AppConstants.claimRole] as String?;
 
-    if (role != AppConstants.roleEmployee && role != AppConstants.roleAdmin) {
+    if (role != AppConstants.roleEmployee &&
+        role != AppConstants.roleAdmin &&
+        role != AppConstants.roleOwner) {
       await _authService.signOut();
       _status  = AuthStatus.accessDenied;
-      _error   = 'Access denied: this account is not an employee or admin.';
+      _error   = 'Access denied: invalid role for this portal.';
       _role    = null;
       _loading = false;
       notifyListeners();

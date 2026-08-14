@@ -45,14 +45,16 @@ class QrStubService {
       print('QrStubService: QR generation unexpected error: $e');
     }
 
-    // ── [STUB] Owner provisioning (doc 02 — NOT YET BUILT) ─────────────────
-    // TODO(doc-02): Provision owner Firebase Auth account + send magic-link.
-    //   Steps when doc 02 is built:
-    //   1. Call a Cloud Function: provisionOwner({ email: ownerEmail, name: ownerName, businessId })
-    //   2. Function creates Auth user, sets role='owner' custom claim, sends password-reset email.
-    //   3. Function writes owner_auth_uid back to businesses/{businessId}.
-    // ignore: avoid_print
-    print('QrStubService: [STUB-doc02] Owner provisioning deferred. '
-        'Owner email=$ownerEmail will need manual account creation until doc 02 is built.');
+    // ── Owner provisioning (doc 02) ──────────────────────────────────────────
+    try {
+      await _functions.httpsCallable('provisionOwner').call({
+        'businessId': businessId,
+      });
+      // ignore: avoid_print
+      print('QrStubService: Owner account provisioned for business $businessId');
+    } catch (e) {
+      // ignore: avoid_print
+      print('QrStubService: Owner provisioning error (non-fatal, webhook will retry): $e');
+    }
   }
 }

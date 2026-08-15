@@ -36,3 +36,6 @@ review_page/firebase-config.js
 admin_panel/android/app/google-services.json
 admin_panel/ios/Runner/GoogleService-Info.plist
 functions/.secret.local
+*serviceAccount*.json
+functions/.env*
+!functions/.env.example

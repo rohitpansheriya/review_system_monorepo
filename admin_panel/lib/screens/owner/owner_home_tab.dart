@@ -12,7 +12,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/owner_dashboard_provider.dart';
-import '../../models/commission_record_model.dart';
+
 import '../../core/theme.dart';
 
 class OwnerHomeTab extends StatelessWidget {
@@ -50,12 +50,8 @@ class OwnerHomeTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── 0. Cash Payment Confirmation Requests (Doc 06 fraud gate) ───
-            if (provider.pendingCashConfirmations.isNotEmpty) ...[
-              for (final record in provider.pendingCashConfirmations)
-                _buildCashConfirmationCard(context, provider, record),
-              const SizedBox(height: 12),
-            ],
+            // Cash payment confirmation REMOVED — cash is admin-only now.
+            // Owner is not part of the confirmation gate.
 
             // ── 1. Renewal Reminder Banner (Doc 08) ─────────────────────────
             if (provider.isGracePeriod)
@@ -271,127 +267,8 @@ class OwnerHomeTab extends StatelessWidget {
     );
   }
 
-  // ── Cash Confirmation Card (Doc 06) ─────────────────────────────────────────
-  Widget _buildCashConfirmationCard(
-    BuildContext context,
-    OwnerDashboardProvider provider,
-    CommissionRecordModel record,
-  ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final dateStr = record.dateClaimed != null
-        ? record.dateClaimed!.toLocal().toString().split(' ')[0]
-        : 'recently';
-
-    return Card(
-      color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: colorScheme.primary, width: 1.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.verified_user_outlined, color: colorScheme.primary, size: 24),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Cash Payment Verification Required',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.star.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Pending Confirmation',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Our records show a cash payment of ₹${record.amount.toStringAsFixed(0)} was collected for your enrollment/renewal on $dateStr.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Did you pay ₹${record.amount.toStringAsFixed(0)} in cash?',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await provider.confirmCashPayment(
-                      recordId: record.id,
-                      confirmed: false,
-                      disputeReason: 'Owner responded NO to payment confirmation.',
-                    );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Payment disputed. Admin has been notified for investigation.'),
-                          backgroundColor: Colors.redAccent,
-                        ),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.close, size: 16),
-                  label: const Text('No, I Did Not Pay'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colorScheme.error,
-                    side: BorderSide(color: colorScheme.error),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    await provider.confirmCashPayment(
-                      recordId: record.id,
-                      confirmed: true,
-                    );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('✅ Cash payment confirmed successfully!'),
-                          backgroundColor: AppColors.activeFg,
-                        ),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.check, size: 16),
-                  label: const Text('Yes, I Paid'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.activeFg,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // Cash Confirmation Card REMOVED — cash is admin-only now.
+  // Owner is not part of the confirmation gate.
 
   Widget _buildGraceBanner(
       BuildContext context, OwnerDashboardProvider provider, DateTime? graceEnds) {

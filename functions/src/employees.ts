@@ -8,10 +8,11 @@
  *   - verifyEmployeeDocumentsAdmin: sets documents_verified = "verified" / "rejected".
  */
 
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as crypto from "crypto";
+import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
+import {getFirestore, Timestamp} from "firebase-admin/firestore";
+import {getAuth} from "firebase-admin/auth";
 
 // ---------------------------------------------------------------------------
 // createEmployeeAccount — onCall (doc 04)
@@ -29,7 +30,7 @@ export const createEmployeeAccount = onCall(
       );
     }
 
-    const { email, password, displayName, phone, address } = (request.data || {}) as {
+    const {email, password, displayName, phone, address} = (request.data || {}) as {
       email?: string;
       password?: string;
       displayName?: string;
@@ -37,25 +38,28 @@ export const createEmployeeAccount = onCall(
       address?: string;
     };
 
-    if (!email || !password || !displayName) {
+    if (!email || !displayName) {
       throw new HttpsError(
         "invalid-argument",
-        "email, password, and displayName are required."
+        "email and displayName are required."
       );
     }
 
     const auth = getAuth();
     const db = getFirestore();
 
+    // Generate secure temporary random password if admin did not provide one
+    const tempPassword = password || `${crypto.randomBytes(16).toString("hex")}!Aa1`;
+
     // 1. Create Auth user
     const userRecord = await auth.createUser({
       email,
-      password,
+      password: tempPassword,
       displayName,
     });
 
     // 2. Set custom claim role="employee"
-    await auth.setCustomUserClaims(userRecord.uid, { role: "employee" });
+    await auth.setCustomUserClaims(userRecord.uid, {role: "employee"});
 
     // 3. Create employees/{uid} document
     const now = Timestamp.now();
@@ -70,11 +74,27 @@ export const createEmployeeAccount = onCall(
       documents_verified: "pending",
       created_at: now,
       profile: {
+        full_name: displayName,
+        email: email,
+        phone: phone ?? "",
         address: address ?? "",
       },
       payout: {},
       documents: [],
     });
+
+    // 4. Generate password-set/reset link so employee sets their own password
+    let resetLink: string | null = null;
+    try {
+      resetLink = await auth.generatePasswordResetLink(email);
+      logger.info("createEmployeeAccount: password setup link generated", {
+        employeeUid: userRecord.uid,
+        email,
+        resetLink,
+      });
+    } catch (err) {
+      logger.warn("createEmployeeAccount: password reset link generation warning", {err});
+    }
 
     logger.info("createEmployeeAccount: created", {
       employeeUid: userRecord.uid,
@@ -87,6 +107,7 @@ export const createEmployeeAccount = onCall(
       employeeUid: userRecord.uid,
       email,
       name: displayName,
+      resetLink,
     };
   }
 );
@@ -107,7 +128,7 @@ export const offboardEmployee = onCall(
       );
     }
 
-    const { employeeUid } = (request.data || {}) as {
+    const {employeeUid} = (request.data || {}) as {
       employeeUid?: string;
     };
 
@@ -194,7 +215,7 @@ export const verifyEmployeeDocumentsAdmin = onCall(
       );
     }
 
-    const { employeeUid, status, notes } = (request.data || {}) as {
+    const {employeeUid, status, notes} = (request.data || {}) as {
       employeeUid?: string;
       status?: string;
       notes?: string;
@@ -210,7 +231,7 @@ export const verifyEmployeeDocumentsAdmin = onCall(
     const db = getFirestore();
     const empRef = db.collection("employees").doc(employeeUid);
 
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
       documents_verified: status,
       documents_verified_at: Timestamp.now(),
       documents_verified_by: request.auth.uid,

@@ -170,7 +170,7 @@ export async function provisionOwnerAccount(
   }
 
   // Assign role: 'owner' custom claim
-  await auth.setCustomUserClaims(uid, { role: "owner" });
+  await auth.setCustomUserClaims(uid, {role: "owner"});
 
   // Update business document with owner_auth_uid
   await db.collection("businesses").doc(businessId).update({
@@ -631,11 +631,12 @@ async function handleSuccessfulPayment(
   // ── Firestore writes (all in one batch) ───────────────────────────────────
   const batch = db.batch();
 
-  // 1. Activate business: flip status, start clock, clear grace.
+  // 1. Activate business: flip status, start clock, clear grace, tag as online.
   batch.update(bizRef, {
     subscription_status: "active",
     renewal_date: Timestamp.fromDate(newRenewalDate),
     grace_period_ends: FieldValue.delete(),
+    payment_mode: "online",
   });
 
   // 2. Increment employee counters — ONLY on first activation (draft → active).
@@ -643,7 +644,7 @@ async function handleSuccessfulPayment(
   if (isPendingDraft && bizData.enrolled_by) {
     const empRef = db.collection("employees").doc(bizData.enrolled_by);
     batch.update(empRef, {
-      total_enrollments:      FieldValue.increment(1),
+      total_enrollments: FieldValue.increment(1),
       this_month_enrollments: FieldValue.increment(1),
     });
     logger.info("handleSuccessfulPayment: employee counters incremented", {
@@ -651,36 +652,20 @@ async function handleSuccessfulPayment(
     });
   }
 
-  // 3. Create commission_records entry.
-  //    employee_id comes from enrolled_by; falls back to "admin" if unset.
-  //    ID is deterministic (comm_{paymentId}) to guarantee IDEMPOTENCY on webhook retries.
-  const paymentId = (event["id"] as string | undefined) ||
-                    ((payload["payment"] as Record<string, unknown> | undefined)?.entity as Record<string, unknown> | undefined)?.id as string | undefined ||
-                    ((payload["subscription"] as Record<string, unknown> | undefined)?.entity as Record<string, unknown> | undefined)?.id as string | undefined ||
-                    `${businessId}_${now.getTime()}`;
-
-  const commDocId = `comm_${paymentId}`;
-  const commissionRef = db.collection("commission_records").doc(commDocId);
-  batch.set(commissionRef, {
-    employee_id:   bizData.enrolled_by ?? "admin",
-    business_id:   businessId,
-    amount:        amountPaise / 100, // store in rupees
-    payment_mode:  "online",
-    status:        "verified",
-    admin_confirmed: true,
-    owner_confirmed: true,
-    date_claimed:  Timestamp.fromDate(now),
-    date_verified: Timestamp.fromDate(now),
-  }, {merge: true});
+  // NOTE: commission_records creation REMOVED.
+  // Employee commissions are now handled by the onBusinessActivated trigger
+  // in commissions.ts, which fires when subscription_status → 'active'.
+  // This keeps payment tracking (owner→Appnexa) separate from commission
+  // tracking (Appnexa→employee).
 
   await batch.commit();
 
   logger.info("handleSuccessfulPayment: business activated", {
     businessId,
-    wasDraft:       isPendingDraft,
+    wasDraft: isPendingDraft,
     newRenewalDate: newRenewalDate.toISOString(),
     eventName,
-    amountRupees:   amountPaise / 100,
+    amountRupees: amountPaise / 100,
   });
 
   // Provision owner Auth user + assign role: 'owner' claim if email present
@@ -717,7 +702,7 @@ async function handleSuccessfulPayment(
       // on subsequent employee updates via the panel.
       try {
         await branchDoc.ref.update({
-          standee_status:            STANDEE_STATUS_DEFAULT,
+          standee_status: STANDEE_STATUS_DEFAULT,
           standee_status_updated_at: Timestamp.now(),
         });
         logger.info("handleSuccessfulPayment: standee_status initialized", {
@@ -1078,9 +1063,9 @@ export const resendPaymentLink = onCall(
       );
     }
 
-    const ownerEmail  = bizData["owner_email"]  as string | undefined;
-    const ownerName   = bizData["owner_name"]   as string | undefined ?? "Business Owner";
-    const brandName   = bizData["brand_name"]   as string | undefined ?? "your business";
+    const ownerEmail = bizData["owner_email"] as string | undefined;
+    const ownerName = bizData["owner_name"] as string | undefined ?? "Business Owner";
+    const brandName = bizData["brand_name"] as string | undefined ?? "your business";
 
     if (!ownerEmail) {
       throw new HttpsError(
@@ -1131,8 +1116,8 @@ export const resendPaymentLink = onCall(
 
     // Persist the payment link on the business doc so the panel can display it.
     await bizRef.update({
-      last_payment_link_url:        paymentLink.short_url,
-      last_payment_link_id:         paymentLink.id,
+      last_payment_link_url: paymentLink.short_url,
+      last_payment_link_id: paymentLink.id,
       last_payment_link_created_at: Timestamp.now(),
     });
 
@@ -1173,10 +1158,10 @@ export const resendPaymentLink = onCall(
  * Callable function to provision or re-provision an owner Firebase Auth account.
  */
 export const provisionOwner = onCall(
-  { region: "asia-south1" },
+  {region: "asia-south1"},
   async (request) => {
     requireAuth(request.auth);
-    const { businessId } = request.data as { businessId?: string };
+    const {businessId} = request.data as { businessId?: string };
     if (!businessId) {
       throw new HttpsError("invalid-argument", "businessId is required.");
     }
@@ -1195,7 +1180,7 @@ export const provisionOwner = onCall(
       bizData.owner_email,
       bizData.owner_name
     );
-    return { success: true, ownerUid };
+    return {success: true, ownerUid};
   }
 );
 

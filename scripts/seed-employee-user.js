@@ -25,7 +25,23 @@ const auth = getAuth();
 const db   = getFirestore();
 
 async function run() {
-  console.log('🌱 Seeding employee test user...\n');
+  // ── 0. Admin user ───────────────────────────────────────────────────────────
+  let adminUid;
+  try {
+    const existing = await auth.getUserByEmail('admin@test.com');
+    adminUid = existing.uid;
+    console.log(`  ℹ️  Admin user already exists: ${adminUid}`);
+  } catch (_) {
+    const user = await auth.createUser({
+      email:       'admin@test.com',
+      password:    'Test1234!',
+      displayName: 'Platform Admin',
+    });
+    adminUid = user.uid;
+    console.log(`  ✅ Created admin user: ${adminUid}`);
+  }
+  await auth.setCustomUserClaims(adminUid, { role: 'admin' });
+  console.log(`  ✅ Set custom claim role=admin on ${adminUid}`);
 
   // ── 1. Employee user ────────────────────────────────────────────────────────
   let empUid;
@@ -135,7 +151,12 @@ async function run() {
   // ── Summary ─────────────────────────────────────────────────────────────────
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('✅  Seed complete. Use these credentials in the Flutter panel:\n');
-  console.log('  Employee A (should sign in OK):');
+  console.log('  Admin User (Full Platform Admin Access):');
+  console.log('    Email:    admin@test.com');
+  console.log('    Password: Test1234!');
+  console.log('    UID:     ', adminUid);
+  console.log('');
+  console.log('  Employee A (Employee Dashboard Access):');
   console.log('    Email:    employee@test.com');
   console.log('    Password: Test1234!');
   console.log('    UID:     ', empUid);
@@ -146,7 +167,7 @@ async function run() {
   console.log('    UID:     ', empBUid);
   console.log('    Owns:     biz-owned-by-emp-b  (Employee A must NOT see this)');
   console.log('');
-  console.log('  Owner (should be REJECTED by Flutter panel):');
+  console.log('  Owner (Owner Dashboard Access):');
   console.log('    Email:    owner@test.com');
   console.log('    Password: Test1234!');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

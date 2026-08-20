@@ -124,9 +124,15 @@ class EmployeeProfileModel {
       status:               d['status'] as String? ?? (d['active'] == false ? 'inactive' : 'active'),
       totalEnrollments:     (d['total_enrollments'] as num?)?.toInt() ?? 0,
       thisMonthEnrollments: (d['this_month_enrollments'] as num?)?.toInt() ?? 0,
-      fullName:             topName.isNotEmpty ? topName : (profile['full_name'] as String? ?? ''),
-      email:                topEmail.isNotEmpty ? topEmail : (profile['email'] as String? ?? ''),
-      phone:                topPhone.isNotEmpty ? topPhone : (profile['phone'] as String? ?? ''),
+      fullName:             (profile['full_name'] as String? ?? '').isNotEmpty
+                                ? (profile['full_name'] as String)
+                                : topName,
+      email:                (profile['email'] as String? ?? '').isNotEmpty
+                                ? (profile['email'] as String)
+                                : topEmail,
+      phone:                (profile['phone'] as String? ?? '').isNotEmpty
+                                ? (profile['phone'] as String)
+                                : topPhone,
       address:              profile['address'] as String? ?? '',
 
       payoutMethod:  PayoutMethodLabel.fromString(payout['payout_method'] as String?),

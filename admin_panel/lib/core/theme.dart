@@ -403,6 +403,7 @@ class AppTheme {
   static Color standeeStatusColor(String status) {
     switch (status) {
       case 'not_ordered': return const Color(0xFFF1F5F9); // grey-100
+      case 'ordered':     return const Color(0xFFEDE9FE); // purple-100
       case 'printed':     return const Color(0xFFDBEAFE); // blue-100
       case 'shipped':     return AppColors.pendingBg;     // amber-100
       case 'delivered':   return AppColors.activeBg;      // green-100
@@ -414,6 +415,7 @@ class AppTheme {
   static Color standeeStatusForeground(String status) {
     switch (status) {
       case 'not_ordered': return AppColors.deletedFg;    // grey-500
+      case 'ordered':     return const Color(0xFF7C3AED); // purple-600
       case 'printed':     return AppColors.secondary;    // blue
       case 'shipped':     return AppColors.pendingFg;    // amber
       case 'delivered':   return AppColors.activeFg;     // green

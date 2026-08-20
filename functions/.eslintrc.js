@@ -31,5 +31,10 @@ module.exports = {
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "indent": ["error", 2],
+    "max-len": ["error", {"code": 160, "ignoreComments": true, "ignoreUrls": true, "ignoreStrings": true, "ignoreTemplateLiterals": true}],
+    "require-jsdoc": 0,
+    "valid-jsdoc": 0,
+    "@typescript-eslint/no-explicit-any": "warn",
+    "object-curly-spacing": ["error", "never"],
   },
 };

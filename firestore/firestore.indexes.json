@@ -14,26 +14,22 @@
       ]
     },
 
-    // ── NEW: Employee dashboard — paginated + date-windowed (Change 2) ──────
-    // Query: enrolled_by == X AND created_at >= since ORDER BY created_at DESC
-    // Used by "All" filter (with whereNotIn on status for deleted exclusion).
+    // Employee dashboard — paginated + date-windowed
     {
       "collectionGroup": "businesses",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "enrolled_by",      "order": "ASCENDING" },
+        { "fieldPath": "enrolled_by", "order": "ASCENDING" },
         { "fieldPath": "subscription_status", "order": "ASCENDING" },
-        { "fieldPath": "created_at",       "order": "DESCENDING" }
+        { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
     },
-    // Query: enrolled_by == X AND status == pending_payment AND created_at >= since DESC
-    // Used by "Pending payment" filter.
     {
       "collectionGroup": "businesses",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "enrolled_by",  "order": "ASCENDING" },
-        { "fieldPath": "created_at",   "order": "DESCENDING" }
+        { "fieldPath": "enrolled_by", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
     },
     // List businesses currently managed by an employee, newest-first.
@@ -46,7 +42,6 @@
       ]
     },
     // Admin: filter by subscription_status and order by renewal_date (expiry dashboard).
-    // Also used by renewalLifecycle Pass 1: active businesses whose renewal_date has passed.
     {
       "collectionGroup": "businesses",
       "queryScope": "COLLECTION",
@@ -65,13 +60,21 @@
       ]
     },
     // cleanupAbandonedDrafts: pending_payment businesses ordered by created_at
-    // (finds drafts older than ABANDONED_DRAFT_AGE_HOURS for deletion).
     {
       "collectionGroup": "businesses",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "subscription_status", "order": "ASCENDING" },
         { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
+    },
+    // Admin overview: filter by status + newest first (GROUP F)
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subscription_status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
     },
     // Admin: filter by category_type to group businesses by industry.
@@ -81,35 +84,6 @@
       "fields": [
         { "fieldPath": "category_type", "order": "ASCENDING" },
         { "fieldPath": "subscription_status", "order": "ASCENDING" }
-      ]
-    },
-
-    // -------------------------------------------------------
-    // branches (subcollection of businesses)
-    // -------------------------------------------------------
-
-    // Query all branches by place_id (Google Place deduplication check).
-    {
-      "collectionGroup": "branches",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "place_id", "order": "ASCENDING" }
-      ]
-    },
-    // Query branches by qr_code_id (NFC / QR lookup on scan).
-    {
-      "collectionGroup": "branches",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "qr_code_id", "order": "ASCENDING" }
-      ]
-    },
-    // Query branches by nfc_tag_id.
-    {
-      "collectionGroup": "branches",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "nfc_tag_id", "order": "ASCENDING" }
       ]
     },
 
@@ -140,7 +114,7 @@
     // scan_logs collection
     // -------------------------------------------------------
 
-    // Aggregate: filter logs by branch_id and timestamp range (Cloud Function rollup).
+    // Aggregate: filter logs by branch_id and timestamp range.
     {
       "collectionGroup": "scan_logs",
       "queryScope": "COLLECTION",
@@ -149,7 +123,7 @@
         { "fieldPath": "timestamp", "order": "ASCENDING" }
       ]
     },
-    // Aggregate: filter by branch_id and star_rating (histogram rollup).
+    // Aggregate: filter by branch_id and star_rating.
     {
       "collectionGroup": "scan_logs",
       "queryScope": "COLLECTION",
@@ -159,7 +133,7 @@
         { "fieldPath": "timestamp", "order": "ASCENDING" }
       ]
     },
-    // Aggregate: filter by action_taken + timestamp (funnel analytics).
+    // Aggregate: filter by action_taken + timestamp.
     {
       "collectionGroup": "scan_logs",
       "queryScope": "COLLECTION",
@@ -170,7 +144,7 @@
     },
 
     // -------------------------------------------------------
-    // commission_records collection
+    // commission_records collection (LEGACY — kept for old data)
     // -------------------------------------------------------
 
     // Employee view: their own pending commissions.
@@ -191,7 +165,7 @@
         { "fieldPath": "date_claimed", "order": "DESCENDING" }
       ]
     },
-    // Admin view: filter by status, then by date_claimed (approval queue).
+    // Admin view: filter by status, then by date_claimed.
     {
       "collectionGroup": "commission_records",
       "queryScope": "COLLECTION",
@@ -211,11 +185,76 @@
     },
 
     // -------------------------------------------------------
-    // notifications collection (doc 08)
+    // employee_commissions collection (NEW — commission ledger)
     // -------------------------------------------------------
 
-    // Idempotency check in sendRenewalReminders:
-    // "has this business+type been notified in the last 20h?"
+    // Admin payout view: pending commissions for a specific employee + month.
+    {
+      "collectionGroup": "employee_commissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employee_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "activation_month", "order": "DESCENDING" }
+      ]
+    },
+    // Employee view: their own commissions by month.
+    {
+      "collectionGroup": "employee_commissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employee_id", "order": "ASCENDING" },
+        { "fieldPath": "activation_month", "order": "DESCENDING" }
+      ]
+    },
+    // Admin view: all pending commissions across all employees.
+    {
+      "collectionGroup": "employee_commissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "activation_month", "order": "DESCENDING" }
+      ]
+    },
+    // Admin view: all commissions for a specific employee (no status filter).
+    {
+      "collectionGroup": "employee_commissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employee_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+
+    // -------------------------------------------------------
+    // businesses collection — pending cash payment view
+    // -------------------------------------------------------
+
+    // Admin view: cash businesses awaiting payment confirmation.
+    {
+      "collectionGroup": "businesses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "payment_mode", "order": "ASCENDING" },
+        { "fieldPath": "subscription_status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+
+    // Owner dashboard: commission records for a business filtered by payment_mode (LEGACY)
+    {
+      "collectionGroup": "commission_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "business_id", "order": "ASCENDING" },
+        { "fieldPath": "payment_mode", "order": "ASCENDING" }
+      ]
+    },
+
+    // -------------------------------------------------------
+    // notifications collection
+    // -------------------------------------------------------
+
     {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
@@ -225,8 +264,6 @@
         { "fieldPath": "sent_at", "order": "ASCENDING" }
       ]
     },
-
-    // Dashboard banner query (doc 02): unread notifications per recipient.
     {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
@@ -235,14 +272,25 @@
         { "fieldPath": "read", "order": "ASCENDING" },
         { "fieldPath": "sent_at", "order": "DESCENDING" }
       ]
+    },
+    // Owner dashboard: notifications filtered by recipient + unread
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recipient", "order": "ASCENDING" },
+        { "fieldPath": "read", "order": "ASCENDING" }
+      ]
     }
-
-    // -------------------------------------------------------
-    // category_templates collection
-    // (No composite indexes needed for now — templates are
-    // few in number and queried by document ID directly.)
-    // -------------------------------------------------------
-
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "branches",
+      "fieldPath": "place_id",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    }
+  ]
 }

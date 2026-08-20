@@ -422,7 +422,12 @@ class _BusinessCardState extends State<_BusinessCard> {
                 ],
               ),
 
-              Icon(Icons.chevron_right, size: 18, color: scheme.onSurfaceVariant),
+              IconButton(
+                icon: Icon(Icons.arrow_forward_ios, size: 16, color: scheme.onSurfaceVariant),
+                tooltip: 'View Details',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => context.push('/business/${biz.id}', extra: biz),
+              ),
             ],
           ),
         ),

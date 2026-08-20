@@ -1,38 +1,61 @@
 // lib/providers/commission_provider.dart
-// Streams commission records for the current employee.
-// Also exposes the logCashPayment action.
+// Streams employee commissions from the new employee_commissions collection.
+// Read-only for employees — no log cash payment action.
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../models/commission_record_model.dart';
-import '../models/business_model.dart';
+import '../models/employee_commission_model.dart';
 import '../services/firestore_service.dart';
 
 class CommissionProvider extends ChangeNotifier {
   final FirestoreService _firestore;
 
-  List<CommissionRecordModel> _records   = [];
-  List<BusinessModel>         _myBizList = []; // for cash payment dialog picker
+  List<EmployeeCommissionModel> _records = [];
   bool    _loading   = true;
-  bool    _submitting = false;
   String? _error;
   StreamSubscription? _sub;
 
-  List<CommissionRecordModel> get records    => _records;
-  List<BusinessModel>         get myBizList  => _myBizList;
-  bool                        get loading    => _loading;
-  bool                        get submitting => _submitting;
-  String?                     get error      => _error;
+  // Filter state
+  String? _statusFilter;
+  String? _monthFilter;
+
+  List<EmployeeCommissionModel> get records    => _records;
+  bool                          get loading    => _loading;
+  String?                       get error      => _error;
+  String?                       get statusFilter => _statusFilter;
+  String?                       get monthFilter  => _monthFilter;
 
   CommissionProvider({required FirestoreService firestoreService})
       : _firestore = firestoreService;
 
+  String? _currentEmployeeId;
+
   void startListening(String employeeId) {
+    _currentEmployeeId = employeeId;
+    _resubscribe();
+  }
+
+  void setStatusFilter(String? status) {
+    _statusFilter = status;
+    _resubscribe();
+  }
+
+  void setMonthFilter(String? month) {
+    _monthFilter = month;
+    _resubscribe();
+  }
+
+  void _resubscribe() {
+    if (_currentEmployeeId == null) return;
     _sub?.cancel();
     _loading = true;
     notifyListeners();
 
-    _sub = _firestore.watchMyCommissions(employeeId).listen(
+    _sub = _firestore.watchEmployeeCommissions(
+      _currentEmployeeId!,
+      statusFilter: _statusFilter,
+      monthFilter: _monthFilter,
+    ).listen(
       (list) {
         _records = list;
         _loading = false;
@@ -44,47 +67,17 @@ class CommissionProvider extends ChangeNotifier {
         notifyListeners();
       },
     );
-
-    // Load businesses for cash payment dialog picker — one-shot, not a stream.
-    // Uses a 3-year window to capture all ever-enrolled businesses.
-    _firestore.fetchMyBusinessesPage(
-      employeeId:   employeeId,
-      statusFilter: 'all',
-      since:        DateTime.now().subtract(const Duration(days: 1095)), // ~3 yrs
-      limit:        100,
-    ).then((list) {
-      _myBizList = list;
-      notifyListeners();
-    }).catchError((_) {}); // biz list failure is non-critical
   }
 
-  /// Logs a cash payment. Creates a pending commission_records doc.
-  /// Two-step verification (doc 06) is deferred.
-  Future<String?> logCashPayment({
-    required String employeeId,
-    required String businessId,
-    required double amount,
-  }) async {
-    if (amount <= 0) return 'Amount must be greater than zero.';
-    _submitting = true;
-    _error      = null;
-    notifyListeners();
-    try {
-      await _firestore.logCashPayment(
-        employeeId: employeeId,
-        businessId: businessId,
-        amount:     amount,
-      );
-      _submitting = false;
-      notifyListeners();
-      return null;
-    } catch (e) {
-      _submitting = false;
-      _error      = e.toString();
-      notifyListeners();
-      return _error;
-    }
-  }
+  // Computed totals
+  double get totalPending =>
+      _records.where((r) => r.isPending).fold(0.0, (sum, r) => sum + r.amount);
+
+  double get totalPaid =>
+      _records.where((r) => r.isPaid).fold(0.0, (sum, r) => sum + r.amount);
+
+  double get totalAll =>
+      _records.fold(0.0, (sum, r) => sum + r.amount);
 
   void clearError() {
     _error = null;

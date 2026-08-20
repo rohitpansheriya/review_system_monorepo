@@ -17,6 +17,7 @@ class BusinessModel {
   final String? ownerEmail;
   final String? ownerName;
   final String? ownerPhone;
+  final DateTime? createdAt;
   final Map<String, bool> activeCategories;
 
   const BusinessModel({
@@ -35,6 +36,7 @@ class BusinessModel {
     this.ownerEmail,
     this.ownerName,
     this.ownerPhone,
+    this.createdAt,
     this.activeCategories = const {},
   });
 
@@ -57,6 +59,7 @@ class BusinessModel {
       ownerEmail:                 d['owner_email']                   as String?,
       ownerName:                  d['owner_name']                    as String?,
       ownerPhone:                 d['owner_phone']                   as String?,
+      createdAt:                  (d['created_at']      as Timestamp?)?.toDate(),
       activeCategories:           rawActive.map((k, v) => MapEntry(k, v as bool? ?? true)),
     );
   }
@@ -96,6 +99,7 @@ class BusinessModel {
     ownerEmail:                ownerEmail ?? this.ownerEmail,
     ownerName:                 ownerName  ?? this.ownerName,
     ownerPhone:                ownerPhone ?? this.ownerPhone,
+    createdAt:                 createdAt,
     activeCategories:           activeCategories ?? this.activeCategories,
   );
 }

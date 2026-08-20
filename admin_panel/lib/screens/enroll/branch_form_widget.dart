@@ -195,7 +195,28 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
               widget.onChanged();
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              icon: const Icon(Icons.copy_outlined, size: 14),
+              label: const Text('Same as Owner WhatsApp & Contact', style: TextStyle(fontSize: 12)),
+              onPressed: () {
+                final enroll = context.read<EnrollProvider>();
+                if (enroll.ownerPhone.isNotEmpty) {
+                  draft.whatsappNumber = enroll.ownerPhone;
+                }
+                final monitorName = enroll.ownerName.isNotEmpty
+                    ? '${enroll.ownerName} (Owner)'
+                    : 'Owner';
+                draft.whatsappMonitoredBy = monitorName;
+                _whatsappMonitoredByCtrl.text = monitorName;
+                widget.onChanged();
+                setState(() {});
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
 
           // ── Change 5: WhatsApp monitored by ─────────────────────────────
           // Who watches this WhatsApp channel for incoming 1–3 star feedback?

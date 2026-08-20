@@ -2,23 +2,23 @@
 //
 // Post-enrollment payment page.
 //
-// Flow:
+// Flow (NEW MODEL — GROUP C):
 //   EnrollScreen submits draft → navigates here with the new businessId.
-//   Employee chooses one of two actions:
 //
-//   A. "Collect payment now" → Razorpay checkout (dart:html JS interop).
-//      • On SUCCESS: navigate to /businesses, set pendingActivationId in provider,
-//        start polling the business doc until subscription_status == "active".
-//        The status flip comes ONLY from the webhook (Cloud Function), NEVER
-//        written client-side here.
-//      • On FAIL/CANCEL: stay on this page; show retry snackbar.
+//   ADMIN path:
+//     A. "Cash Payment — Activate Now" → admin cash-activates directly.
+//        Business flips to active, QR generation triggered, commission recorded.
+//     B. "Online Payment (Razorpay)" → same as employee Razorpay flow.
+//     C. "Owner will pay online later" → defer.
 //
-//   B. "Owner will pay later" → navigate to /businesses.
-//      Business stays pending_payment, visible in the list with its badge.
-//      The resend-payment-link action on the home screen handles follow-up.
+//   EMPLOYEE path:
+//     A. "Online Payment (Razorpay)" → Razorpay checkout (dart:html JS interop).
+//        On SUCCESS: webhook activates, navigate home.
+//     B. "Owner will pay online later" → defer.
+//     *** NO CASH OPTION FOR EMPLOYEES ***
 //
-// IMPORTANT: This screen NEVER writes subscription_status. The webhook is the
-// only activation path (doc 05 — payment webhook flow).
+// IMPORTANT: This screen NEVER writes subscription_status directly.
+// Activation paths: admin cash activate (via service) OR Razorpay webhook.
 
 // ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:js' as js;
@@ -32,6 +32,7 @@ import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/my_businesses_provider.dart';
+import '../../services/firestore_service.dart';
 
 /// Razorpay checkout key — placeholder. Replace with real key before production.
 const String _rzpKeyId = 'rzp_test_PLACEHOLDER';
@@ -52,6 +53,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _brandName = '';
   String _ownerName  = '';
   bool   _paying     = false;
+  bool   _cashActivating = false;
   String? _payError;
 
   @override
@@ -79,17 +81,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   // ── Razorpay checkout (Dart → JS interop) ───────────────────────────────────
-  //
-  // The Razorpay checkout script must be loaded in web/index.html:
-  //   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  //
-  // On success the JS callback navigates home and starts webhook polling.
-  // On dismiss/failure it stays on this page so the employee can retry or defer.
-
   Future<void> _launchRazorpay() async {
     setState(() { _paying = true; _payError = null; });
 
-    // Guard: verify Razorpay is available in the global JS scope.
     if (!js.context.hasProperty('Razorpay')) {
       setState(() {
         _paying   = false;
@@ -102,12 +96,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final empId = context.read<AppAuthProvider>().uid ?? '';
       final bizId = widget.businessId;
 
-      // Dart callbacks registered with the JS options map.
-      // These run synchronously on the JS main thread via dart:js allowInterop.
       final handlerSuccess = js.allowInterop((dynamic response) {
         if (!mounted) return;
-        // SUCCESS: navigate home + start webhook polling.
-        // Do NOT set subscription_status here — webhook-only activation path.
         final biz = context.read<MyBusinessesProvider>();
         biz.setPendingActivation(bizId);
         biz.refresh();
@@ -122,7 +112,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
         });
       });
 
-      // Build the options JsObject that Razorpay expects.
       final options = js.JsObject.jsify({
         'key':         _rzpKeyId,
         'amount':      _setupFeePaise,
@@ -139,7 +128,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'theme':   {'color': '#3B4DB8'},
       });
 
-      // Invoke: const rzp = new Razorpay(options); rzp.open();
       final rzp = js.JsObject(js.context['Razorpay'] as js.JsFunction, [options]);
       rzp.callMethod('open');
     } catch (e) {
@@ -152,10 +140,46 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  // ── Admin Cash Activate (GROUP C — new model) ──────────────────────────────
+  // Admin-only: directly activates the business via cash payment.
+  // Creates commission record with payment_mode="cash", activates business.
+  Future<void> _adminCashActivate() async {
+    setState(() { _cashActivating = true; _payError = null; });
+
+    try {
+      final adminUid = context.read<AppAuthProvider>().uid ?? '';
+      final svc = context.read<FirestoreService>();
+      await svc.adminCashActivate(
+        businessId: widget.businessId,
+        adminUid: adminUid,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Business activated via cash payment! QR generation triggered.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // Navigate to admin dashboard or businesses
+      final auth = context.read<AppAuthProvider>();
+      if (auth.isAdmin) {
+        context.go('/admin');
+      } else {
+        context.go('/businesses');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _cashActivating = false;
+          _payError = 'Cash activation failed: $e';
+        });
+      }
+    }
+  }
+
   // ── Defer ────────────────────────────────────────────────────────────────────
   void _defer() {
-    // Business stays pending_payment — employee handles follow-up via the
-    // resend-payment-link action on the home screen.
     context.go('/businesses');
   }
 
@@ -164,6 +188,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget build(BuildContext context) {
     final cs     = Theme.of(context).colorScheme;
     final tt     = Theme.of(context).textTheme;
+    final isAdmin = context.read<AppAuthProvider>().isAdmin;
 
     return Scaffold(
       appBar: AppBar(
@@ -274,9 +299,33 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ── Primary CTA: Collect payment ─────────────────────────
+                    // ── Admin-only: Cash Activate button ──────────────────────
+                    if (isAdmin) ...[
+                      FilledButton.icon(
+                        onPressed: (_paying || _cashActivating) ? null : _adminCashActivate,
+                        icon: _cashActivating
+                            ? SizedBox(
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: cs.onTertiary))
+                            : const Icon(Icons.local_atm_outlined),
+                        label: Text(
+                            _cashActivating
+                                ? 'Activating…'
+                                : 'Cash Payment — Activate Now (₹1,999)'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: cs.tertiary,
+                          foregroundColor: cs.onTertiary,
+                          minimumSize: const Size.fromHeight(52),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // ── Primary CTA: Online payment ───────────────────────────
                     ElevatedButton.icon(
-                      onPressed: _paying ? null : _launchRazorpay,
+                      onPressed: (_paying || _cashActivating) ? null : _launchRazorpay,
                       icon: _paying
                           ? SizedBox(
                               width: 18, height: 18,
@@ -285,7 +334,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   color: cs.onPrimary))
                           : const Icon(Icons.payments_outlined),
                       label: Text(
-                          _paying ? 'Opening checkout…' : 'Collect payment now  ₹1,999'),
+                          _paying ? 'Opening checkout…' : 'Online Payment (Razorpay ₹1,999)'),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(52),
                       ),
@@ -293,11 +342,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     const SizedBox(height: 12),
 
-                    // ── Secondary CTA: Defer ──────────────────────────────────
+                    // ── Tertiary CTA: Defer ──────────────────────────────────
                     OutlinedButton.icon(
-                      onPressed: _paying ? null : _defer,
+                      onPressed: (_paying || _cashActivating) ? null : _defer,
                       icon: const Icon(Icons.schedule_outlined),
-                      label: const Text('Owner will pay later'),
+                      label: const Text('Owner will pay online later'),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                       ),

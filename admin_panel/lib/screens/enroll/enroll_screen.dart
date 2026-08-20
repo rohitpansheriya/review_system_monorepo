@@ -97,6 +97,19 @@ class _EnrollScreenState extends State<EnrollScreen> {
     final bytes = result.data;
     if (bytes == null) return;
 
+    // Check file size (max 2MB = 2097152 bytes)
+    if (bytes.length > 2 * 1024 * 1024) {
+      final sizeMb = (bytes.length / (1024 * 1024)).toStringAsFixed(2);
+      if (mounted) {
+        setState(() {
+          _logoRejectionMessage =
+              'Logo file size exceeds 2MB limit (selected: $sizeMb MB). '
+              'Please choose a smaller image file.';
+        });
+      }
+      return;
+    }
+
     // Decode image dimensions client-side via dart:ui.
     try {
       final codec = await ui.instantiateImageCodec(bytes);
@@ -170,7 +183,10 @@ class _EnrollScreenState extends State<EnrollScreen> {
       return;
     }
 
-    final empId = context.read<AppAuthProvider>().uid!;
+    // GROUP D2: When admin enrolls, use "admin" as the enrollee
+    // so that enrolled_by="admin" and the UI never mislabels it as an employee.
+    final auth = context.read<AppAuthProvider>();
+    final empId = auth.isAdmin ? 'admin' : auth.uid!;
     final error = await enroll.submit(empId);
     if (!mounted) return;
 
@@ -186,7 +202,17 @@ class _EnrollScreenState extends State<EnrollScreen> {
     } else {
       // Navigate to payment page for this draft — user pays or defers there.
       final bizId = enroll.successBizId!;
+
+      // GROUP B2: Reset form state BEFORE navigating so next enroll is clean
+      _brandNameCtrl.clear();
+      _ownerNameCtrl.clear();
+      _ownerEmailCtrl.clear();
+      setState(() => _showErrors = false);
+
       context.go('/enroll/payment/$bizId');
+
+      // Reset provider AFTER navigation to ensure clean state for next enrollment
+      enroll.reset();
     }
   }
 
@@ -289,19 +315,22 @@ class _EnrollScreenState extends State<EnrollScreen> {
                         items: _templates
                             .map((t) => DropdownMenuItem<String>(
                                   value: t['id'] as String,
-                                  child: Text(
-                                      t['name'] as String? ?? t['id'] as String),
+                                  child: Text(t['business_type'] as String? ??
+                                      t['name'] as String? ??
+                                      t['id'] as String),
                                 ))
                             .toList(),
                         onChanged: (v) {
                           if (v == null) return;
-                          enroll.templateId   = v;
+                          enroll.templateId = v;
+                          final match = _templates.firstWhere(
+                            (t) => t['id'] == v,
+                            orElse: () => {'business_type': v},
+                          );
                           enroll.categoryType =
-                              _templates.firstWhere(
-                                    (t) => t['id'] == v,
-                                    orElse: () => {'name': v},
-                                  )['name'] as String? ??
-                              v;
+                              match['business_type'] as String? ??
+                                  match['name'] as String? ??
+                                  v;
                         },
                       ),
                     const SizedBox(height: AppSpacing.md),

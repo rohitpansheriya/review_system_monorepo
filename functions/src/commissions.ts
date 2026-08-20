@@ -1,211 +1,50 @@
 /**
- * commissions.ts — Two-step cash payment verification & payout tracking
+ * commissions.ts — Payment confirmation & Commission ledger
  *
- * Implements doc 06-commission-tracking.md:
- *   - Online payments: auto-verified via Razorpay webhook.
- *   - Cash payments: two-step verification fraud gate:
- *       (A) Admin confirms cash physically received / deposited.
- *       (B) Business owner confirms payment independently via dashboard or notification.
- *       Flips to "verified" ONLY when BOTH confirmations are in.
- *   - Payout tracking: flips "verified" → "paid" with payout_reference.
+ * RESTRUCTURED: Two separate concepts that were previously conflated:
+ *
+ *   A) PAYMENT (owner → Appnexa): ₹1999/₹999 subscription fee.
+ *      Cash payments are a VIEW on businesses (payment_mode='cash' +
+ *      subscription_status='pending_payment'). Admin confirms cash →
+ *      business activates → auto-leaves the pending view.
+ *
+ *   B) COMMISSION (Appnexa → employee): ₹250 per activation.
+ *      Stored in `employee_commissions` collection. Created automatically
+ *      when a business activates (Firestore trigger). Employee-enrolled
+ *      businesses only. Admin-enrolled = no commission.
+ *      Status: 'pending' → 'paid'. NEVER deleted.
  */
 
 import {onCall, HttpsError} from "firebase-functions/v2/https";
-import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
-import {getFirestore, Timestamp} from "firebase-admin/firestore";
-
-// ---------------------------------------------------------------------------
-// onCashCommissionCreated — Firestore Trigger (doc 06 / doc 08)
-// ---------------------------------------------------------------------------
+import {getFirestore, Timestamp, FieldValue} from "firebase-admin/firestore";
 
 /**
- * Triggered on creation of a commission_records document.
- * If payment_mode == "cash" and status == "pending", creates an in-app notification
- * for the owner: "Did you pay ₹[amount] in cash to [Employee Name] on [date]?"
+ * Configurable per-activation commission amount (₹).
+ * Change this single value to adjust employee commission across the platform.
  */
-export const onCashCommissionCreated = onDocumentCreated(
-  {
-    document: "commission_records/{recordId}",
-    region: "asia-south1",
-  },
-  async (event) => {
-    const snap = event.data;
-    if (!snap) return;
-
-    const data = snap.data();
-    if (data.payment_mode !== "cash" || data.status !== "pending") return;
-
-    const db = getFirestore();
-    const bizId = data.business_id as string | undefined;
-    if (!bizId) return;
-
-    const bizSnap = await db.collection("businesses").doc(bizId).get();
-    if (!bizSnap.exists) return;
-
-    const biz = bizSnap.data() || {};
-    const ownerUid = biz.owner_auth_uid as string | undefined;
-    if (!ownerUid) return;
-
-    const amount = data.amount || 1999;
-    const empId = data.employee_id || "Employee";
-
-    // Write to notifications collection for owner dashboard prompt (doc 08)
-    await db.collection("notifications").add({
-      recipient: ownerUid,
-      type: "cash_payment_verification",
-      title: "Cash Payment Verification Prompt",
-      body: `Did you pay ₹${amount} in cash to ${empId}? Please confirm in your owner dashboard.`,
-      commission_record_id: snap.id,
-      business_id: bizId,
-      read: false,
-      created_at: Timestamp.now(),
-    });
-
-    logger.info("onCashCommissionCreated: owner notification created", {
-      recordId: snap.id,
-      ownerUid,
-      bizId,
-    });
-  }
-);
+const EMPLOYEE_COMMISSION_AMOUNT = 250;
 
 // ---------------------------------------------------------------------------
-// confirmCashPaymentOwner — onCall (doc 06)
+// confirmCashPaymentAdmin — onCall (Build A: Payment)
 // ---------------------------------------------------------------------------
 
 /**
- * Allows an authenticated business owner to confirm or dispute a cash payment
- * logged by an employee.
+ * Admin confirms physical cash receipt for a business.
+ * This single action activates the business — no intermediate records.
  *
  * Input:
- *   - commissionRecordId: string (required)
- *   - confirmed: boolean (required — true: "Yes, I paid", false: "No / dispute")
- *   - disputeReason?: string (optional)
- *
- * Logic:
- *   - Verifies owner owns the business associated with this commission record.
- *   - If confirmed == true:
- *       Sets owner_confirmed = true, owner_confirmed_at = now.
- *       If admin_confirmed == true → flips status to "verified", sets date_verified = now.
- *   - If confirmed == false:
- *       Sets owner_confirmed = false, disputed = true, status = "disputed".
- *       Record is flagged for admin review and NOT auto-verified or deleted.
- */
-export const confirmCashPaymentOwner = onCall(
-  {
-    region: "asia-south1",
-  },
-  async (request) => {
-    if (!request.auth?.uid) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Must be signed in to confirm payment."
-      );
-    }
-
-    const {commissionRecordId, confirmed, disputeReason} = (request.data || {}) as {
-      commissionRecordId?: string;
-      confirmed?: boolean;
-      disputeReason?: string;
-    };
-
-    if (!commissionRecordId || typeof confirmed !== "boolean") {
-      throw new HttpsError(
-        "invalid-argument",
-        "commissionRecordId and confirmed (boolean) are required."
-      );
-    }
-
-    const db = getFirestore();
-    const commRef = db.collection("commission_records").doc(commissionRecordId);
-    const commSnap = await commRef.get();
-
-    if (!commSnap.exists) {
-      throw new HttpsError(
-        "not-found",
-        `Commission record ${commissionRecordId} not found.`
-      );
-    }
-
-    const comm = commSnap.data() as Record<string, unknown>;
-    const bizId = comm.business_id as string | undefined;
-
-    if (!bizId) {
-      throw new HttpsError("internal", "Commission record missing business_id.");
-    }
-
-    // Verify ownership: business owner_auth_uid must match request.auth.uid (or admin)
-    const bizSnap = await db.collection("businesses").doc(bizId).get();
-    const biz = (bizSnap.data() || {}) as Record<string, unknown>;
-    const isOwner = biz.owner_auth_uid === request.auth.uid;
-    const isAdmin = request.auth.token?.role === "admin";
-
-    if (!isOwner && !isAdmin) {
-      throw new HttpsError(
-        "permission-denied",
-        "You do not have permission to confirm payments for this business."
-      );
-    }
-
-    const now = Timestamp.now();
-    const updateData: Record<string, unknown> = {
-      owner_confirmed: confirmed,
-      owner_confirmed_at: now,
-      owner_response: confirmed ? "confirmed" : "disputed",
-    };
-
-    let newStatus = comm.status as string;
-
-    if (confirmed) {
-      updateData.disputed = false;
-      // If admin already confirmed, flip to verified!
-      if (comm.admin_confirmed === true) {
-        newStatus = "verified";
-        updateData.status = "verified";
-        updateData.date_verified = now;
-      }
-    } else {
-      // Owner answered NO / Disputed
-      updateData.disputed = true;
-      updateData.dispute_reason = disputeReason ?? "Owner reported cash payment was not made";
-      newStatus = "disputed";
-      updateData.status = "disputed";
-    }
-
-    await commRef.update(updateData);
-
-    logger.info("confirmCashPaymentOwner: processed", {
-      commissionRecordId,
-      confirmed,
-      newStatus,
-      ownerUid: request.auth.uid,
-    });
-
-    return {
-      success: true,
-      status: newStatus,
-      adminConfirmed: comm.admin_confirmed ?? false,
-      ownerConfirmed: confirmed,
-    };
-  }
-);
-
-// ---------------------------------------------------------------------------
-// confirmCashPaymentAdmin — onCall (doc 06 / doc 04 stub)
-// ---------------------------------------------------------------------------
-
-/**
- * Admin action to confirm physical cash handoff/deposit.
- *
- * Input:
- *   - commissionRecordId: string (required)
+ *   - businessId: string (required) — the business to activate
  *   - notes?: string (optional)
  *
  * Logic:
- *   - Verifies caller has role == "admin".
- *   - Sets admin_confirmed = true, admin_confirmed_by = adminUid, admin_confirmed_at = now.
- *   - If owner_confirmed == true and not disputed → flips status to "verified", date_verified = now.
+ *   1. Verifies caller is admin.
+ *   2. Verifies business exists and is pending_payment with payment_mode='cash'.
+ *   3. Activates the business: status='active', renewal_date=+365, QR triggers.
+ *   4. Business auto-leaves the pending-cash view.
+ *
+ * Commission is NOT created here — the onBusinessActivated trigger handles that.
  */
 export const confirmCashPaymentAdmin = onCall(
   {
@@ -215,87 +54,202 @@ export const confirmCashPaymentAdmin = onCall(
     if (!request.auth?.uid || request.auth.token?.role !== "admin") {
       throw new HttpsError(
         "permission-denied",
-        "Only admins can approve commission records in the verification queue."
+        "Only admins can confirm cash payments."
       );
     }
 
-    const {commissionRecordId, notes} = (request.data || {}) as {
-      commissionRecordId?: string;
+    const {businessId, notes} = (request.data || {}) as {
+      businessId?: string;
       notes?: string;
     };
 
-    if (!commissionRecordId) {
+    if (!businessId) {
       throw new HttpsError(
         "invalid-argument",
-        "commissionRecordId is required."
+        "businessId is required."
       );
     }
 
     const db = getFirestore();
-    const commRef = db.collection("commission_records").doc(commissionRecordId);
-    const commSnap = await commRef.get();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const bizSnap = await bizRef.get();
 
-    if (!commSnap.exists) {
+    if (!bizSnap.exists) {
       throw new HttpsError(
         "not-found",
-        `Commission record ${commissionRecordId} not found.`
+        `Business ${businessId} not found.`
       );
     }
 
-    const comm = commSnap.data() as Record<string, unknown>;
+    const bizData = bizSnap.data() as Record<string, unknown>;
+    const currentStatus = bizData.subscription_status as string | undefined;
+    const paymentMode = bizData.payment_mode as string | undefined;
+
+    if (currentStatus !== "pending_payment") {
+      throw new HttpsError(
+        "failed-precondition",
+        `Business is not pending_payment (current: '${currentStatus}'). Cannot confirm cash.`
+      );
+    }
+
+    if (paymentMode && paymentMode !== "cash") {
+      throw new HttpsError(
+        "failed-precondition",
+        `Business payment_mode is '${paymentMode}', not 'cash'. Use Razorpay for online payments.`
+      );
+    }
+
     const now = Timestamp.now();
+    const renewalDate = new Date();
+    renewalDate.setDate(renewalDate.getDate() + 365);
+
     const updateData: Record<string, unknown> = {
-      admin_confirmed: true,
-      admin_confirmed_by: request.auth.uid,
-      admin_confirmed_at: now,
+      subscription_status: "active",
+      renewal_date: Timestamp.fromDate(renewalDate),
+      payment_mode: "cash",
+      cash_payment_confirmed_at: now,
+      cash_confirmed_by_admin: request.auth.uid,
     };
 
     if (notes) {
-      updateData.admin_notes = notes;
+      updateData.cash_confirm_notes = notes;
     }
 
-    let newStatus = comm.status as string;
+    await bizRef.update(updateData);
 
-    // Flip to verified ONLY if owner has confirmed and is not disputed
-    if (comm.owner_confirmed === true && comm.disputed !== true) {
-      newStatus = "verified";
-      updateData.status = "verified";
-      updateData.date_verified = now;
-    }
-
-    await commRef.update(updateData);
-
-    logger.info("confirmCashPaymentAdmin: processed", {
-      commissionRecordId,
-      newStatus,
+    logger.info("confirmCashPaymentAdmin: business activated via cash", {
+      businessId,
       adminUid: request.auth.uid,
+      renewalDate: renewalDate.toISOString(),
     });
 
     return {
       success: true,
-      status: newStatus,
-      adminConfirmed: true,
-      ownerConfirmed: comm.owner_confirmed ?? null,
+      businessId,
+      status: "active",
+      renewalDate: renewalDate.toISOString(),
     };
   }
 );
 
 // ---------------------------------------------------------------------------
-// markCommissionPaidAdmin — onCall (doc 06 payout tracking)
+// onBusinessActivated — Firestore Trigger (Build B: Commission)
 // ---------------------------------------------------------------------------
 
 /**
- * Marks a verified commission record as "paid".
+ * Triggered when a business document is updated.
+ * If subscription_status changed to 'active' AND enrolled_by is a real
+ * employee (not 'admin'), creates ONE employee_commissions entry.
+ *
+ * This handles BOTH cash and online activations uniformly:
+ *   - Cash: confirmCashPaymentAdmin flips status → this trigger fires
+ *   - Online: Razorpay webhook flips status → this trigger fires
+ *
+ * Guard: only fires on the FIRST activation (pending_payment → active).
+ * Renewals (active → active) or reactivations are ignored.
+ */
+export const onBusinessActivated = onDocumentUpdated(
+  {
+    document: "businesses/{businessId}",
+    region: "asia-south1",
+  },
+  async (event) => {
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+    if (!beforeData || !afterData) return;
+
+    const beforeStatus = beforeData.subscription_status as string | undefined;
+    const afterStatus = afterData.subscription_status as string | undefined;
+
+    // Only trigger on pending_payment → active transition
+    if (beforeStatus !== "pending_payment" || afterStatus !== "active") return;
+
+    const businessId = event.params.businessId;
+    const enrolledBy = afterData.enrolled_by as string | undefined;
+
+    // Admin-enrolled businesses generate NO employee commission
+    if (!enrolledBy || enrolledBy === "admin" || enrolledBy === "") {
+      logger.info("onBusinessActivated: admin-enrolled, no commission", {
+        businessId,
+        enrolledBy,
+      });
+      return;
+    }
+
+    const db = getFirestore();
+    const now = Timestamp.now();
+    const activationDate = now.toDate();
+    const activationMonth = `${activationDate.getFullYear()}-${String(activationDate.getMonth() + 1).padStart(2, "0")}`;
+
+    // Idempotency: use deterministic doc ID to prevent duplicates on retries
+    const commDocId = `comm_${businessId}`;
+    const commRef = db.collection("employee_commissions").doc(commDocId);
+
+    // Check if already exists (idempotency guard)
+    const existing = await commRef.get();
+    if (existing.exists) {
+      logger.info("onBusinessActivated: commission already exists, skipping", {
+        businessId, commDocId,
+      });
+      return;
+    }
+
+    const businessName = afterData.brand_name as string || "";
+
+    await commRef.set({
+      employee_id: enrolledBy,
+      business_id: businessId,
+      business_name: businessName,
+      amount: EMPLOYEE_COMMISSION_AMOUNT,
+      status: "pending",
+      created_at: now,
+      activation_month: activationMonth,
+      paid_at: null,
+      paid_by: null,
+      payout_reference: null,
+    });
+
+    // Increment employee counters
+    const empRef = db.collection("employees").doc(enrolledBy);
+    try {
+      await empRef.update({
+        total_commissions_earned: FieldValue.increment(EMPLOYEE_COMMISSION_AMOUNT),
+      });
+    } catch (e) {
+      logger.warn("onBusinessActivated: employee counter update failed", {
+        employeeId: enrolledBy, error: e,
+      });
+    }
+
+    logger.info("onBusinessActivated: commission created", {
+      businessId,
+      employeeId: enrolledBy,
+      amount: EMPLOYEE_COMMISSION_AMOUNT,
+      activationMonth,
+      commDocId,
+    });
+  }
+);
+
+// ---------------------------------------------------------------------------
+// markCommissionsPaidBulk — onCall (Build B: Commission Payout)
+// ---------------------------------------------------------------------------
+
+/**
+ * Admin marks ALL pending commissions for a given employee + month as 'paid'.
+ * One-click payout action.
  *
  * Input:
- *   - commissionRecordId: string (required)
- *   - payoutReference: string (required — transaction / UTR / receipt number)
+ *   - employeeId: string (required)
+ *   - month: string (required — 'YYYY-MM' format)
+ *   - payoutReference: string (required — UTR / transaction ID)
  *
- * Constraints:
- *   - Only records with status == "verified" can be marked as paid.
- *   - Rejects unverified / pending / disputed records.
+ * Logic:
+ *   1. Queries employee_commissions where employee_id=X, activation_month=Y, status='pending'.
+ *   2. Batch-updates all to status='paid' with payout details.
+ *   3. Returns count of records updated.
  */
-export const markCommissionPaidAdmin = onCall(
+export const markCommissionsPaidBulk = onCall(
   {
     region: "asia-south1",
   },
@@ -303,54 +257,75 @@ export const markCommissionPaidAdmin = onCall(
     if (!request.auth?.uid || request.auth.token?.role !== "admin") {
       throw new HttpsError(
         "permission-denied",
-        "Only admins can mark commission records as paid."
+        "Only admins can mark commissions as paid."
       );
     }
 
-    const {commissionRecordId, payoutReference} = (request.data || {}) as {
-      commissionRecordId?: string;
+    const {employeeId, month, payoutReference} = (request.data || {}) as {
+      employeeId?: string;
+      month?: string;
       payoutReference?: string;
     };
 
-    if (!commissionRecordId || !payoutReference?.trim()) {
+    if (!employeeId || !month || !payoutReference?.trim()) {
       throw new HttpsError(
         "invalid-argument",
-        "commissionRecordId and payoutReference are required."
+        "employeeId, month (YYYY-MM), and payoutReference are required."
+      );
+    }
+
+    // Validate month format
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      throw new HttpsError(
+        "invalid-argument",
+        "month must be in 'YYYY-MM' format."
       );
     }
 
     const db = getFirestore();
-    const commRef = db.collection("commission_records").doc(commissionRecordId);
-    const commSnap = await commRef.get();
+    const snapshot = await db
+      .collection("employee_commissions")
+      .where("employee_id", "==", employeeId)
+      .where("activation_month", "==", month)
+      .where("status", "==", "pending")
+      .get();
 
-    if (!commSnap.exists) {
-      throw new HttpsError(
-        "not-found",
-        `Commission record ${commissionRecordId} not found.`
-      );
-    }
-
-    const comm = commSnap.data() as Record<string, unknown>;
-    if (comm.status !== "verified") {
-      throw new HttpsError(
-        "failed-precondition",
-        `Cannot mark commission record as paid: current status is '${comm.status}' (must be 'verified').`
-      );
+    if (snapshot.empty) {
+      return {
+        success: true,
+        count: 0,
+        message: "No pending commissions found for this employee and month.",
+      };
     }
 
     const now = Timestamp.now();
-    await commRef.update({
-      status: "paid",
-      payout_reference: payoutReference.trim(),
-      date_paid: now,
-    });
+    const batch = db.batch();
+    let count = 0;
 
-    logger.info("markCommissionPaidAdmin: processed", {
-      commissionRecordId,
+    for (const doc of snapshot.docs) {
+      batch.update(doc.ref, {
+        status: "paid",
+        paid_at: now,
+        paid_by: request.auth.uid,
+        payout_reference: payoutReference.trim(),
+      });
+      count++;
+    }
+
+    await batch.commit();
+
+    logger.info("markCommissionsPaidBulk: processed", {
+      employeeId,
+      month,
+      count,
       payoutReference: payoutReference.trim(),
       adminUid: request.auth.uid,
     });
 
-    return {success: true, status: "paid"};
+    return {
+      success: true,
+      count,
+      totalAmount: count * EMPLOYEE_COMMISSION_AMOUNT,
+    };
   }
 );

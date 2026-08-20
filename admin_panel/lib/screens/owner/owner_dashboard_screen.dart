@@ -147,60 +147,37 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       );
     }
 
-    // ── Gating: Pending Payment Business ─────────────────────────────────────
-    if (provider.isPendingPayment) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Pending Activation'),
-          actions: [_buildLogoutButton(context)],
-        ),
-        body: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 520),
-            padding: const EdgeInsets.all(32.0),
-            child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.pending_actions, size: 64, color: colorScheme.primary),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Enrollment Pending Activation',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
+    final Widget pendingBanner = provider.isPendingPayment
+        ? Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: colorScheme.errorContainer,
+            child: Row(
+              children: [
+                Icon(Icons.pending_actions, color: colorScheme.onErrorContainer),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '⚠️ Account Pending Activation — Payment / Cash collected is awaiting Admin verification. Standee & Review System will activate automatically once verified.',
+                    style: TextStyle(
+                      color: colorScheme.onErrorContainer,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Your business enrollment is pending payment verification. Once completed, your dashboard will be activated.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        if (auth.uid != null) {
-                          provider.loadOwnerData(auth.uid!);
-                        }
-                      },
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Check Status'),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                IconButton(
+                  icon: Icon(Icons.refresh, color: colorScheme.onErrorContainer),
+                  tooltip: 'Check Status',
+                  onPressed: () {
+                    if (auth.uid != null) {
+                      provider.loadOwnerData(auth.uid!);
+                    }
+                  },
+                ),
+              ],
             ),
-          ),
-        ),
-      );
-    }
+          )
+        : const SizedBox.shrink();
 
     // ── Active / Grace Period Dashboard Views ─────────────────────────────────
     final tabs = [
@@ -218,46 +195,53 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         title: Text(provider.business?.brandName ?? 'Owner Dashboard'),
         actions: [_buildLogoutButton(context)],
       ),
-      body: isDesktop
-          ? Row(
-              children: [
-                NavigationRail(
-                  selectedIndex: _selectedTabIndex,
-                  onDestinationSelected: (idx) => setState(() => _selectedTabIndex = idx),
-                  labelType: NavigationRailLabelType.all,
-                  destinations: const [
-                    NavigationRailDestination(
-                      icon: Icon(Icons.dashboard_outlined),
-                      selectedIcon: Icon(Icons.dashboard),
-                      label: Text('Dashboard'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.category_outlined),
-                      selectedIcon: Icon(Icons.category),
-                      label: Text('Categories'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.star_outline),
-                      selectedIcon: Icon(Icons.star),
-                      label: Text('Star Routing'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.payment_outlined),
-                      selectedIcon: Icon(Icons.payment),
-                      label: Text('Renewal'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.rate_review_outlined),
-                      selectedIcon: Icon(Icons.rate_review),
-                      label: Text('Google Reply'),
-                    ),
-                  ],
-                ),
-                const VerticalDivider(thickness: 1, width: 1),
-                Expanded(child: tabs[_selectedTabIndex]),
-              ],
-            )
-          : tabs[_selectedTabIndex],
+      body: Column(
+        children: [
+          pendingBanner,
+          Expanded(
+            child: isDesktop
+                ? Row(
+                    children: [
+                      NavigationRail(
+                        selectedIndex: _selectedTabIndex,
+                        onDestinationSelected: (idx) => setState(() => _selectedTabIndex = idx),
+                        labelType: NavigationRailLabelType.all,
+                        destinations: const [
+                          NavigationRailDestination(
+                            icon: Icon(Icons.dashboard_outlined),
+                            selectedIcon: Icon(Icons.dashboard),
+                            label: Text('Dashboard'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.category_outlined),
+                            selectedIcon: Icon(Icons.category),
+                            label: Text('Categories'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.star_outline),
+                            selectedIcon: Icon(Icons.star),
+                            label: Text('Star Routing'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.payment_outlined),
+                            selectedIcon: Icon(Icons.payment),
+                            label: Text('Renewal'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.rate_review_outlined),
+                            selectedIcon: Icon(Icons.rate_review),
+                            label: Text('Google Reply'),
+                          ),
+                        ],
+                      ),
+                      const VerticalDivider(thickness: 1, width: 1),
+                      Expanded(child: tabs[_selectedTabIndex]),
+                    ],
+                  )
+                : tabs[_selectedTabIndex],
+          ),
+        ],
+      ),
       bottomNavigationBar: isDesktop
           ? null
           : BottomNavigationBar(

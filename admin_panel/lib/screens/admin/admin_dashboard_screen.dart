@@ -20,6 +20,7 @@ import 'admin_employees_tab.dart';
 import 'admin_templates_tab.dart';
 import 'admin_subscription_overrides_tab.dart';
 import 'admin_commission_queue_screen.dart';
+import 'admin_standee_tab.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -85,6 +86,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       const AdminTemplatesTab(),
       const AdminSubscriptionOverridesTab(),
       const AdminCommissionQueueScreen(),
+      const AdminStandeeTab(),
     ];
 
     final isDesktop = MediaQuery.of(context).size.width > 900;
@@ -148,6 +150,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       selectedIcon: Icon(Icons.verified),
                       label: Text('Commission'),
                     ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.inventory_2_outlined),
+                      selectedIcon: Icon(Icons.inventory_2),
+                      label: Text('Standees'),
+                    ),
                   ],
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
@@ -170,6 +177,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 BottomNavigationBarItem(icon: Icon(Icons.library_books_outlined), label: 'Templates'),
                 BottomNavigationBarItem(icon: Icon(Icons.edit_calendar_outlined), label: 'Overrides'),
                 BottomNavigationBarItem(icon: Icon(Icons.verified_outlined), label: 'Queue'),
+                BottomNavigationBarItem(icon: Icon(Icons.inventory_2_outlined), label: 'Standees'),
               ],
             ),
     );

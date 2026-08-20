@@ -14,12 +14,15 @@ class CommissionRecordModel {
   final String? payoutReference;
 
   // Two-step verification fraud-gate fields (doc 06)
+  // New flow: Employee collects cash → Admin confirms deposit → Business activates.
+  // Owner is NOT part of the cash confirmation gate.
+  final bool employeeCollected;
   final bool adminConfirmed;
   final String? adminConfirmedBy;
   final DateTime? adminConfirmedAt;
-  final bool? ownerConfirmed;
-  final DateTime? ownerConfirmedAt;
-  final String? ownerResponse; // "confirmed" | "disputed"
+  final bool? ownerConfirmed;      // Legacy — kept for reading old records
+  final DateTime? ownerConfirmedAt; // Legacy
+  final String? ownerResponse;     // Legacy
   final bool disputed;
   final String? disputeReason;
 
@@ -37,6 +40,7 @@ class CommissionRecordModel {
     this.dateVerified,
     this.datePaid,
     this.payoutReference,
+    this.employeeCollected = false,
     this.adminConfirmed = false,
     this.adminConfirmedBy,
     this.adminConfirmedAt,
@@ -68,6 +72,7 @@ class CommissionRecordModel {
       dateVerified:     (d['date_verified'] as Timestamp?)?.toDate(),
       datePaid:         (d['date_paid'] as Timestamp?)?.toDate(),
       payoutReference:  d['payout_reference'] as String?,
+      employeeCollected: (d['employee_collected'] as bool?) ?? false,
       adminConfirmed:   (d['admin_confirmed'] as bool?) ?? false,
       adminConfirmedBy: d['admin_confirmed_by'] as String?,
       adminConfirmedAt: (d['admin_confirmed_at'] as Timestamp?)?.toDate(),
@@ -80,27 +85,7 @@ class CommissionRecordModel {
     );
   }
 
-  static Map<String, dynamic> newCashRecord({
-    required String employeeId,
-    required String businessId,
-    required double amount,
-  }) => {
-    'employee_id':        employeeId,
-    'business_id':        businessId,
-    'amount':             amount,
-    'payment_mode':       'cash',
-    'status':             'pending',
-    'admin_confirmed':    false,
-    'admin_confirmed_by': null,
-    'admin_confirmed_at': null,
-    'owner_confirmed':    null,
-    'owner_confirmed_at': null,
-    'owner_response':     null,
-    'disputed':           false,
-    'dispute_reason':     null,
-    'date_claimed':       Timestamp.now(),
-    'date_verified':      null,
-    'date_paid':          null,
-    'payout_reference':   null,
-  };
+  // newCashRecord() REMOVED — employees no longer create cash payment records.
+  // Cash payments are now handled as a view on businesses (Build A).
+  // Commission entries are created by the onBusinessActivated CF (Build B).
 }

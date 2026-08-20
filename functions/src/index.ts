@@ -79,10 +79,9 @@ export {
   sendCashPaymentVerification,
 } from "./notifications.js";
 export {
-  onCashCommissionCreated,
-  confirmCashPaymentOwner,
   confirmCashPaymentAdmin,
-  markCommissionPaidAdmin,
+  onBusinessActivated,
+  markCommissionsPaidBulk,
 } from "./commissions.js";
 export {
   createEmployeeAccount,

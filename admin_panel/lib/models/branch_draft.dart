@@ -70,11 +70,27 @@ class BranchDraft {
   }
 
   /// Sets a manual Place ID (optional field).
+  /// BUG 3 FIX: Sanitizes pipe '|' → 'I' — Google Place IDs never contain
+  /// pipe characters. This corruption happens from copy-paste in certain fonts
+  /// where capital 'I' renders identically to '|'.
   void setPlaceId(String value) {
-    placeId = value.trim().isEmpty ? null : value.trim();
-    googleReviewLink = placeId != null
-        ? 'https://search.google.com/local/writereview?placeid=$placeId'
-        : null;
+    var cleaned = value.trim();
+    if (cleaned.isEmpty) {
+      placeId = null;
+      googleReviewLink = null;
+      return;
+    }
+
+    // Sanitize: | → I (pipe is never valid in a Google Place ID)
+    if (cleaned.contains('|')) {
+      // ignore: avoid_print
+      print('⚠️ Place ID contained "|" (pipe) — auto-corrected to "I": $cleaned');
+      cleaned = cleaned.replaceAll('|', 'I');
+    }
+
+    placeId = cleaned;
+    googleReviewLink =
+        'https://search.google.com/local/writereview?placeid=$placeId';
   }
 
   /// Clears search results without switching to any locked "mode".

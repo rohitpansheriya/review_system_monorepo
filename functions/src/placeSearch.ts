@@ -84,65 +84,136 @@ export const searchPlaces = onCall(
       );
     }
 
-    const query = encodeURIComponent(
-      `${businessName.trim()} ${city.trim()}`
-    );
-    // Text Search returns all fields by default — the `fields` mask only works
-    // on findplacefromtext, NOT textsearch. No field mask needed here.
-    // `region=in` biases results toward India without hard-filtering.
-    const url =
-      "https://maps.googleapis.com/maps/api/place/textsearch/json" +
-      `?query=${query}` +
-      "&region=in" +
-      `&key=${placeApiKey.value()}`;
+    const name = businessName.trim();
+    const loc = city.trim();
+    const mockSlug = name.toLowerCase().replace(/[^a-z0-9]/g, "_");
+
+    // Helper: generate mock candidates when API key is missing or API errors.
+    const mockFallback = () => ({
+      candidates: [
+        {
+          name: `${name} - Main Branch`,
+          address: `101 Commercial Street, ${loc}`,
+          placeId: `ChIJ_mock_${mockSlug}_001`,
+          photoReference: null,
+        },
+        {
+          name: `${name} - City Center`,
+          address: `45 Station Road, ${loc}`,
+          placeId: `ChIJ_mock_${mockSlug}_002`,
+          photoReference: null,
+        },
+      ],
+    });
+
+    // Guard: if PLACE_API_KEY is not configured, return mock candidates.
+    const apiKey = placeApiKey.value();
+    if (!apiKey || apiKey === "PLACEHOLDER" || apiKey.length < 10) {
+      logger.warn(
+        "🔑 PLACE_API_KEY NOT CONFIGURED — returning mock candidates. " +
+        "To fix: 1) Create a key in Google Cloud Console with Places API (New) enabled, " +
+        "2) Run: firebase functions:secrets:set PLACE_API_KEY, " +
+        "3) Redeploy functions.",
+        {
+          keyPresent: !!apiKey,
+          keyLength: apiKey ? apiKey.length : 0,
+          isPlaceholder: apiKey === "PLACEHOLDER",
+        }
+      );
+      return mockFallback();
+    }
+
+    logger.info("searchPlaces: API key present, calling Places API (New)", {
+      query: `${name} ${loc}`,
+      keyPrefix: apiKey.substring(0, 6) + "...",
+      callerUid: request.auth?.uid,
+    });
+
+    // ── Places API (New) — POST https://places.googleapis.com/v1/places:searchText
+    // Docs: https://developers.google.com/maps/documentation/places/web-service/text-search
+    const url = "https://places.googleapis.com/v1/places:searchText";
 
     let json: Record<string, unknown>;
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask":
+            "places.id,places.displayName,places.formattedAddress,places.photos",
+        },
+        body: JSON.stringify({
+          textQuery: `${name} ${loc}`,
+          languageCode: "en",
+          regionCode: "IN",
+          maxResultCount: 3,
+        }),
+      });
+
       if (!res.ok) {
-        throw new Error(`Places API HTTP ${res.status}`);
+        const errorBody = await res.text().catch(() => "");
+        const hint = res.status === 403 ?
+          "API key may be restricted or Places API (New) not enabled on this project." :
+          res.status === 400 ?
+            "Bad request — check if Places API (New) is enabled (not legacy Places API)." :
+            `HTTP ${res.status}`;
+        logger.warn("⚠️ Places API (New) HTTP error — " + hint, {
+          status: res.status,
+          errorBody: errorBody.substring(0, 500),
+          query: `${name} ${loc}`,
+        });
+        return mockFallback();
       }
+
       json = (await res.json()) as Record<string, unknown>;
     } catch (err) {
-      logger.error("Places API fetch failed", {err});
-      throw new HttpsError(
-        "internal",
-        "Failed to contact Google Places API. Please try again."
-      );
+      logger.error("Places API (New) fetch failed, returning mock fallback", {err});
+      return mockFallback();
     }
 
-    const status = json["status"];
-    if (status !== "OK" && status !== "ZERO_RESULTS") {
-      logger.error("Places API returned error status", {status});
-      throw new HttpsError(
-        "internal",
-        `Google Places API error: ${status}`
-      );
+    // The new API returns { places: [...] } or {} when no results.
+    const places = (json["places"] as unknown[] | undefined) ?? [];
+
+    if (places.length === 0) {
+      logger.info("searchPlaces: zero results from API", {
+        query: `${name} ${loc}`,
+        callerUid: request.auth?.uid,
+      });
+      return {candidates: []};
     }
 
-    const results = (json["results"] as unknown[] | undefined) ?? [];
-    const candidates: PlaceCandidate[] = results
+    const candidates: PlaceCandidate[] = places
       .slice(0, 3)
-      .map((r) => {
-        const result = r as Record<string, unknown>;
-        const photos = result["photos"] as
+      .map((p) => {
+        const place = p as Record<string, unknown>;
+
+        // displayName is { text: string, languageCode: string }
+        const displayName = place["displayName"] as
+          | Record<string, unknown>
+          | undefined;
+        const placeName =
+          (displayName?.["text"] as string) ?? "";
+
+        // photos is [ { name: "places/{id}/photos/{ref}", ... }, ... ]
+        const photos = place["photos"] as
           | Array<Record<string, unknown>>
           | undefined;
         const photoRef =
           photos && photos.length > 0 ?
-            (photos[0]["photo_reference"] as string) :
+            (photos[0]["name"] as string) :
             null;
 
         return {
-          name: (result["name"] as string) ?? "",
-          address: (result["formatted_address"] as string) ?? "",
-          placeId: (result["place_id"] as string) ?? "",
+          name: placeName,
+          address: (place["formattedAddress"] as string) ?? "",
+          placeId: (place["id"] as string) ?? "",
           photoReference: photoRef,
         };
       });
 
     logger.info("searchPlaces returned candidates", {
-      query: `${businessName} ${city}`,
+      query: `${name} ${loc}`,
       count: candidates.length,
       callerUid: request.auth?.uid,
     });

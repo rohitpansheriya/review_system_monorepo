@@ -39,3 +39,5 @@ functions/.secret.local
 *serviceAccount*.json
 functions/.env*
 !functions/.env.example
+serviceAccountKey.json
+*firebase-adminsdk*.json

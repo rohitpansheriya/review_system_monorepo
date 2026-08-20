@@ -6,10 +6,13 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../core/constants.dart';
 import '../models/business_model.dart';
-import '../models/commission_record_model.dart';
+import '../models/employee_commission_model.dart';
 import '../models/employee_profile_model.dart';
+import '../models/standee_fulfillment_model.dart';
 import '../services/category_template_service.dart';
 import '../services/firestore_service.dart';
 
@@ -39,12 +42,22 @@ class AdminDashboardProvider extends ChangeNotifier {
   List<EmployeeProfileModel> _employees = [];
   Map<String, List<BusinessModel>> _employeeBusinesses = {};
   Map<String, Map<String, double>> _employeeCommissionSummaries = {};
+  Map<String, int> _employeeTotalEnrollments = {};
+  Map<String, int> _employeeThisMonthEnrollments = {};
+  Map<String, int> _employeeManagedCount = {};
 
   // ── Category Template Library State ────────────────────────────────────────
   List<Map<String, dynamic>> _templates = [];
+  final Map<String, List<String>> _categoryPhrasesCache = {};
+  final Set<String> _loadingCategories = {};
 
   // ── All Businesses List (for Subscription Overrides & Management) ────────
   List<BusinessModel> _allBusinesses = [];
+
+  // ── Standee Fulfillment State ──────────────────────────────────────────────
+  List<StandeeFulfillmentModel> _standeeItems = [];
+  bool _standeeLoading = false;
+  String? _standeeError;
 
   // Getters
   bool get loading => _loading;
@@ -66,9 +79,15 @@ class AdminDashboardProvider extends ChangeNotifier {
   List<EmployeeProfileModel> get employees => _employees;
   Map<String, List<BusinessModel>> get employeeBusinesses => _employeeBusinesses;
   Map<String, Map<String, double>> get employeeCommissionSummaries => _employeeCommissionSummaries;
+  Map<String, int> get employeeTotalEnrollments => _employeeTotalEnrollments;
+  Map<String, int> get employeeThisMonthEnrollments => _employeeThisMonthEnrollments;
+  Map<String, int> get employeeManagedCount => _employeeManagedCount;
 
   List<Map<String, dynamic>> get templates => _templates;
   List<BusinessModel> get allBusinesses => _allBusinesses;
+  List<StandeeFulfillmentModel> get standeeItems => _standeeItems;
+  bool get standeeLoading => _standeeLoading;
+  String? get standeeError => _standeeError;
 
   AdminDashboardProvider({
     FirebaseFirestore? firestore,
@@ -90,6 +109,7 @@ class AdminDashboardProvider extends ChangeNotifier {
         fetchEmployees(),
         fetchTemplates(),
         fetchAllBusinesses(),
+        fetchStandeeFulfillments(),
       ]);
       _loading = false;
       notifyListeners();
@@ -181,23 +201,45 @@ class AdminDashboardProvider extends ChangeNotifier {
     final snap = await _db.collection('employees').get();
     _employees = snap.docs.map(EmployeeProfileModel.fromDoc).toList();
 
-    // Fetch businesses & commission summaries for each employee
+    // Current month boundaries for "This Month" count
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthStartTs = Timestamp.fromDate(monthStart);
+
     for (final emp in _employees) {
-      // Businesses enrolled or currently managed by employee
-      final bizSnap = await _db
+      // 1. Total Enrollments: businesses where enrolled_by == this employee
+      final enrolledSnap = await _db
+          .collection('businesses')
+          .where('enrolled_by', isEqualTo: emp.uid)
+          .get();
+      _employeeTotalEnrollments[emp.uid] = enrolledSnap.docs.length;
+
+      // 2. This Month: enrolled_by == this employee AND created_at >= monthStart
+      int thisMonth = 0;
+      for (final doc in enrolledSnap.docs) {
+        final data = doc.data();
+        final createdAt = data['created_at'] as Timestamp?;
+        if (createdAt != null && createdAt.compareTo(monthStartTs) >= 0) {
+          thisMonth++;
+        }
+      }
+      _employeeThisMonthEnrollments[emp.uid] = thisMonth;
+
+      // 3. Managed Businesses: currently_managed_by == this employee
+      final managedSnap = await _db
           .collection('businesses')
           .where('currently_managed_by', isEqualTo: emp.uid)
           .get();
-      _employeeBusinesses[emp.uid] = bizSnap.docs.map(BusinessModel.fromDoc).toList();
+      _employeeBusinesses[emp.uid] = managedSnap.docs.map(BusinessModel.fromDoc).toList();
+      _employeeManagedCount[emp.uid] = managedSnap.docs.length;
 
-      // Commission summary for employee
+      // 4. Commission summary (from employee_commissions collection)
       final commSnap = await _db
-          .collection('commission_records')
+          .collection('employee_commissions')
           .where('employee_id', isEqualTo: emp.uid)
           .get();
 
       double pending = 0.0;
-      double verified = 0.0;
       double paid = 0.0;
 
       for (final doc in commSnap.docs) {
@@ -205,10 +247,8 @@ class AdminDashboardProvider extends ChangeNotifier {
         final amount = (data['amount'] as num? ?? 0).toDouble();
         final status = data['status'] as String? ?? 'pending';
 
-        if (status == 'pending' || status == 'disputed') {
+        if (status == 'pending') {
           pending += amount;
-        } else if (status == 'verified') {
-          verified += amount;
         } else if (status == 'paid') {
           paid += amount;
         }
@@ -216,30 +256,45 @@ class AdminDashboardProvider extends ChangeNotifier {
 
       _employeeCommissionSummaries[emp.uid] = {
         'pending': pending,
-        'verified': verified,
         'paid': paid,
       };
+      // Populate global cache
+      FirestoreService.employeeNameCache[emp.uid] = emp.name;
     }
     notifyListeners();
   }
 
-  /// Create new employee Auth account & Firestore doc.
-  Future<void> createEmployee({
+  /// Resolves an employee UID to display name (e.g. "Rahul Sharma" or "Admin").
+  String resolveEmployeeName(String? uid) {
+    if (uid == null || uid.isEmpty || uid == 'admin') return 'Admin';
+    for (final emp in _employees) {
+      if (emp.uid == uid) return emp.name;
+    }
+    if (FirestoreService.employeeNameCache.containsKey(uid)) {
+      return FirestoreService.employeeNameCache[uid]!;
+    }
+    return uid.length > 8 ? 'Emp: ${uid.substring(0, 8)}…' : uid;
+  }
+
+  /// Create new employee Auth account & Firestore doc, and trigger password-set email.
+  Future<Map<String, dynamic>> createEmployee({
     required String email,
-    required String password,
     required String displayName,
     required String phone,
+    String? password,
     String? address,
   }) async {
+    Map<String, dynamic> resultData = {};
     try {
       final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
-      await fn.httpsCallable('createEmployeeAccount').call({
+      final result = await fn.httpsCallable('createEmployeeAccount').call({
         'email': email,
-        'password': password,
+        if (password != null && password.isNotEmpty) 'password': password,
         'displayName': displayName,
         'phone': phone,
         'address': address ?? '',
       });
+      resultData = Map<String, dynamic>.from(result.data as Map? ?? {});
     } catch (_) {
       // Direct Firestore fallback for testing environments
       final newRef = _db.collection('employees').doc();
@@ -253,12 +308,26 @@ class AdminDashboardProvider extends ChangeNotifier {
         'this_month_enrollments': 0,
         'documents_verified': 'pending',
         'created_at': FieldValue.serverTimestamp(),
-        'profile': {'address': address ?? ''},
+        'profile': {
+          'full_name': displayName,
+          'email': email,
+          'phone': phone,
+          'address': address ?? '',
+        },
         'payout': {},
         'documents': [],
       });
     }
+
+    // Trigger standard Firebase Auth password reset/set email directly to employee
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+    } catch (_) {
+      // Best-effort in emulator/testing environments
+    }
+
     await fetchEmployees();
+    return resultData;
   }
 
   /// Offboard / deactivate an employee and reassign currently_managed_by to "admin".
@@ -311,17 +380,64 @@ class AdminDashboardProvider extends ChangeNotifier {
     await fetchEmployees();
   }
 
-  // ── 3. CATEGORY TEMPLATE LIBRARY (Doc 07 CRUD UI) ─────────────────────────
   Future<void> fetchTemplates() async {
-    _templates = await _firestoreService.getCategoryTemplates();
+    _templates = await _templateService.getTemplateHeaders();
     notifyListeners();
+  }
+
+  bool isCategoryPhrasesLoading(String templateId, String categoryName, {String version = AppConstants.defaultPoolVersion}) {
+    return _loadingCategories.contains('$templateId:$categoryName:$version');
+  }
+
+  List<String>? getCachedCategoryPhrases(String templateId, String categoryName, {String version = AppConstants.defaultPoolVersion}) {
+    return _categoryPhrasesCache['$templateId:$categoryName:$version'];
+  }
+
+  Future<List<String>> fetchCategoryPhrases({
+    required String templateId,
+    required String categoryName,
+    String version = AppConstants.defaultPoolVersion,
+  }) async {
+    final key = '$templateId:$categoryName:$version';
+    if (_categoryPhrasesCache.containsKey(key)) {
+      return _categoryPhrasesCache[key]!;
+    }
+    _loadingCategories.add(key);
+    notifyListeners();
+
+    final phrases = await _templateService.getCategoryPhrases(
+      templateId: templateId,
+      categoryName: categoryName,
+      version: version,
+    );
+
+    _categoryPhrasesCache[key] = phrases;
+    _loadingCategories.remove(key);
+    notifyListeners();
+    return phrases;
+  }
+
+  Future<void> createCategoryTemplate({
+    required String templateId,
+    required String businessType,
+    required String categoryName,
+    required String initialPhrase,
+  }) async {
+    await _templateService.createTemplate(
+      templateId: templateId,
+      businessType: businessType,
+      categoryName: categoryName,
+      initialPhrase: initialPhrase,
+    );
+    _categoryPhrasesCache.clear();
+    await fetchTemplates();
   }
 
   Future<void> addPhraseVariant({
     required String templateId,
     required String categoryName,
-    required String poolVersion,
-    required String language,
+    String poolVersion = AppConstants.defaultPoolVersion,
+    String language = 'en',
     required String phrase,
   }) async {
     await _templateService.addPhraseVariant(
@@ -331,14 +447,20 @@ class AdminDashboardProvider extends ChangeNotifier {
       language: language,
       phrase: phrase,
     );
-    await fetchTemplates();
+    final key = '$templateId:$categoryName:$poolVersion';
+    _categoryPhrasesCache.remove(key);
+    await fetchCategoryPhrases(
+      templateId: templateId,
+      categoryName: categoryName,
+      version: poolVersion,
+    );
   }
 
   Future<void> retirePhraseVariant({
     required String templateId,
     required String categoryName,
-    required String poolVersion,
-    required String language,
+    String poolVersion = AppConstants.defaultPoolVersion,
+    String language = 'en',
     required int index,
   }) async {
     await _templateService.retirePhraseVariant(
@@ -348,7 +470,13 @@ class AdminDashboardProvider extends ChangeNotifier {
       language: language,
       index: index,
     );
-    await fetchTemplates();
+    final key = '$templateId:$categoryName:$poolVersion';
+    _categoryPhrasesCache.remove(key);
+    await fetchCategoryPhrases(
+      templateId: templateId,
+      categoryName: categoryName,
+      version: poolVersion,
+    );
   }
 
   Future<void> assignTemplateToBusiness({
@@ -376,7 +504,10 @@ class AdminDashboardProvider extends ChangeNotifier {
     });
   }
 
-  // ── 4. SUBSCRIPTION / RENEWAL OVERRIDES ──────────────────────────────────
+  // ── 4. SUBSCRIPTION / RENEWAL OVERRIDES & BUSINESS EDITING ─────────────────
+  List<Map<String, dynamic>> _allBusinessesRaw = [];
+  List<Map<String, dynamic>> get allBusinessesRaw => _allBusinessesRaw;
+
   Future<void> fetchAllBusinesses() async {
     final snap = await _db
         .collection('businesses')
@@ -384,7 +515,29 @@ class AdminDashboardProvider extends ChangeNotifier {
         .limit(100)
         .get();
     _allBusinesses = snap.docs.map(BusinessModel.fromDoc).toList();
+    _allBusinessesRaw = snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
     notifyListeners();
+  }
+
+  Future<void> updateBusinessDetailsAdmin({
+    required String businessId,
+    required String brandName,
+    required String categoryType,
+    required String ownerName,
+    required String ownerEmail,
+    required String ownerPhone,
+    required String subscriptionStatus,
+  }) async {
+    await _db.collection('businesses').doc(businessId).update({
+      'brand_name': brandName,
+      'category_type': categoryType,
+      'owner_name': ownerName,
+      'owner_email': ownerEmail,
+      'owner_phone': ownerPhone,
+      'subscription_status': subscriptionStatus,
+    });
+    await fetchAllBusinesses();
+    await refreshPlatformStats();
   }
 
   /// Manually override subscription status, renewal date, or grace period.
@@ -425,30 +578,138 @@ class AdminDashboardProvider extends ChangeNotifier {
     await fetchAllBusinesses();
   }
 
-  // ── 5. COMMISSION VERIFICATION QUEUE & PAYOUT ─────────────────────────────
-  Stream<List<CommissionRecordModel>> watchCommissionQueue() {
-    return _firestoreService.watchCommissionVerificationQueue();
+  // ── 5. STANDEE FULFILLMENT MANAGEMENT ─────────────────────────────────────
+  Future<void> fetchStandeeFulfillments() async {
+    _standeeLoading = true;
+    _standeeError = null;
+    notifyListeners();
+
+    try {
+      final bizSnap = await _db
+          .collection(AppConstants.colBusinesses)
+          .where('subscription_status', whereIn: ['active', 'grace_period', 'due_soon', 'deleted'])
+          .get();
+
+      final List<StandeeFulfillmentModel> items = [];
+
+      for (final doc in bizSnap.docs) {
+        final bizData = doc.data();
+        final bizId = doc.id;
+        final brandName = bizData['brand_name'] as String? ?? 'Untitled Business';
+        final categoryType = bizData['category_type'] as String? ?? '';
+        final ownerPhone = bizData['owner_phone'] as String?;
+        final ownerEmail = bizData['owner_email'] as String?;
+
+        final branchesSnap = await _db
+            .collection(AppConstants.colBusinesses)
+            .doc(bizId)
+            .collection(AppConstants.colBranches)
+            .get();
+
+        for (final bDoc in branchesSnap.docs) {
+          items.add(StandeeFulfillmentModel.fromDoc(
+            businessId: bizId,
+            businessName: brandName,
+            categoryType: categoryType,
+            ownerPhone: ownerPhone,
+            ownerEmail: ownerEmail,
+            branchDoc: bDoc,
+          ));
+        }
+      }
+
+      items.sort((a, b) {
+        if (a.standeeStatusUpdatedAt == null && b.standeeStatusUpdatedAt == null) {
+          return a.businessName.compareTo(b.businessName);
+        }
+        if (a.standeeStatusUpdatedAt == null) return 1;
+        if (b.standeeStatusUpdatedAt == null) return -1;
+        return b.standeeStatusUpdatedAt!.compareTo(a.standeeStatusUpdatedAt!);
+      });
+
+      _standeeItems = items;
+      _standeeLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _standeeLoading = false;
+      _standeeError = e.toString();
+      notifyListeners();
+    }
   }
 
-  Future<void> adminConfirmCashPayment({
-    required String recordId,
+  Future<void> updateStandeeStatusInline({
+    required String businessId,
+    required String branchId,
+    required String newStatus,
+  }) async {
+    final now = DateTime.now();
+    for (final item in _standeeItems) {
+      if (item.businessId == businessId && item.branchId == branchId) {
+        item.standeeStatus = newStatus;
+        item.standeeStatusUpdatedAt = now;
+        break;
+      }
+    }
+    notifyListeners();
+
+    await _firestoreService.updateStandeeStatus(businessId, branchId, newStatus);
+  }
+
+  // ── 5A. PENDING CASH PAYMENTS (Build A — view on businesses) ───────────────
+
+  /// Stream of businesses awaiting cash confirmation.
+  Stream<List<BusinessModel>> watchPendingCashBusinesses() {
+    return _firestoreService.watchPendingCashBusinesses();
+  }
+
+  /// Admin confirms cash receipt → business activates.
+  Future<void> confirmCashAndActivate({
+    required String businessId,
     required String adminUid,
     String? notes,
   }) async {
-    await _firestoreService.adminConfirmCashPayment(
-      recordId: recordId,
+    await _firestoreService.confirmCashAndActivate(
+      businessId: businessId,
       adminUid: adminUid,
       notes: notes,
     );
+    await refreshPlatformStats();
   }
 
-  Future<void> markCommissionPaid({
-    required String recordId,
+  // ── 5B. EMPLOYEE COMMISSION LEDGER (Build B — separate collection) ─────────
+
+  /// Stream of employee commissions with optional filters.
+  Stream<List<EmployeeCommissionModel>> watchEmployeeCommissions(
+    String employeeId, {
+    String? statusFilter,
+    String? monthFilter,
+  }) {
+    return _firestoreService.watchEmployeeCommissions(
+      employeeId,
+      statusFilter: statusFilter,
+      monthFilter: monthFilter,
+    );
+  }
+
+  /// Stream of all pending commissions across all employees.
+  Stream<List<EmployeeCommissionModel>> watchAllPendingCommissions({
+    String? monthFilter,
+  }) {
+    return _firestoreService.watchAllPendingCommissions(
+      monthFilter: monthFilter,
+    );
+  }
+
+  /// Bulk-mark all pending commissions for an employee+month as paid.
+  Future<Map<String, dynamic>> markCommissionsPaidBulk({
+    required String employeeId,
+    required String month,
     required String payoutReference,
     required String adminUid,
   }) async {
-    await _firestoreService.markCommissionPaid(
-      recordId: recordId,
+    return _firestoreService.markCommissionsPaidBulk(
+      employeeId: employeeId,
+      month: month,
       payoutReference: payoutReference,
       adminUid: adminUid,
     );

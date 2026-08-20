@@ -26,6 +26,7 @@ import '../../core/theme.dart';
 import '../../models/branch_model.dart';
 import '../../models/business_model.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/share_business_qr.dart';
 
 class BusinessDetailScreen extends StatefulWidget {
   final BusinessModel business;
@@ -40,6 +41,8 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
   bool _loading = true;
   String? _error;
 
+  String? _enrolledByName;
+
   @override
   void initState() {
     super.initState();
@@ -48,11 +51,13 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
 
   Future<void> _loadBranches() async {
     try {
-      final svc      = context.read<FirestoreService>();
+      final svc = context.read<FirestoreService>();
       final branches = await svc.getBranches(widget.business.id);
+      final empName = await svc.getEmployeeName(widget.business.enrolledBy);
       if (mounted) {
         setState(() {
           _branches = branches;
+          _enrolledByName = empName;
           _loading  = false;
         });
       }
@@ -148,6 +153,10 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                 ),
                 _InfoRow(label: 'Owner email',  value: biz.ownerEmail ?? '—'),
                 _InfoRow(label: 'Renewal date', value: renewalStr),
+                _InfoRow(
+                  label: 'Enrolled by',
+                  value: _enrolledByName ?? (biz.enrolledBy == 'admin' ? 'Admin' : (biz.enrolledBy.isEmpty ? '—' : 'Loading…')),
+                ),
                 _InfoRow(label: 'Business ID',  value: biz.id, mono: true),
                 if (biz.isReassigned)
                   const Padding(
@@ -206,6 +215,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                 child: _BranchCard(
                   branch:             b,
                   businessId:         biz.id,
+                  ownerPhone:         biz.ownerPhone,
                   showStandeeControls: !isPendingPayment,
                 ),
               ),
@@ -417,11 +427,13 @@ class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
 class _BranchCard extends StatefulWidget {
   final BranchModel branch;
   final String      businessId;
+  final String?     ownerPhone;
   final bool        showStandeeControls;
 
   const _BranchCard({
     required this.branch,
     required this.businessId,
+    this.ownerPhone,
     this.showStandeeControls = true,
   });
 
@@ -570,6 +582,12 @@ class _BranchCardState extends State<_BranchCard> {
           ),
           const SizedBox(height: AppSpacing.sm),
           _StarRoutingTable(config: branch.starRoutingConfig),
+
+          // ── Share Review QR & Link ────────────────────────────────────
+          ShareBusinessQr(
+            branch: branch,
+            ownerPhone: widget.ownerPhone,
+          ),
         ],
       ),
     );

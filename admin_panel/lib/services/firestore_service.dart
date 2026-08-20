@@ -9,7 +9,7 @@ import '../core/constants.dart';
 import '../models/branch_draft.dart';
 import '../models/branch_model.dart';
 import '../models/business_model.dart';
-import '../models/commission_record_model.dart';
+import '../models/employee_commission_model.dart';
 import '../models/employee_model.dart';
 import '../models/employee_profile_model.dart';
 
@@ -34,6 +34,31 @@ class FirestoreService {
         .map((doc) => doc.exists ? EmployeeModel.fromDoc(doc) : null);
   }
 
+  // ── Employee Name Lookup Cache ────────────────────────────────────────────
+  static final Map<String, String> employeeNameCache = {};
+
+  /// Resolves an employee UID to full name (e.g. "Rahul Sharma" or "Admin").
+  Future<String> getEmployeeName(String? uid) async {
+    if (uid == null || uid.isEmpty || uid == 'admin') return 'Admin';
+    if (employeeNameCache.containsKey(uid)) {
+      return employeeNameCache[uid]!;
+    }
+    try {
+      final doc = await _db.collection(AppConstants.colEmployees).doc(uid).get();
+      if (doc.exists) {
+        final data = doc.data() ?? {};
+        final profile = data['profile'] as Map<String, dynamic>? ?? {};
+        final fullName = profile['full_name'] as String? ?? '';
+        final name = fullName.isNotEmpty
+            ? fullName
+            : (data['name'] as String? ?? data['email'] as String? ?? uid);
+        employeeNameCache[uid] = name;
+        return name;
+      }
+    } catch (_) {}
+    return uid.length > 8 ? 'Emp: ${uid.substring(0, 8)}…' : uid;
+  }
+
   // ── Category templates ────────────────────────────────────────────────────
 
   /// Returns all templates. If collection is empty, returns [].
@@ -54,32 +79,39 @@ class FirestoreService {
   /// Returns true if any NON-draft business branch already has this Place ID.
   /// Drafts (pending_payment) are excluded so re-enrolling the same location
   /// after an abandoned draft doesn't create a false duplicate block.
+  ///
+  /// NOTE: This uses a collectionGroup query on 'branches' which requires
+  /// a COLLECTION_GROUP index. If the query fails (permission denied or
+  /// missing index), we return false so enrollment is not blocked.
   Future<bool> placeIdExists(String placeId) async {
     if (placeId.isEmpty) return false;
-    // Check all branches with this place_id whose parent business is not a draft.
-    // We do two queries: one for active, one for grace_period + deleted,
-    // then combine — Firestore doesn't support != on collection group queries.
-    // Simpler: query collectionGroup with the place_id, then filter in-memory
-    // to exclude pending_payment parent docs (acceptable: small result set).
-    final snap = await _db
-        .collectionGroup(AppConstants.colBranches)
-        .where('place_id', isEqualTo: placeId)
-        .limit(10) // place_id duplicates should never be more than a handful
-        .get();
-    for (final branchDoc in snap.docs) {
-      // Parent path: businesses/{bizId}/branches/{branchId}
-      final bizId = branchDoc.reference.parent.parent?.id;
-      if (bizId == null) continue;
-      final bizSnap = await _db
-          .collection(AppConstants.colBusinesses)
-          .doc(bizId)
+    try {
+      final snap = await _db
+          .collectionGroup(AppConstants.colBranches)
+          .where('place_id', isEqualTo: placeId)
+          .limit(10)
           .get();
-      final status = bizSnap.data()?['subscription_status'] as String?;
-      if (status != AppConstants.statusPendingPayment) {
-        return true; // a paying business already has this Place ID
+      for (final branchDoc in snap.docs) {
+        // Parent path: businesses/{bizId}/branches/{branchId}
+        final bizId = branchDoc.reference.parent.parent?.id;
+        if (bizId == null) continue;
+        final bizSnap = await _db
+            .collection(AppConstants.colBusinesses)
+            .doc(bizId)
+            .get();
+        final status = bizSnap.data()?['subscription_status'] as String?;
+        if (status != AppConstants.statusPendingPayment) {
+          return true; // a paying business already has this Place ID
+        }
       }
+      return false;
+    } catch (e) {
+      // Collection group query may fail due to missing index or permission
+      // denied. Don't block enrollment — duplicate place_id is a soft guard.
+      // ignore: avoid_print
+      print('placeIdExists: query failed (non-blocking): $e');
+      return false;
     }
-    return false;
   }
 
   // ── Enrollment — draft batch write (pending_payment) ──────────────────
@@ -151,6 +183,58 @@ class FirestoreService {
     return {'businessId': bizRef.id, 'branchIds': branchIds};
   }
 
+  // ── Admin Cash Activate (GROUP C — new model) ─────────────────────────────
+  //
+  // Admin-only: directly activates a pending_payment business via cash.
+  // Creates commission record (payment_mode="cash", status="verified") and
+  // flips subscription_status → active + sets renewal_date.
+  // No employee involvement — admin collects and activates in one step.
+
+  Future<void> adminCashActivate({
+    required String businessId,
+    required String adminUid,
+  }) async {
+    final bizRef = _db.collection(AppConstants.colBusinesses).doc(businessId);
+    final bizSnap = await bizRef.get();
+
+    if (!bizSnap.exists) throw Exception('Business not found');
+    final bizData = bizSnap.data()!;
+    final currentStatus = bizData['subscription_status'] as String?;
+    if (currentStatus != AppConstants.statusPendingPayment) {
+      throw Exception('Business is not in pending_payment status');
+    }
+
+    final batch = _db.batch();
+
+    // 1. Activate the business
+    batch.update(bizRef, {
+      'subscription_status': AppConstants.statusActive,
+      'renewal_date': Timestamp.fromDate(
+        DateTime.now().add(const Duration(days: AppConstants.renewalDays)),
+      ),
+      'payment_mode': 'cash',
+      'cash_payment_confirmed_at': FieldValue.serverTimestamp(),
+      'cash_confirmed_by_admin': adminUid,
+    });
+
+    // 2. Create commission record for audit trail
+    final commRef = _db.collection(AppConstants.colCommission).doc();
+    batch.set(commRef, {
+      'business_id': businessId,
+      'employee_id': adminUid,
+      'amount': 1999,
+      'payment_mode': 'cash',
+      'status': AppConstants.commVerified,
+      'admin_confirmed': true,
+      'admin_confirmed_by': adminUid,
+      'admin_confirmed_at': FieldValue.serverTimestamp(),
+      'date_claimed': FieldValue.serverTimestamp(),
+      'date_verified': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+  }
+
   // ── My businesses — paginated, filtered, date-windowed ───────────────────
 
   /// Payment-status filter enum shared between provider and service.
@@ -188,9 +272,15 @@ class FirestoreService {
       q = q.where('subscription_status',
           whereIn: [AppConstants.statusActive, AppConstants.statusGracePeriod]);
     } else {
-      // 'all' → exclude deleted only
+      // 'all' → show all non-deleted statuses
+      // NOTE: whereNotIn cannot be combined with range filters on a different
+      // field (created_at). Use whereIn with explicit status list instead.
       q = q.where('subscription_status',
-          whereNotIn: [AppConstants.statusDeleted]);
+          whereIn: [
+            AppConstants.statusPendingPayment,
+            AppConstants.statusActive,
+            AppConstants.statusGracePeriod,
+          ]);
     }
 
     if (startAfter != null) {
@@ -322,22 +412,28 @@ class FirestoreService {
   /// an existing business with its own Place ID doesn't self-block.
   Future<bool> placeIdExistsForEdit(String placeId, String currentBusinessId) async {
     if (placeId.isEmpty) return false;
-    final snap = await _db
-        .collectionGroup(AppConstants.colBranches)
-        .where('place_id', isEqualTo: placeId)
-        .limit(10)
-        .get();
-    for (final branchDoc in snap.docs) {
-      final bizId = branchDoc.reference.parent.parent?.id;
-      if (bizId == null || bizId == currentBusinessId) continue;
-      final bizSnap = await _db
-          .collection(AppConstants.colBusinesses)
-          .doc(bizId)
+    try {
+      final snap = await _db
+          .collectionGroup(AppConstants.colBranches)
+          .where('place_id', isEqualTo: placeId)
+          .limit(10)
           .get();
-      final status = bizSnap.data()?['subscription_status'] as String?;
-      if (status != AppConstants.statusPendingPayment) return true;
+      for (final branchDoc in snap.docs) {
+        final bizId = branchDoc.reference.parent.parent?.id;
+        if (bizId == null || bizId == currentBusinessId) continue;
+        final bizSnap = await _db
+            .collection(AppConstants.colBusinesses)
+            .doc(bizId)
+            .get();
+        final status = bizSnap.data()?['subscription_status'] as String?;
+        if (status != AppConstants.statusPendingPayment) return true;
+      }
+      return false;
+    } catch (e) {
+      // ignore: avoid_print
+      print('placeIdExistsForEdit: query failed (non-blocking): $e');
+      return false;
     }
-    return false;
   }
 
   // ── Standee fulfillment (Change 2) ────────────────────────────────────────
@@ -390,201 +486,178 @@ class FirestoreService {
     return Map<String, dynamic>.from(result.data as Map);
   }
 
-  // ── Commission records ────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // BUILD A — PAYMENT / CASH-PENDING VIEW
+  // "Pending cash payments" is a VIEW on businesses, not a separate collection.
+  // ══════════════════════════════════════════════════════════════════════════
 
-  Stream<List<CommissionRecordModel>> watchMyCommissions(String employeeId) {
+  /// Stream of businesses awaiting cash confirmation:
+  /// payment_mode='cash' AND subscription_status='pending_payment'.
+  Stream<List<BusinessModel>> watchPendingCashBusinesses() {
     return _db
-        .collection(AppConstants.colCommission)
-        .where('employee_id', isEqualTo: employeeId)
-        .orderBy('date_claimed', descending: true)
+        .collection(AppConstants.colBusinesses)
+        .where('payment_mode', isEqualTo: 'cash')
+        .where('subscription_status', isEqualTo: AppConstants.statusPendingPayment)
+        .orderBy('created_at', descending: true)
         .snapshots()
-        .asyncMap((snap) async {
-          // Join business names client-side (no cross-collection query needed)
-          final results = <CommissionRecordModel>[];
-          for (final doc in snap.docs) {
-            final record = CommissionRecordModel.fromDoc(doc);
-            String? bizName;
-            try {
-              final biz = await _db
-                  .collection(AppConstants.colBusinesses)
-                  .doc(record.businessId)
-                  .get();
-              bizName = biz.data()?['brand_name'] as String?;
-            } catch (_) {}
-            results.add(CommissionRecordModel.fromDoc(doc, businessName: bizName));
-          }
-          return results;
-        });
+        .map((snap) => snap.docs.map(BusinessModel.fromDoc).toList());
   }
 
-  /// Creates a cash commission record (status = "pending") and triggers owner verification.
-  Future<String> logCashPayment({
-    required String employeeId,
+  /// Admin confirms cash receipt → activates the business (Build A).
+  /// Calls the confirmCashPaymentAdmin CF which takes businessId (not recordId).
+  Future<void> confirmCashAndActivate({
     required String businessId,
-    required double amount,
-  }) async {
-    final docRef = await _db.collection(AppConstants.colCommission).add(
-      CommissionRecordModel.newCashRecord(
-        employeeId: employeeId,
-        businessId: businessId,
-        amount: amount,
-      ),
-    );
-
-    // Trigger owner verification email/notification (Doc 06 & 08)
-    try {
-      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
-      await fn.httpsCallable(AppConstants.fnSendCashPaymentVerification).call({
-        'commissionRecordId': docRef.id,
-      });
-    } catch (_) {
-      // Best-effort notification delivery
-    }
-
-    return docRef.id;
-  }
-
-  /// Real-time stream of pending cash payments requiring owner verification for a business.
-  Stream<List<CommissionRecordModel>> watchPendingCashConfirmationsForOwner(String businessId) {
-    return _db
-        .collection(AppConstants.colCommission)
-        .where('business_id', isEqualTo: businessId)
-        .where('payment_mode', isEqualTo: 'cash')
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => CommissionRecordModel.fromDoc(doc))
-            .where((r) => r.ownerConfirmed == null && (r.status == 'pending' || r.status == 'disputed'))
-            .toList());
-  }
-
-  /// Owner confirms (true) or disputes (false) a cash payment (Doc 06).
-  Future<void> ownerConfirmCashPayment({
-    required String recordId,
-    required bool confirmed,
-    String? disputeReason,
-  }) async {
-    try {
-      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
-      await fn.httpsCallable(AppConstants.fnConfirmCashPaymentOwner).call({
-        'commissionRecordId': recordId,
-        'confirmed': confirmed,
-        if (disputeReason != null) 'disputeReason': disputeReason,
-      });
-    } catch (_) {
-      // Direct Firestore fallback
-      final docRef = _db.collection(AppConstants.colCommission).doc(recordId);
-      final snap = await docRef.get();
-      if (!snap.exists) throw Exception('Commission record not found');
-      final data = snap.data() ?? {};
-      final adminConfirmed = data['admin_confirmed'] == true;
-
-      final updateData = <String, dynamic>{
-        'owner_confirmed': confirmed,
-        'owner_confirmed_at': FieldValue.serverTimestamp(),
-        'owner_response': confirmed ? 'confirmed' : 'disputed',
-      };
-
-      if (confirmed) {
-        updateData['disputed'] = false;
-        if (adminConfirmed) {
-          updateData['status'] = AppConstants.commVerified;
-          updateData['date_verified'] = FieldValue.serverTimestamp();
-        }
-      } else {
-        updateData['disputed'] = true;
-        updateData['dispute_reason'] = disputeReason ?? 'Owner reported payment was not made';
-        updateData['status'] = AppConstants.commDisputed;
-      }
-
-      await docRef.update(updateData);
-    }
-  }
-
-  /// Admin Queue: Stream of cash commission records requiring admin verification (Doc 04 / 06).
-  Stream<List<CommissionRecordModel>> watchCommissionVerificationQueue() {
-    return _db
-        .collection(AppConstants.colCommission)
-        .where('payment_mode', isEqualTo: 'cash')
-        .snapshots()
-        .asyncMap((snap) async {
-          final results = <CommissionRecordModel>[];
-          for (final doc in snap.docs) {
-            final rec = CommissionRecordModel.fromDoc(doc);
-            if (rec.status == AppConstants.commPending || rec.status == AppConstants.commDisputed) {
-              String? bizName;
-              try {
-                final biz = await _db.collection(AppConstants.colBusinesses).doc(rec.businessId).get();
-                bizName = biz.data()?['brand_name'] as String?;
-              } catch (_) {}
-              results.add(CommissionRecordModel.fromDoc(doc, businessName: bizName));
-            }
-          }
-          return results;
-        });
-  }
-
-  /// Admin approves physical cash receipt (Doc 06).
-  Future<void> adminConfirmCashPayment({
-    required String recordId,
     required String adminUid,
     String? notes,
   }) async {
     try {
       final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
       await fn.httpsCallable(AppConstants.fnConfirmCashPaymentAdmin).call({
-        'commissionRecordId': recordId,
+        'businessId': businessId,
         if (notes != null) 'notes': notes,
       });
     } catch (_) {
-      final docRef = _db.collection(AppConstants.colCommission).doc(recordId);
-      final snap = await docRef.get();
-      if (!snap.exists) throw Exception('Commission record not found');
-      final data = snap.data() ?? {};
-      final ownerConfirmed = data['owner_confirmed'] == true;
-      final isDisputed = data['disputed'] == true;
+      // Direct Firestore fallback — handles emulator / missing Cloud Function
+      final bizRef = _db.collection(AppConstants.colBusinesses).doc(businessId);
+      final bizSnap = await bizRef.get();
+      if (!bizSnap.exists) throw Exception('Business not found');
 
-      final updateData = <String, dynamic>{
-        'admin_confirmed': true,
-        'admin_confirmed_by': adminUid,
-        'admin_confirmed_at': FieldValue.serverTimestamp(),
-      };
-      if (notes != null) updateData['admin_notes'] = notes;
-
-      if (ownerConfirmed && !isDisputed) {
-        updateData['status'] = AppConstants.commVerified;
-        updateData['date_verified'] = FieldValue.serverTimestamp();
+      final bizData = bizSnap.data() ?? {};
+      final currentStatus = bizData['subscription_status'] as String?;
+      if (currentStatus != AppConstants.statusPendingPayment) {
+        throw Exception('Business is not pending_payment (current: $currentStatus)');
       }
 
-      await docRef.update(updateData);
+      await bizRef.update({
+        'subscription_status': AppConstants.statusActive,
+        'renewal_date': Timestamp.fromDate(
+          DateTime.now().add(const Duration(days: AppConstants.renewalDays)),
+        ),
+        'payment_mode': 'cash',
+        'cash_payment_confirmed_at': FieldValue.serverTimestamp(),
+        'cash_confirmed_by_admin': adminUid,
+      });
+
+      // Create commission entry if employee-enrolled (fallback mirrors the CF trigger)
+      final enrolledBy = bizData['enrolled_by'] as String?;
+      if (enrolledBy != null && enrolledBy.isNotEmpty && enrolledBy != 'admin') {
+        final now = DateTime.now();
+        final activationMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        final commDocId = 'comm_$businessId';
+        final commRef = _db.collection(AppConstants.colEmployeeCommissions).doc(commDocId);
+        final existing = await commRef.get();
+        if (!existing.exists) {
+          await commRef.set({
+            'employee_id': enrolledBy,
+            'business_id': businessId,
+            'business_name': bizData['brand_name'] ?? '',
+            'amount': AppConstants.commissionAmountPerActivation,
+            'status': 'pending',
+            'created_at': FieldValue.serverTimestamp(),
+            'activation_month': activationMonth,
+            'paid_at': null,
+            'paid_by': null,
+            'payout_reference': null,
+          });
+        }
+      }
     }
   }
 
-  /// Admin marks a verified commission record as paid with payout reference (Doc 06).
-  Future<void> markCommissionPaid({
-    required String recordId,
+  // ══════════════════════════════════════════════════════════════════════════
+  // BUILD B — EMPLOYEE COMMISSION LEDGER
+  // Separate collection: employee_commissions. Never deleted.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Stream of an employee's commissions from the new ledger.
+  /// Optionally filter by status and/or month.
+  Stream<List<EmployeeCommissionModel>> watchEmployeeCommissions(
+    String employeeId, {
+    String? statusFilter,
+    String? monthFilter,
+  }) {
+    Query query = _db
+        .collection(AppConstants.colEmployeeCommissions)
+        .where('employee_id', isEqualTo: employeeId);
+
+    if (statusFilter != null && statusFilter.isNotEmpty) {
+      query = query.where('status', isEqualTo: statusFilter);
+    }
+
+    query = query.orderBy('activation_month', descending: true);
+
+    return query.snapshots().map((snap) {
+      var list = snap.docs.map((doc) => EmployeeCommissionModel.fromDoc(doc)).toList();
+      if (monthFilter != null && monthFilter.isNotEmpty) {
+        list = list.where((c) => c.activationMonth == monthFilter).toList();
+      }
+      return list;
+    });
+  }
+
+  /// Admin: stream of ALL pending commissions across all employees.
+  /// Optionally filter by month.
+  Stream<List<EmployeeCommissionModel>> watchAllPendingCommissions({
+    String? monthFilter,
+  }) {
+    Query query = _db
+        .collection(AppConstants.colEmployeeCommissions)
+        .where('status', isEqualTo: 'pending')
+        .orderBy('activation_month', descending: true);
+
+    return query.snapshots().map((snap) {
+      var list = snap.docs.map((doc) => EmployeeCommissionModel.fromDoc(doc)).toList();
+      if (monthFilter != null && monthFilter.isNotEmpty) {
+        list = list.where((c) => c.activationMonth == monthFilter).toList();
+      }
+      return list;
+    });
+  }
+
+  /// Admin: bulk-mark all pending commissions for an employee+month as paid.
+  Future<Map<String, dynamic>> markCommissionsPaidBulk({
+    required String employeeId,
+    required String month,
     required String payoutReference,
     required String adminUid,
   }) async {
     try {
       final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
-      await fn.httpsCallable(AppConstants.fnMarkCommissionPaidAdmin).call({
-        'commissionRecordId': recordId,
+      final result = await fn.httpsCallable(AppConstants.fnMarkCommissionsPaidBulk).call({
+        'employeeId': employeeId,
+        'month': month,
         'payoutReference': payoutReference,
       });
+      return Map<String, dynamic>.from(result.data as Map);
     } catch (_) {
-      final docRef = _db.collection(AppConstants.colCommission).doc(recordId);
-      final snap = await docRef.get();
-      if (!snap.exists) throw Exception('Commission record not found');
-      final data = snap.data() ?? {};
-      if (data['status'] != AppConstants.commVerified) {
-        throw Exception("Only 'verified' commission records can be marked as paid.");
+      // Direct Firestore fallback
+      final snap = await _db
+          .collection(AppConstants.colEmployeeCommissions)
+          .where('employee_id', isEqualTo: employeeId)
+          .where('activation_month', isEqualTo: month)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      if (snap.docs.isEmpty) {
+        return {'success': true, 'count': 0, 'message': 'No pending commissions found.'};
       }
 
-      await docRef.update({
-        'status': AppConstants.commPaid,
-        'payout_reference': payoutReference,
-        'date_paid': FieldValue.serverTimestamp(),
-      });
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.update(doc.reference, {
+          'status': 'paid',
+          'paid_at': FieldValue.serverTimestamp(),
+          'paid_by': adminUid,
+          'payout_reference': payoutReference,
+        });
+      }
+      await batch.commit();
+
+      return {
+        'success': true,
+        'count': snap.docs.length,
+        'totalAmount': snap.docs.length * AppConstants.commissionAmountPerActivation,
+      };
     }
   }
 

@@ -1,50 +1,552 @@
 // lib/screens/admin/admin_commission_queue_screen.dart
 //
-// Commission Verification Queue & Payout Screen for Admin (Doc 04 / Doc 06).
-// Features:
-//   - Lists cash pending & disputed commission records.
-//   - Admin confirms physical cash receipt via adminConfirmCashPayment.
-//   - Enforces two-step verification gate: record flips to "verified" ONLY when BOTH admin + owner confirm.
-//   - Mark Paid action for verified records requiring payout reference.
+// RESTRUCTURED: Two clearly separate sections:
+//   Section A: "Pending Cash Payments" — businesses awaiting cash confirmation (Build A)
+//   Section B: "Employee Commission Ledger" — commission payout tracking (Build B)
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../core/theme.dart';
-import '../../models/commission_record_model.dart';
+import '../../models/business_model.dart';
+import '../../models/employee_commission_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 
 class AdminCommissionQueueScreen extends StatelessWidget {
   const AdminCommissionQueueScreen({super.key});
 
-  void _showMarkPaidDialog(
+  @override
+  Widget build(BuildContext context) {
+    return const DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.account_balance_wallet), text: 'Pending Cash Payments'),
+              Tab(icon: Icon(Icons.receipt_long), text: 'Employee Commission Ledger'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _PendingCashSection(),
+                _CommissionLedgerSection(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION A: PENDING CASH PAYMENTS
+// Shows businesses where payment_mode='cash' AND subscription_status='pending_payment'
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _PendingCashSection extends StatelessWidget {
+  const _PendingCashSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AdminDashboardProvider>();
+    final adminUid = context.read<AppAuthProvider>().uid ?? '';
+    final scheme = Theme.of(context).colorScheme;
+
+    return StreamBuilder<List<BusinessModel>>(
+      stream: provider.watchPendingCashBusinesses(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final businesses = snapshot.data ?? [];
+
+        if (businesses.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_outline, size: 64, color: scheme.primary.withValues(alpha: 0.4)),
+                const SizedBox(height: 16),
+                Text(
+                  'No pending cash payments',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Cash-enrolled businesses awaiting confirmation will appear here.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: businesses.length,
+          itemBuilder: (context, index) {
+            final biz = businesses[index];
+            return Card(
+              elevation: 1,
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.amber.withValues(alpha: 0.3)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header row
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Colors.amber.withValues(alpha: 0.15),
+                          child: const Icon(Icons.payments, color: Colors.amber),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                biz.brandName,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                biz.categoryType ?? 'Uncategorized',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.schedule, size: 14, color: Colors.amber),
+                              SizedBox(width: 4),
+                              Text(
+                                'CASH PENDING',
+                                style: TextStyle(
+                                  color: Colors.amber,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Info chips
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        if (biz.ownerEmail != null)
+                          _InfoChip(icon: Icons.email_outlined, text: biz.ownerEmail!),
+                        if (biz.ownerPhone != null)
+                          _InfoChip(icon: Icons.phone_outlined, text: biz.ownerPhone!),
+                        _InfoChip(
+                          icon: Icons.person_outline,
+                          text: 'Enrolled by: ${provider.resolveEmployeeName(biz.enrolledBy)}',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Action: single "Confirm Cash Received" button
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _confirmCash(context, provider, biz, adminUid),
+                        icon: const Icon(Icons.check, size: 16),
+                        label: const Text('Confirm Cash Received'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _confirmCash(
     BuildContext context,
     AdminDashboardProvider provider,
-    CommissionRecordModel record,
+    BusinessModel biz,
     String adminUid,
-  ) {
-    final refCtrl = TextEditingController();
-
-    showDialog(
+  ) async {
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Mark Commission Paid — ₹${record.amount.toStringAsFixed(0)}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Text('Confirm Cash for "${biz.brandName}"?'),
+        content: const Text(
+          'This will activate the business immediately:\n'
+          '• subscription_status → active\n'
+          '• renewal_date → +365 days\n'
+          '• QR code generation triggered\n\n'
+          'The business will disappear from this list automatically.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Confirm & Activate'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await provider.confirmCashAndActivate(
+          businessId: biz.id,
+          adminUid: adminUid,
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${biz.brandName} activated! Cash payment confirmed.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION B: EMPLOYEE COMMISSION LEDGER
+// Shows employee_commissions collection with filters and bulk payout action
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _CommissionLedgerSection extends StatefulWidget {
+  const _CommissionLedgerSection();
+
+  @override
+  State<_CommissionLedgerSection> createState() => _CommissionLedgerSectionState();
+}
+
+class _CommissionLedgerSectionState extends State<_CommissionLedgerSection> {
+  String? _selectedEmployeeId;
+  String _statusFilter = 'all'; // 'all', 'pending', 'paid'
+  String? _monthFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AdminDashboardProvider>();
+    final adminUid = context.read<AppAuthProvider>().uid ?? '';
+    final scheme = Theme.of(context).colorScheme;
+    final employees = provider.employees;
+
+    // Generate month options (last 12 months)
+    final now = DateTime.now();
+    final months = List.generate(12, (i) {
+      final d = DateTime(now.year, now.month - i);
+      return '${d.year}-${d.month.toString().padLeft(2, '0')}';
+    });
+
+    return Column(
+      children: [
+        // ── Filters ────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              // Employee filter
+              SizedBox(
+                width: 220,
+                child: DropdownButtonFormField<String?>(
+                  value: _selectedEmployeeId,
+                  decoration: const InputDecoration(
+                    labelText: 'Employee',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All Employees'),
+                    ),
+                    ...employees.map((e) => DropdownMenuItem<String?>(
+                      value: e.uid,
+                      child: Text(e.name),
+                    )),
+                  ],
+                  onChanged: (v) => setState(() => _selectedEmployeeId = v),
+                ),
+              ),
+              // Status filter
+              SizedBox(
+                width: 160,
+                child: DropdownButtonFormField<String>(
+                  value: _statusFilter,
+                  decoration: const InputDecoration(
+                    labelText: 'Status',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All')),
+                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                    DropdownMenuItem(value: 'paid', child: Text('Paid')),
+                  ],
+                  onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
+                ),
+              ),
+              // Month filter
+              SizedBox(
+                width: 160,
+                child: DropdownButtonFormField<String?>(
+                  value: _monthFilter,
+                  decoration: const InputDecoration(
+                    labelText: 'Month',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All Months'),
+                    ),
+                    ...months.map((m) => DropdownMenuItem<String?>(
+                      value: m,
+                      child: Text(DateFormat.yMMM().format(DateTime.parse('$m-01'))),
+                    )),
+                  ],
+                  onChanged: (v) => setState(() => _monthFilter = v),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── One-Click Payout Button ─────────────────────────────────
+        if (_selectedEmployeeId != null && _monthFilter != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showBulkPayoutDialog(
+                  context, provider, adminUid,
+                  _selectedEmployeeId!, _monthFilter!,
+                ),
+                icon: const Icon(Icons.payments),
+                label: Text(
+                  'Pay All Pending for ${_getEmployeeName(employees, _selectedEmployeeId!)} — '
+                  '${DateFormat.yMMM().format(DateTime.parse('$_monthFilter-01'))}',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 8),
+
+        // ── Commission List ───────────────────────────────────────
+        Expanded(
+          child: _buildCommissionStream(context, provider, scheme),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommissionStream(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    ColorScheme scheme,
+  ) {
+    // Choose the right stream based on filters
+    final Stream<List<EmployeeCommissionModel>> stream;
+    if (_selectedEmployeeId != null) {
+      stream = provider.watchEmployeeCommissions(
+        _selectedEmployeeId!,
+        statusFilter: _statusFilter == 'all' ? null : _statusFilter,
+        monthFilter: _monthFilter,
+      );
+    } else {
+      if (_statusFilter == 'pending') {
+        stream = provider.watchAllPendingCommissions(monthFilter: _monthFilter);
+      } else {
+        // For 'all' or 'paid' without employee selection, we need to
+        // use a broader query. Use pending stream for now and filter client-side.
+        stream = provider.watchAllPendingCommissions(monthFilter: _monthFilter);
+      }
+    }
+
+    return StreamBuilder<List<EmployeeCommissionModel>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final commissions = snapshot.data ?? [];
+
+        // Calculate summary
+        final totalPending = commissions
+            .where((c) => c.isPending)
+            .fold<double>(0, (sum, c) => sum + c.amount);
+        final totalPaid = commissions
+            .where((c) => c.isPaid)
+            .fold<double>(0, (sum, c) => sum + c.amount);
+
+        if (commissions.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.receipt_long, size: 64, color: scheme.primary.withValues(alpha: 0.4)),
+                const SizedBox(height: 16),
+                Text(
+                  'No commission records found',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Commissions are created when employee-enrolled businesses activate.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
           children: [
-            Text('Employee: ${record.employeeId}'),
-            Text('Business: ${record.businessName ?? record.businessId}'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: refCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Payout Reference (UTR / Transaction ID) *',
-                hintText: 'e.g. UTR_1234567890',
+            // Summary badges
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 16,
+                children: [
+                  _SummaryBadge(
+                    label: 'Total Records',
+                    value: '${commissions.length}',
+                    color: scheme.primary,
+                  ),
+                  _SummaryBadge(
+                    label: 'Pending Payout',
+                    value: '₹${totalPending.toStringAsFixed(0)}',
+                    color: Colors.orange,
+                  ),
+                  _SummaryBadge(
+                    label: 'Paid Out',
+                    value: '₹${totalPaid.toStringAsFixed(0)}',
+                    color: Colors.green,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: commissions.length,
+                itemBuilder: (context, index) {
+                  final c = commissions[index];
+                  return _CommissionCard(commission: c);
+                },
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  String _getEmployeeName(List employees, String uid) {
+    final emp = employees.where((e) => e.uid == uid);
+    return emp.isNotEmpty ? emp.first.name : uid;
+  }
+
+  void _showBulkPayoutDialog(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    String adminUid,
+    String employeeId,
+    String month,
+  ) {
+    final payoutCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bulk Payout — Mark All Pending as Paid'),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Employee: ${_getEmployeeName(provider.employees, employeeId)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Month: ${DateFormat.yMMM().format(DateTime.parse('$month-01'))}',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: payoutCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Payout Reference (UTR / Transaction ID)',
+                  hintText: 'e.g., UTIB1234567890',
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -52,271 +554,183 @@ class AdminCommissionQueueScreen extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
-              if (refCtrl.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Payout reference is required.')),
-                );
-                return;
-              }
+              final ref = payoutCtrl.text.trim();
+              if (ref.isEmpty) return;
               Navigator.of(ctx).pop();
               try {
-                await provider.markCommissionPaid(
-                  recordId: record.id,
-                  payoutReference: refCtrl.text.trim(),
+                final result = await provider.markCommissionsPaidBulk(
+                  employeeId: employeeId,
+                  month: month,
+                  payoutReference: ref,
                   adminUid: adminUid,
                 );
+                final count = result['count'] ?? 0;
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Commission marked as paid!'), backgroundColor: Colors.green),
+                    SnackBar(
+                      content: Text('$count commissions marked as paid.'),
+                      backgroundColor: Colors.green,
+                    ),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                   );
                 }
               }
             },
-            child: const Text('Confirm Payout'),
+            child: const Text('Mark All as Paid'),
           ),
         ],
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SHARED WIDGETS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _InfoChip({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AdminDashboardProvider>();
-    final auth = context.watch<AppAuthProvider>();
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final adminUid = auth.uid ?? 'admin';
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Header info box
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: scheme.primary),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.shield_outlined, color: scheme.primary, size: 28),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Two-Step Cash Fraud Gate — Admin Verification Queue (Doc 04 / 06)',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: scheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Cash payment verification requires BOTH (A) Admin confirmation of physical receipt AND (B) Business owner independent confirmation before flipping to "verified". Neither admin nor owner alone can verify.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          Text(
-            'Cash Payment Verification & Payout Queue',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-
-          StreamBuilder<List<CommissionRecordModel>>(
-            stream: provider.watchCommissionQueue(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final records = snapshot.data ?? [];
-              if (records.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Text(
-                      'No pending cash records requiring admin verification.',
-                      style: TextStyle(color: scheme.onSurfaceVariant),
-                    ),
-                  ),
-                );
-              }
-
-              final dateFormat = DateFormat('dd MMM yyyy, HH:mm');
-
-              return ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: records.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, idx) {
-                  final r = records[idx];
-                  final dateStr = r.dateClaimed != null ? dateFormat.format(r.dateClaimed!) : 'Unknown date';
-
-                  return Card(
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      side: BorderSide(
-                        color: r.isDisputed ? scheme.error : scheme.outlineVariant,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${r.businessName ?? r.businessId} — ₹${r.amount.toStringAsFixed(0)}',
-                                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              Chip(
-                                label: Text(r.status.toUpperCase()),
-                                backgroundColor: r.isDisputed
-                                    ? AppColors.commDisputedBg
-                                    : (r.isVerified ? AppColors.commVerifiedBg : AppColors.commPendingBg),
-                                labelStyle: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: r.isDisputed
-                                      ? AppColors.commDisputedFg
-                                      : (r.isVerified ? AppColors.commVerifiedFg : AppColors.commPendingFg),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text('Logged by Employee: ${r.employeeId} on $dateStr'),
-                          const SizedBox(height: 8),
-
-                          // Status Badges
-                          Row(
-                            children: [
-                              _buildStatusBadge(
-                                context,
-                                label: 'Admin Cash Received',
-                                confirmed: r.adminConfirmed,
-                              ),
-                              const SizedBox(width: 12),
-                              _buildStatusBadge(
-                                context,
-                                label: 'Owner Confirmation',
-                                confirmed: r.ownerConfirmed == true,
-                                isDisputed: r.isDisputed,
-                              ),
-                            ],
-                          ),
-
-                          if (r.isDisputed) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: scheme.errorContainer,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '⚠️ Owner Reported Dispute: ${r.disputeReason ?? "Payment not received by owner."}',
-                                style: TextStyle(color: scheme.onErrorContainer, fontSize: 13, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              if (!r.adminConfirmed)
-                                ElevatedButton.icon(
-                                  onPressed: () async {
-                                    await provider.adminConfirmCashPayment(
-                                      recordId: r.id,
-                                      adminUid: adminUid,
-                                    );
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Admin cash receipt confirmed.')),
-                                      );
-                                    }
-                                  },
-                                  icon: const Icon(Icons.check, size: 16),
-                                  label: const Text('Confirm Cash Received (Admin)'),
-                                ),
-                              if (r.isVerified) ...[
-                                const SizedBox(width: 8),
-                                ElevatedButton.icon(
-                                  onPressed: () => _showMarkPaidDialog(context, provider, r, adminUid),
-                                  icon: const Icon(Icons.payments, size: 16),
-                                  label: const Text('Mark Paid'),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+          Icon(icon, size: 14, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Text(text, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
         ],
       ),
     );
   }
+}
 
-  Widget _buildStatusBadge(
-    BuildContext context, {
-    required String label,
-    required bool confirmed,
-    bool isDisputed = false,
-  }) {
-    Color bg = Colors.orange.withValues(alpha: 0.15);
-    Color fg = Colors.orange;
-    String statusText = 'Pending';
+class _CommissionCard extends StatelessWidget {
+  final EmployeeCommissionModel commission;
+  const _CommissionCard({required this.commission});
 
-    if (isDisputed) {
-      bg = Colors.red.withValues(alpha: 0.15);
-      fg = Colors.red;
-      statusText = 'Disputed';
-    } else if (confirmed) {
-      bg = Colors.green.withValues(alpha: 0.15);
-      fg = Colors.green;
-      statusText = 'Confirmed';
-    }
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isPaid = commission.isPaid;
+    final dateFormat = DateFormat.yMMMd();
 
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: isPaid ? Colors.green.withValues(alpha: 0.3) : Colors.orange.withValues(alpha: 0.3),
+        ),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: isPaid
+              ? Colors.green.withValues(alpha: 0.15)
+              : Colors.orange.withValues(alpha: 0.15),
+          child: Icon(
+            isPaid ? Icons.check_circle : Icons.schedule,
+            color: isPaid ? Colors.green : Colors.orange,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          commission.businessName.isNotEmpty ? commission.businessName : commission.businessId,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Employee: ${context.watch<AdminDashboardProvider>().resolveEmployeeName(commission.employeeId)}'),
+            if (commission.createdAt != null)
+              Text('Activated: ${dateFormat.format(commission.createdAt!)}'),
+            if (isPaid && commission.payoutReference != null)
+              Text('UTR: ${commission.payoutReference}', style: const TextStyle(fontSize: 11)),
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '₹${commission.amount.toStringAsFixed(0)}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: isPaid ? Colors.green : scheme.onSurface,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: isPaid
+                    ? Colors.green.withValues(alpha: 0.15)
+                    : Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                isPaid ? 'PAID' : 'PENDING',
+                style: TextStyle(
+                  color: isPaid ? Colors.green : Colors.orange,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ],
+        ),
+        isThreeLine: true,
+      ),
+    );
+  }
+}
+
+class _SummaryBadge extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  const _SummaryBadge({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(confirmed ? Icons.check_circle : (isDisputed ? Icons.warning : Icons.schedule), size: 14, color: fg),
-          const SizedBox(width: 6),
-          Text('$label: $statusText', style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(
+            '$label: ',
+            style: TextStyle(fontSize: 12, color: color),
+          ),
+          Text(
+            value,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color),
+          ),
         ],
       ),
     );

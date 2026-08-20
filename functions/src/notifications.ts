@@ -767,7 +767,7 @@ export async function sendPaymentLinkEmail(
   const subject = `Complete your enrollment payment — ${brandName}`;
   const plainText =
     `Your enrollment for ${brandName} is almost complete. ` +
-    `Please pay the ₹1999 setup fee to activate your review page: ` +
+    "Please pay the ₹1999 setup fee to activate your review page: " +
     `${paymentLinkUrl}`;
 
   const html = [

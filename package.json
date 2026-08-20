@@ -7,6 +7,8 @@
     "doc": "docs"
   },
   "scripts": {
+    "build:web": "bash scripts/build-web.sh",
+    "build:web:emulator": "bash scripts/build-web.sh --use-emulator",
     "test": "echo \"Error: no test specified\" && exit 1",
     "emulators": "firebase emulators:start --only firestore,functions,hosting,storage,auth",
     "seed": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/test-all-statuses.js",

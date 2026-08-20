@@ -1,33 +1,9 @@
 // firestore.rules
 // Production security rules for Review System.
 //
-// Authentication model:
+// Authentication & Role model:
 //   request.auth.uid          — Firebase Auth user ID
 //   request.auth.token.role == 'employee' | 'owner' | 'admin'
-//
-// Collection structure:
-//   /businesses/{bizId}                       — business docs
-//   /businesses/{bizId}/branches/{branchId}   — branch subdocs
-//   /employees/{empId}                        — employee profiles
-//   /commission_records/{recId}               — commission records
-//   /notifications/{notifId}                  — notification documents
-//   /category_templates/{templateId}          — category templates (read-only for auth users)
-//   /scan_logs/{logId}                        — customer scan logs (write-only for clients)
-//
-// Key design constraints (from 00-architecture-and-schema.md & 06-commission-tracking.md):
-//   - Employees may only read businesses where enrolled_by == their uid.
-//   - Employees may update standee_status, standee_status_updated_at,
-//     and whatsapp_monitored_by on branches — nothing else.
-//   - Owners may only access their own business (owner_auth_uid == their uid).
-//   - Admins have broad read access; writes go through Cloud Functions or admin credentials.
-//   - All activation (pending_payment → active) happens ONLY in the payment
-//     webhook Cloud Function. No client-side status promotion is allowed.
-//   - draft (pending_payment) businesses are readable by the enrolling employee.
-//   - Commission records: Employee can CREATE a cash pending record for their own enrollment
-//     and READ their own records — but CANNOT set admin_confirmed, owner_confirmed, or flip
-//     status to verified/paid (no self-verification).
-//   - Owner can update ONLY owner_confirmed & dispute fields on records for their OWN business.
-//   - Commission records cannot be deleted by employees/owners (financial audit trail).
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -61,193 +37,219 @@ service cloud.firestore {
     // ─── businesses/{bizId} ────────────────────────────────────────────────
 
     match /businesses/{bizId} {
-      // Employee: read only their own enrolled businesses (any status, incl. draft).
-      // Admin: read all.
-      // Owner: read only their own business (matched by owner_auth_uid).
+      // READ:
+      // - Public customer review page: read business display config (brand_name, logo_url, etc.)
+      //   when loading /r/{branchId} (if status is not deleted).
+      // - Admin: read all.
+      // - Employee: read enrolled or currently managed businesses.
+      // - Owner: read own business (matched by owner_auth_uid).
       allow read: if isAdmin()
-        || (isEmployee() && resource.data.enrolled_by == request.auth.uid)
-        || (isOwner()    && resource.data.owner_auth_uid == request.auth.uid);
+        || (isEmployee() && (resource.data.enrolled_by == request.auth.uid || resource.data.currently_managed_by == request.auth.uid))
+        || (isOwner()    && resource.data.owner_auth_uid == request.auth.uid)
+        || (resource.data.subscription_status in ['active', 'grace_period', 'pending_payment']);
 
-      // CREATE: Only allowed via Cloud Functions (server-side Admin SDK).
-      // No client-side create.
-      allow create: if false;
+      // CREATE: Employee or Admin creating a new enrollment draft (pending_payment).
+      allow create: if isEmployeeOrAdmin()
+        && request.resource.data.subscription_status == 'pending_payment'
+        && request.resource.data.brand_name is string
+        && request.resource.data.brand_name.size() <= 200;
 
-      // UPDATE: 
-      // - Cloud Functions handles billing/status/dates.
+      // UPDATE:
+      // - Admin: full update (subscription overrides, category templates, management reassignments).
+      // - Employee: editable basic fields (brand_name, logo_url, category_type, default_category_template_id, owner_name, owner_email, owner_phone).
+      //   CANNOT update subscription_status, renewal_date, grace_period_ends, or currently_managed_by.
       // - Owner: may update ONLY active_categories on their business, and ONLY when subscription_status == 'active'.
-      allow update: if isOwner()
-        && resource.data.owner_auth_uid == request.auth.uid
-        && resource.data.subscription_status == 'active'
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['active_categories']);
+      allow update: if isAdmin()
+        || (
+          isEmployee()
+          && resource.data.enrolled_by == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'brand_name',
+                'logo_url',
+                'category_type',
+                'default_category_template_id',
+                'owner_name',
+                'owner_email',
+                'owner_phone'
+              ])
+          && (!('brand_name' in request.resource.data) || (request.resource.data.brand_name is string && request.resource.data.brand_name.size() <= 200))
+        )
+        || (
+          isOwner()
+          && resource.data.owner_auth_uid == request.auth.uid
+          && resource.data.subscription_status == 'active'
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['active_categories'])
+        );
 
-      // DELETE: Not allowed from client side.
-      allow delete: if false;
+      // DELETE: Admin can delete pending_payment drafts or admin operations.
+      // Employee can delete ONLY pending_payment drafts enrolled by themselves.
+      // CANNOT delete active or grace_period businesses.
+      allow delete: if isAdmin()
+        || (
+          isEmployee()
+          && resource.data.subscription_status == 'pending_payment'
+          && resource.data.enrolled_by == request.auth.uid
+        );
 
       // ─── businesses/{bizId}/branches/{branchId} ─────────────────────────
 
       match /branches/{branchId} {
-        // Read: same access as parent business.
+        // READ: Public review page loads branch config; panel users read per parent business rules.
         allow read: if isAdmin()
           || (isEmployee() && get(/databases/$(database)/documents/businesses/$(bizId)).data.enrolled_by == request.auth.uid)
-          || (isOwner()    && get(/databases/$(database)/documents/businesses/$(bizId)).data.owner_auth_uid == request.auth.uid);
+          || (isOwner()    && get(/databases/$(database)/documents/businesses/$(bizId)).data.owner_auth_uid == request.auth.uid)
+          || true; // Public review page branch display config
 
-        // CREATE: Only via Cloud Functions (enrollment batch write, Admin SDK).
-        allow create: if false;
+        // CREATE: Employee or Admin creating branch subdocs during enrollment.
+        allow create: if isEmployeeOrAdmin();
 
         // UPDATE:
-        // - Employees/Admins: standee tracking fields & whatsapp_monitored_by.
+        // - Admin: full update.
+        // - Employees: standee tracking fields & whatsapp_monitored_by + editable branch fields.
         // - Owners: star_routing_config & active_categories.
-        allow update: if (
-          isEmployeeOrAdmin()
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly([
-                'standee_status',
-                'standee_status_updated_at',
-                'whatsapp_monitored_by',
-              ])
-          && (
-            !('standee_status' in request.resource.data.diff(resource.data).affectedKeys())
-            || request.resource.data.standee_status in [
-                'not_ordered', 'printed', 'shipped', 'delivered'
-               ]
+        allow update: if isAdmin()
+          || (
+            isEmployee()
+            && get(/databases/$(database)/documents/businesses/$(bizId)).data.enrolled_by == request.auth.uid
           )
-        ) || (
-          isOwner()
-          && get(/databases/$(database)/documents/businesses/$(bizId)).data.owner_auth_uid == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['star_routing_config', 'active_categories'])
-        );
+          || (
+            isOwner()
+            && get(/databases/$(database)/documents/businesses/$(bizId)).data.owner_auth_uid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['star_routing_config', 'active_categories'])
+          );
 
-        // DELETE: Not allowed from client side.
-        allow delete: if false;
+        // DELETE: Allowed during draft deletion only.
+        allow delete: if isAdmin() || (isEmployee() && get(/databases/$(database)/documents/businesses/$(bizId)).data.subscription_status == 'pending_payment');
       }
     }
 
     // ─── employees/{empId} ─────────────────────────────────────────────────
 
     match /employees/{empId} {
-      // Employee: read only their own profile.
+      // Employee: read ONLY their own profile.
       // Admin: read all.
+      // Public / Owner: DENIED.
       allow read: if isAdmin()
         || (isEmployee() && request.auth.uid == empId);
 
-      // UPDATE: Employee may update ONLY their own profile, payout, documents, and documents_verified.
-      // They may NOT touch name, contact, role, active, total_enrollments, this_month_enrollments.
-      // If documents_verified is modified, it can ONLY be set to 'pending' (no self-approval).
-      allow update: if isEmployee()
-        && request.auth.uid == empId
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly([
-              'profile',
-              'payout',
-              'documents',
-              'documents_verified',
-            ])
-        && (
-          !('documents_verified' in request.resource.data.diff(resource.data).affectedKeys())
-          || request.resource.data.documents_verified == 'pending'
+      // CREATE: Admin only (for employee account creation).
+      allow create: if isAdmin();
+
+      // UPDATE:
+      // - Admin: full update (documents_verified, status, role, etc.).
+      // - Employee: may update ONLY profile, payout, documents, and set documents_verified to 'pending'.
+      //   CANNOT update status, role, active, or self-approve documents_verified to 'verified'.
+      allow update: if isAdmin()
+        || (
+          isEmployee()
+          && request.auth.uid == empId
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'profile',
+                'payout',
+                'documents',
+                'documents_verified',
+              ])
+          && (
+            !('documents_verified' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.documents_verified == 'pending'
+          )
         );
 
-      allow create, delete: if false;
+      allow delete: if isAdmin();
     }
 
-    // ─── commission_records/{recId} ────────────────────────────────────────
+    // ─── category_templates/{templateId} ────────────────────────────────────
+
+    match /category_templates/{templateId} {
+      allow read: if true; // Publicly readable for review page & enrollment
+      allow create, update, delete: if isAdmin(); // Admin CRUD only
+    }
+
+    // ─── commission_records/{recId} (LEGACY — read-only) ────────────────────
+    // Old collection kept for historical audit trail. No new writes.
+    // Client-side code no longer writes to this collection.
 
     match /commission_records/{recId} {
-      // Admin: read all.
-      // Employee: read only their own commission records.
-      // Owner: read commission records for their own business.
+      // Read: Admin reads all. Employee reads own. Owner reads own business.
       allow read: if isAdmin()
         || (isEmployee() && resource.data.employee_id == request.auth.uid)
         || (isOwner() && get(/databases/$(database)/documents/businesses/$(resource.data.business_id)).data.owner_auth_uid == request.auth.uid);
 
-      // CREATE: Employee may create a cash payment record (doc 06).
-      // The record MUST be created with status = "pending", payment_mode = "cash",
-      // and cannot have admin_confirmed=true or owner_confirmed=true or status="verified"/"paid".
-      allow create: if isAdmin()
-        || (
-          isEmployee()
-          && request.resource.data.employee_id == request.auth.uid
-          && request.resource.data.payment_mode == 'cash'
-          && request.resource.data.status == 'pending'
-          && request.resource.data.keys().hasAll(['employee_id', 'business_id', 'amount', 'status', 'payment_mode'])
-          && (!('admin_confirmed' in request.resource.data) || request.resource.data.admin_confirmed == false)
-          && (!('owner_confirmed' in request.resource.data) || request.resource.data.owner_confirmed == null)
-          && (!('disputed' in request.resource.data) || request.resource.data.disputed == false)
-        );
+      // No new creates, updates, or deletes — legacy collection.
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
 
-      // UPDATE:
-      // - Admin: full control (can confirm admin_confirmed, mark paid, etc.).
-      // - Owner: can set ONLY owner_confirmed / dispute fields on records for their OWN business.
-      //   Owner CANNOT change financial audit fields (employee_id, amount, business_id, payment_mode).
-      //   Owner CANNOT set admin_confirmed or mark status="paid".
-      //   If owner sets status="verified", admin_confirmed MUST already be true.
-      // - Employee: CANNOT update (false — prevents self-verification).
-      allow update: if isAdmin()
-        || (
-          isOwner()
-          && get(/databases/$(database)/documents/businesses/$(resource.data.business_id)).data.owner_auth_uid == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly([
-                'owner_confirmed',
-                'owner_confirmed_at',
-                'owner_response',
-                'disputed',
-                'dispute_reason',
-                'status',
-                'date_verified',
-              ])
-          && request.resource.data.employee_id == resource.data.employee_id
-          && request.resource.data.business_id == resource.data.business_id
-          && request.resource.data.amount == resource.data.amount
-          && request.resource.data.payment_mode == resource.data.payment_mode
-          && (!('admin_confirmed' in request.resource.data) || request.resource.data.admin_confirmed == resource.data.admin_confirmed)
-          && request.resource.data.status != 'paid'
-          && (
-            request.resource.data.status != 'verified'
-            || (resource.data.admin_confirmed == true && request.resource.data.owner_confirmed == true)
-          )
-        );
+    // ─── employee_commissions/{commId} (NEW — commission ledger) ──────────
+    // Tracks employee earnings per business activation.
+    // Created ONLY by the onBusinessActivated Cloud Function (admin SDK).
+    // NEVER deleted — corrections via voided flag if needed.
 
-      // DELETE: Not allowed from client side (financial audit trail).
+    match /employee_commissions/{commId} {
+      // Read: Admin reads all. Employee reads only their own commissions.
+      allow read: if isAdmin()
+        || (isEmployee() && resource.data.employee_id == request.auth.uid);
+
+      // Create: DENIED client-side. Only the onBusinessActivated CF creates these.
+      allow create: if false;
+
+      // Update: Admin only — for marking commissions as paid.
+      // Employee cannot self-modify commission records.
+      allow update: if isAdmin();
+
+      // Delete: DENIED for everyone. Commission records are permanent.
+      // Corrections use a 'voided' flag, never deletion.
       allow delete: if false;
     }
 
     // ─── notifications/{notifId} ───────────────────────────────────────────
 
     match /notifications/{notifId} {
-      // Any authenticated user can read their own notifications.
-      allow read: if isSignedIn()
-        && (
-          resource.data.recipient == request.auth.uid
-          || resource.data.recipient == request.auth.token.email
-          || (('recipient_uid' in resource.data) && resource.data.recipient_uid == request.auth.uid)
-        );
-
-      // Writes are via Cloud Functions (sendNotification service) only.
-      allow write: if false;
+      allow read: if isAdmin() || (isSignedIn() && resource.data.recipient == request.auth.uid);
+      allow create: if isEmployeeOrAdmin();
+      allow update: if isAdmin() || (isSignedIn() && resource.data.recipient == request.auth.uid);
+      allow delete: if isAdmin();
     }
 
-    // ─── category_templates/{templateId} ──────────────────────────────────
-
-    match /category_templates/{templateId} {
-      // Public read (customer review page loads template without auth).
-      allow read: if true;
-
-      // Writes are admin-only via console or Cloud Functions.
-      allow write: if isAdmin();
-    }
-
-    // ─── scan_logs/{logId} ────────────────────────────────────────────────
+    // ─── scan_logs/{logId} ──────────────────────────────────────────────────
 
     match /scan_logs/{logId} {
-      // Public scan logging: write-only per scan.
-      allow create: if true;
-      allow read, update, delete: if isAdmin();
+      // Public review page writes scan log (strictly validated schema & capped string sizes)
+      allow create: if request.resource.data.keys().hasAll(['branch_id', 'business_id', 'timestamp'])
+        && request.resource.data.keys().hasOnly(['branch_id', 'business_id', 'star_rating', 'timestamp', 'session_token', 'action_taken', 'rating', 'action'])
+        && request.resource.data.branch_id is string && request.resource.data.branch_id.size() <= 128
+        && request.resource.data.business_id is string && request.resource.data.business_id.size() <= 128
+        && (
+          !('session_token' in request.resource.data)
+          || (request.resource.data.session_token is string && request.resource.data.session_token.size() <= 128)
+        )
+        && (
+          !('star_rating' in request.resource.data)
+          || (request.resource.data.star_rating is int && request.resource.data.star_rating >= 1 && request.resource.data.star_rating <= 5)
+        )
+        && (
+          !('rating' in request.resource.data)
+          || (request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5)
+        )
+        && (
+          !('action_taken' in request.resource.data)
+          || (request.resource.data.action_taken is string && request.resource.data.action_taken.size() <= 64)
+        )
+        && (
+          !('action' in request.resource.data)
+          || (request.resource.data.action is string && request.resource.data.action.size() <= 64)
+        );
+
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
-    // ─── Catch-all: deny everything else ───────────────────────────────────
+    // ─── Default-Deny Fallback ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

@@ -47,8 +47,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // ── Connect to local Firebase Emulator Suite in debug mode ─────────────────
-  if (kDebugMode) {
+  // ── Connect to local Firebase Emulator Suite (in debug mode OR via --dart-define=USE_EMULATOR=true) ─
+  const bool useEmulatorDefine = bool.fromEnvironment('USE_EMULATOR', defaultValue: false);
+  final bool connectEmulators = useEmulatorDefine || kDebugMode;
+
+  if (connectEmulators) {
     try {
       await FirebaseAuth.instance.useAuthEmulator(
         AppConstants.emulatorHost,
@@ -67,7 +70,7 @@ void main() async {
         AppConstants.emulatorStoragePort,
       );
       // ignore: avoid_print
-      print('⚡ Firebase Emulator Suite connected');
+      print('⚡ Firebase Emulator Suite connected (USE_EMULATOR=$useEmulatorDefine, kDebugMode=$kDebugMode)');
     } catch (e) {
       // ignore: avoid_print
       print('⚠️ Emulator connection failed: $e — using production Firebase');
@@ -207,7 +210,7 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
           create: (_) => MyBusinessesProvider(firestoreService: _firestoreService),
         ),
         ChangeNotifierProvider(
-          create: (_) => OwnerDashboardProvider(firestoreService: _firestoreService),
+          create: (_) => OwnerDashboardProvider(),
         ),
         ChangeNotifierProvider(
           create: (_) => AdminDashboardProvider(firestoreService: _firestoreService),

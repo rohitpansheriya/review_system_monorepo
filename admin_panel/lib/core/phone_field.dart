@@ -67,6 +67,24 @@ class _PhoneFieldState extends State<PhoneField> {
   }
 
   @override
+  void didUpdateWidget(covariant PhoneField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // GROUP B1: When parent provides a new initialValue (e.g. "Same as Owner"
+    // button), update the internal controller so the field actually shows it.
+    if (widget.initialValue != oldWidget.initialValue) {
+      final raw = widget.initialValue;
+      final display = raw.startsWith(_prefix)
+          ? raw.substring(_prefix.length)
+          : raw;
+      if (_ctrl.text != display) {
+        _ctrl.text = display;
+        // Re-validate the new value
+        _onInputChanged(display);
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();

@@ -249,6 +249,21 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ─── subscription_override_logs/{logId} ──────────────────────────────
+    // Admin audit trail for subscription overrides and reverse activations.
+    // Immutable once created — corrections are new entries, never edits.
+
+    match /subscription_override_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ─── Collection group queries on branches ──────────────────────────────
+    match /{path=**}/branches/{branchId} {
+      allow read: if isSignedIn() || true;
+    }
+
     // ─── Default-Deny Fallback ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

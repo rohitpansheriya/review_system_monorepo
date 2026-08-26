@@ -209,6 +209,8 @@ class _EnrollScreenState extends State<EnrollScreen> {
       _ownerEmailCtrl.clear();
       setState(() => _showErrors = false);
 
+      // Both admin and employee go to payment screen — the payment screen
+      // handles role-aware navigation (admin → /admin, employee → /businesses).
       context.go('/enroll/payment/$bizId');
 
       // Reset provider AFTER navigation to ensure clean state for next enrollment
@@ -221,10 +223,18 @@ class _EnrollScreenState extends State<EnrollScreen> {
     final enroll = context.watch<EnrollProvider>();
     final scheme = Theme.of(context).colorScheme;
 
+    // When embedded as a tab inside the admin dashboard shell, hide the
+    // back button — admin navigates via the sidebar.  Employees get the
+    // back arrow to their "My Enrolled Businesses" list.
+    final isAdmin = context.read<AppAuthProvider>().isAdmin;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Enroll New Business'),
-        leading: BackButton(onPressed: () => context.go('/businesses')),
+        leading: isAdmin
+            ? const SizedBox.shrink()  // No back button inside admin shell
+            : BackButton(onPressed: () => context.go('/businesses')),
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: ConstrainedBox(

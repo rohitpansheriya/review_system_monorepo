@@ -35,6 +35,7 @@ import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 import '../../models/branch_model.dart';
 import '../../models/business_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/storage_service.dart';
@@ -263,6 +264,9 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
 
     final svc        = context.read<FirestoreService>();
     final storageSvc = context.read<StorageService>();
+    final auth       = context.read<AppAuthProvider>();
+    final enrolledBy = auth.isAdmin ? 'admin' : (auth.uid ?? '');
+    
     for (final draft in _branchDrafts) {
       if (draft.placeId != null && draft.placeId!.isNotEmpty) {
         final exists = await svc.placeIdExistsForEdit(
@@ -275,6 +279,18 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
           ));
           return;
         }
+      }
+    }
+
+    final editEmail = _ownerEmailCtrl.text.trim();
+    if (editEmail.isNotEmpty) {
+      final emailExists = await svc.ownerEmailExistsForEdit(editEmail, widget.business.id);
+      if (emailExists && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Owner email "$editEmail" is already registered to another business.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ));
+        return;
       }
     }
 
@@ -300,22 +316,25 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
         ownerPhone:   _ownerPhoneE164.trim(),
       );
 
-      // 2 — Update each branch
+      // 2 — Update existing branches OR insert newly added branches
       for (int i = 0; i < _branchDrafts.length; i++) {
-        if (i >= _branchIds.length) break;
         final draft = _branchDrafts[i];
-        await svc.updateBranch(
-          widget.business.id,
-          _branchIds[i],
-          branchName:          draft.name.trim(),
-          address:             draft.address.trim(),
-          whatsappNumber:      draft.whatsappNumber.trim(),
-          whatsappMonitoredBy: draft.whatsappMonitoredBy.trim(),
-          placeId:             draft.placeId,
-          googleReviewLink:    draft.googleReviewLink,
-          starRoutingConfig:   draft.starRoutingAsMap,
-          categoryOverrideId:  null,
-        );
+        if (i < _branchIds.length) {
+          await svc.updateBranch(
+            widget.business.id,
+            _branchIds[i],
+            branchName:          draft.name.trim(),
+            address:             draft.address.trim(),
+            whatsappNumber:      draft.whatsappNumber.trim(),
+            whatsappMonitoredBy: draft.whatsappMonitoredBy.trim(),
+            placeId:             draft.placeId,
+            googleReviewLink:    draft.googleReviewLink,
+            starRoutingConfig:   draft.starRoutingAsMap,
+            categoryOverrideId:  null,
+          );
+        } else {
+          await svc.addBranchToBusiness(widget.business.id, draft, enrolledBy: enrolledBy);
+        }
       }
 
       if (mounted) {
@@ -344,7 +363,9 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
           behavior:        SnackBarBehavior.floating,
           duration:        const Duration(seconds: 4),
         ));
-        context.go('/businesses');
+        // Admin → Overrides screen, Employee → My Enrolled Businesses
+        final isAdmin = context.read<AppAuthProvider>().isAdmin;
+        context.go(isAdmin ? '/admin' : '/businesses');
       }
     } catch (e) {
       setState(() { _saveError = e.toString(); _saving = false; });
@@ -511,7 +532,21 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                   const SizedBox(height: 12),
 
                   // ── Branch section ────────────────────────────────────
-                  _SectionHeader('Branches'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _SectionHeader('Branches (${_branchDrafts.length})'),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _branchDrafts.add(BranchDraft());
+                          });
+                        },
+                        icon: const Icon(Icons.add_business_outlined, size: 16),
+                        label: const Text('Add Another Branch'),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
 
                   if (_branchDrafts.isEmpty)
@@ -528,6 +563,9 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                         draft:          _branchDrafts[i],
                         showBranchName: _branchDrafts.length > 1,
                         showError:      _showErrors,
+                        onRemove:       i >= _branchIds.length && _branchDrafts.length > 1
+                            ? () => setState(() => _branchDrafts.removeAt(i))
+                            : null,
                         onChanged:      () => setState(() {}),
                       ),
                     )),

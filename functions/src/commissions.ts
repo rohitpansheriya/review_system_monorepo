@@ -19,6 +19,8 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import {getFirestore, Timestamp, FieldValue} from "firebase-admin/firestore";
+import {buildQrForBranch, buildPlainQrForBranch} from "./qrGenerator.js";
+import {provisionOwnerAccount} from "./razorpay.js";
 
 /**
  * Configurable per-activation commission amount (₹).
@@ -115,10 +117,42 @@ export const confirmCashPaymentAdmin = onCall(
       updateData.cash_confirm_notes = notes;
     }
 
-    await bizRef.update(updateData);
+    const branchesSnap = await bizRef.collection("branches").get();
+    const batch = db.batch();
+    batch.update(bizRef, updateData);
 
-    logger.info("confirmCashPaymentAdmin: business activated via cash", {
+    for (const branchDoc of branchesSnap.docs) {
+      batch.update(branchDoc.ref, {
+        subscription_status: "active",
+        payment_mode: "cash",
+        cash_payment_confirmed_at: now,
+        cash_confirmed_by_admin: request.auth.uid,
+        activated_at: now,
+        standee_status: "not_ordered",
+        standee_status_updated_at: now,
+      });
+    }
+
+    await batch.commit();
+
+    // Provision owner Firebase Auth account
+    const ownerEmail = bizData.owner_email as string | undefined;
+    const ownerName = bizData.owner_name as string | undefined;
+    if (ownerEmail && !bizData.owner_auth_uid) {
+      try {
+        await provisionOwnerAccount(db, businessId, ownerEmail, ownerName);
+      } catch (provErr) {
+        logger.error("confirmCashPaymentAdmin: provisionOwnerAccount error", {
+          businessId,
+          ownerEmail,
+          provErr,
+        });
+      }
+    }
+
+    logger.info("confirmCashPaymentAdmin: business and branches activated via cash", {
       businessId,
+      branchCount: branchesSnap.size,
       adminUid: request.auth.uid,
       renewalDate: renewalDate.toISOString(),
     });
@@ -128,6 +162,150 @@ export const confirmCashPaymentAdmin = onCall(
       businessId,
       status: "active",
       renewalDate: renewalDate.toISOString(),
+    };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// adminCashActivateBranch — onCall (Branch-Level Cash Payment)
+// ---------------------------------------------------------------------------
+
+/**
+ * Admin confirms physical cash receipt for a specific branch (₹1999).
+ * Input:
+ *   - businessId: string (required)
+ *   - branchId: string (required)
+ *   - notes?: string (optional)
+ */
+export const adminCashActivateBranch = onCall(
+  {
+    region: "asia-south1",
+  },
+  async (request) => {
+    if (!request.auth?.uid || request.auth.token?.role !== "admin") {
+      throw new HttpsError(
+        "permission-denied",
+        "Only admins can confirm cash payments."
+      );
+    }
+
+    const {businessId, branchId, notes} = (request.data || {}) as {
+      businessId?: string;
+      branchId?: string;
+      notes?: string;
+    };
+
+    if (!businessId || !branchId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "businessId and branchId are required."
+      );
+    }
+
+    const db = getFirestore();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const branchRef = bizRef.collection("branches").doc(branchId);
+
+    const [bizSnap, branchSnap] = await Promise.all([bizRef.get(), branchRef.get()]);
+
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", `Business ${businessId} not found.`);
+    }
+    if (!branchSnap.exists) {
+      throw new HttpsError("not-found", `Branch ${branchId} not found.`);
+    }
+
+    const branchData = branchSnap.data() as Record<string, unknown>;
+    const bizData = bizSnap.data() as Record<string, unknown>;
+
+    const currentStatus = branchData.subscription_status as string | undefined;
+    if (currentStatus === "active") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Branch is already active."
+      );
+    }
+
+    const now = Timestamp.now();
+    const updateData: Record<string, unknown> = {
+      subscription_status: "active",
+      payment_mode: "cash",
+      cash_payment_confirmed_at: now,
+      cash_confirmed_by_admin: request.auth.uid,
+      activated_at: now,
+      standee_status: "not_ordered",
+      standee_status_updated_at: now,
+    };
+
+    if (notes) {
+      updateData.cash_confirm_notes = notes;
+    }
+
+    await branchRef.update(updateData);
+
+    // If parent business is pending_payment, also activate parent business
+    if (bizData.subscription_status === "pending_payment") {
+      const renewalDate = new Date();
+      renewalDate.setDate(renewalDate.getDate() + 365);
+      await bizRef.update({
+        subscription_status: "active",
+        renewal_date: Timestamp.fromDate(renewalDate),
+        payment_mode: "cash",
+        cash_payment_confirmed_at: now,
+        cash_confirmed_by_admin: request.auth.uid,
+      });
+    }
+
+    // QR generation
+    try {
+      await buildQrForBranch(businessId, branchId, branchRef);
+      await buildPlainQrForBranch(businessId, branchId, branchRef);
+    } catch (qrErr) {
+      logger.error("adminCashActivateBranch: QR generation failed", {businessId, branchId, qrErr});
+    }
+
+    // Commission creation if enrolled by an employee
+    const enrolledBy = (branchData.enrolled_by as string | undefined) || (bizData.enrolled_by as string | undefined);
+    if (enrolledBy && enrolledBy !== "admin") {
+      const commDocId = `comm_${businessId}_${branchId}_first_activation`;
+      const commRef = db.collection("employee_commissions").doc(commDocId);
+      const commSnap = await commRef.get();
+      if (!commSnap.exists) {
+        const activationMonth = new Date().toISOString().slice(0, 7);
+        const branchName = branchData.branch_name as string | undefined ?? "Branch";
+        const brandName = bizData.brand_name as string | undefined ?? "Business";
+        await commRef.set({
+          employee_id: enrolledBy,
+          business_id: businessId,
+          branch_id: branchId,
+          business_name: `${brandName} (${branchName})`,
+          amount: EMPLOYEE_COMMISSION_AMOUNT,
+          status: "pending",
+          created_at: now,
+          activation_month: activationMonth,
+          paid_at: null,
+          paid_by: null,
+          payout_reference: null,
+        });
+
+        const empRef = db.collection("employees").doc(enrolledBy);
+        try {
+          await empRef.update({
+            total_commissions_earned: FieldValue.increment(EMPLOYEE_COMMISSION_AMOUNT),
+            total_enrollments: FieldValue.increment(1),
+            this_month_enrollments: FieldValue.increment(1),
+          });
+        } catch (e) {
+          logger.warn("adminCashActivateBranch: employee counter update failed", {employeeId: enrolledBy, error: e});
+        }
+      }
+    }
+
+    return {
+      success: true,
+      businessId,
+      branchId,
+      status: "active",
     };
   }
 );
@@ -167,6 +345,58 @@ export const onBusinessActivated = onDocumentUpdated(
     const businessId = event.params.businessId;
     const enrolledBy = afterData.enrolled_by as string | undefined;
 
+    // ── QR generation for ALL activations (admin + employee enrolled) ──
+    // The onBranchCreated trigger skips QR for pending_payment drafts,
+    // and only the Razorpay webhook generates QR inline. Cash-activated
+    // businesses (both admin and employee) would otherwise never get QR.
+    // Generate here for every activation path uniformly.
+    const db = getFirestore();
+    let branchesSnap: FirebaseFirestore.QuerySnapshot | undefined;
+    try {
+      branchesSnap = await db
+        .collection(`businesses/${businessId}/branches`)
+        .get();
+      logger.info("onBusinessActivated: generating QR for branches", {
+        businessId, branchCount: branchesSnap.size,
+      });
+      for (const branchDoc of branchesSnap.docs) {
+        // Standee QR (branded, print-ready)
+        try {
+          const result = await buildQrForBranch(
+            businessId,
+            branchDoc.id,
+            branchDoc.ref
+          );
+          logger.info("onBusinessActivated: standee QR generated", {
+            businessId, branchId: branchDoc.id, qrPath: result.qrStoragePath,
+          });
+        } catch (branchErr) {
+          logger.error("onBusinessActivated: standee QR failed for branch", {
+            businessId, branchId: branchDoc.id, err: branchErr,
+          });
+        }
+        // Plain printable QR
+        try {
+          const plainResult = await buildPlainQrForBranch(
+            businessId,
+            branchDoc.id,
+            branchDoc.ref
+          );
+          logger.info("onBusinessActivated: plain QR generated", {
+            businessId, branchId: branchDoc.id, path: plainResult.plainQrStoragePath,
+          });
+        } catch (plainErr) {
+          logger.error("onBusinessActivated: plain QR failed for branch", {
+            businessId, branchId: branchDoc.id, err: plainErr,
+          });
+        }
+      }
+    } catch (err) {
+      logger.error("onBusinessActivated: failed to read branches for QR", {
+        businessId, err,
+      });
+    }
+
     // Admin-enrolled businesses generate NO employee commission
     if (!enrolledBy || enrolledBy === "admin" || enrolledBy === "") {
       logger.info("onBusinessActivated: admin-enrolled, no commission", {
@@ -176,7 +406,26 @@ export const onBusinessActivated = onDocumentUpdated(
       return;
     }
 
-    const db = getFirestore();
+    const empRef = db.collection("employees").doc(enrolledBy);
+    const empSnap = await empRef.get();
+    if (!empSnap.exists) {
+      logger.info("onBusinessActivated: enrolledBy is not an employee profile, skipping commission", {
+        businessId,
+        enrolledBy,
+      });
+      return;
+    }
+
+    // If branches exist, onBranchActivated creates per-branch commission records.
+    // Only create fallback comm_${businessId} if branches subcollection is empty.
+    if (branchesSnap && !branchesSnap.empty) {
+      logger.info("onBusinessActivated: branches exist, per-branch commissions handled by onBranchActivated", {
+        businessId,
+        branchCount: branchesSnap.size,
+      });
+      return;
+    }
+
     const now = Timestamp.now();
     const activationDate = now.toDate();
     const activationMonth = `${activationDate.getFullYear()}-${String(activationDate.getMonth() + 1).padStart(2, "0")}`;
@@ -210,7 +459,6 @@ export const onBusinessActivated = onDocumentUpdated(
     });
 
     // Increment employee counters
-    const empRef = db.collection("employees").doc(enrolledBy);
     try {
       await empRef.update({
         total_commissions_earned: FieldValue.increment(EMPLOYEE_COMMISSION_AMOUNT),
@@ -228,6 +476,106 @@ export const onBusinessActivated = onDocumentUpdated(
       activationMonth,
       commDocId,
     });
+  }
+);
+
+// ---------------------------------------------------------------------------
+// onBranchActivated — Firestore Trigger (Branch Commission & QR Trigger)
+// ---------------------------------------------------------------------------
+
+/**
+ * Triggered when a branch document is updated.
+ * If subscription_status changed to 'active' AND enrolled_by is a real
+ * employee (not 'admin'), generates QR codes and creates ONE employee_commissions entry.
+ */
+export const onBranchActivated = onDocumentUpdated(
+  {
+    document: "businesses/{businessId}/branches/{branchId}",
+    region: "asia-south1",
+  },
+  async (event) => {
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+    if (!beforeData || !afterData) return;
+
+    const beforeStatus = beforeData.subscription_status as string | undefined;
+    const afterStatus = afterData.subscription_status as string | undefined;
+
+    // Only trigger on pending_payment → active transition
+    if (beforeStatus !== "pending_payment" || afterStatus !== "active") return;
+
+    const {businessId, branchId} = event.params;
+    const db = getFirestore();
+
+    const branchRef = event.data?.after.ref;
+    if (branchRef && !afterData.qr_code_id) {
+      try {
+        await buildQrForBranch(businessId, branchId, branchRef);
+        await buildPlainQrForBranch(businessId, branchId, branchRef);
+      } catch (qrErr) {
+        logger.error("onBranchActivated: QR generation failed", {businessId, branchId, qrErr});
+      }
+    }
+
+    const bizSnap = await db.doc(`businesses/${businessId}`).get();
+    const bizData = bizSnap.data() as Record<string, unknown> | undefined;
+    const enrolledBy = (afterData.enrolled_by as string | undefined) || (bizData?.enrolled_by as string | undefined);
+
+    if (enrolledBy && enrolledBy !== "admin") {
+      const empRef = db.collection("employees").doc(enrolledBy);
+      const empSnap = await empRef.get();
+      if (!empSnap.exists) {
+        logger.info("onBranchActivated: enrolledBy is not an employee profile, skipping commission", {
+          businessId,
+          branchId,
+          enrolledBy,
+        });
+        return;
+      }
+
+      const commDocId = `comm_${businessId}_${branchId}_first_activation`;
+      const commRef = db.collection("employee_commissions").doc(commDocId);
+      const commSnap = await commRef.get();
+      if (!commSnap.exists) {
+        const now = Timestamp.now();
+        const activationMonth = new Date().toISOString().slice(0, 7);
+        const branchName = (afterData.branch_name as string | undefined) ?? "Branch";
+        const brandName = (bizData?.brand_name as string | undefined) ?? "Business";
+        await commRef.set({
+          employee_id: enrolledBy,
+          business_id: businessId,
+          branch_id: branchId,
+          business_name: `${brandName} (${branchName})`,
+          amount: EMPLOYEE_COMMISSION_AMOUNT,
+          status: "pending",
+          created_at: now,
+          activation_month: activationMonth,
+          paid_at: null,
+          paid_by: null,
+          payout_reference: null,
+        });
+
+        const empRef = db.collection("employees").doc(enrolledBy);
+        try {
+          await empRef.update({
+            total_commissions_earned: FieldValue.increment(EMPLOYEE_COMMISSION_AMOUNT),
+            total_enrollments: FieldValue.increment(1),
+            this_month_enrollments: FieldValue.increment(1),
+          });
+        } catch (e) {
+          logger.warn("onBranchActivated: employee counter update failed", {employeeId: enrolledBy, error: e});
+        }
+
+        logger.info("onBranchActivated: commission created", {
+          businessId,
+          branchId,
+          employeeId: enrolledBy,
+          amount: EMPLOYEE_COMMISSION_AMOUNT,
+          activationMonth,
+          commDocId,
+        });
+      }
+    }
   }
 );
 
@@ -329,3 +677,174 @@ export const markCommissionsPaidBulk = onCall(
     };
   }
 );
+
+// ---------------------------------------------------------------------------
+// 7. adminRevertBusinessActivation (Callable — Admin only)
+// ---------------------------------------------------------------------------
+export const adminRevertBusinessActivation = onCall(
+  {region: "asia-south1"},
+  async (request): Promise<{success: boolean; businessId: string}> => {
+    if (!request.auth?.uid || request.auth.token?.role !== "admin") {
+      throw new HttpsError("permission-denied", "Only admins can revert activations.");
+    }
+
+    const {businessId, reason} = (request.data || {}) as {
+      businessId?: string;
+      reason?: string;
+    };
+
+    if (!businessId || typeof businessId !== "string") {
+      throw new HttpsError("invalid-argument", "businessId is required.");
+    }
+
+    const db = getFirestore();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const bizSnap = await bizRef.get();
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", `Business ${businessId} not found.`);
+    }
+
+    const now = Timestamp.now();
+    const batch = db.batch();
+
+    batch.update(bizRef, {
+      subscription_status: "pending_payment",
+      payment_mode: "pending",
+      reverted_at: now,
+      reverted_by: request.auth.uid,
+      revert_reason: reason || null,
+    });
+
+    // Revert all branches
+    const branchesSnap = await bizRef.collection("branches").get();
+    for (const branchDoc of branchesSnap.docs) {
+      batch.update(branchDoc.ref, {
+        subscription_status: "pending_payment",
+        payment_mode: "pending",
+        reverted_at: now,
+        reverted_by: request.auth.uid,
+      });
+    }
+
+    // Cancel pending commissions associated with this business
+    const commSnap = await db
+      .collection("employee_commissions")
+      .where("business_id", "==", businessId)
+      .where("status", "==", "pending")
+      .get();
+
+    for (const commDoc of commSnap.docs) {
+      const commData = commDoc.data();
+      const empId = commData.employee_id as string;
+      batch.update(commDoc.ref, {
+        status: "cancelled",
+        cancelled_at: now,
+        cancelled_by: request.auth.uid,
+        cancel_reason: reason || "Activation reverted by admin",
+      });
+
+      if (empId) {
+        const empRef = db.collection("employees").doc(empId);
+        batch.update(empRef, {
+          total_commissions_earned: FieldValue.increment(-EMPLOYEE_COMMISSION_AMOUNT),
+          total_enrollments: FieldValue.increment(-1),
+          this_month_enrollments: FieldValue.increment(-1),
+        });
+      }
+    }
+
+    await batch.commit();
+
+    logger.info("adminRevertBusinessActivation: success", {
+      businessId,
+      adminUid: request.auth.uid,
+      reason,
+    });
+
+    return {success: true, businessId};
+  }
+);
+
+// ---------------------------------------------------------------------------
+// 8. adminRevertBranchActivation (Callable — Admin only)
+// ---------------------------------------------------------------------------
+export const adminRevertBranchActivation = onCall(
+  {region: "asia-south1"},
+  async (request): Promise<{success: boolean; businessId: string; branchId: string}> => {
+    if (!request.auth?.uid || request.auth.token?.role !== "admin") {
+      throw new HttpsError("permission-denied", "Only admins can revert activations.");
+    }
+
+    const {businessId, branchId, reason} = (request.data || {}) as {
+      businessId?: string;
+      branchId?: string;
+      reason?: string;
+    };
+
+    if (!businessId || !branchId) {
+      throw new HttpsError("invalid-argument", "businessId and branchId are required.");
+    }
+
+    const db = getFirestore();
+    const branchRef = db
+      .collection("businesses")
+      .doc(businessId)
+      .collection("branches")
+      .doc(branchId);
+
+    const branchSnap = await branchRef.get();
+    if (!branchSnap.exists) {
+      throw new HttpsError("not-found", `Branch ${branchId} not found.`);
+    }
+
+    const now = Timestamp.now();
+    const batch = db.batch();
+
+    batch.update(branchRef, {
+      subscription_status: "pending_payment",
+      payment_mode: "pending",
+      reverted_at: now,
+      reverted_by: request.auth.uid,
+      revert_reason: reason || null,
+    });
+
+    // Cancel pending commissions for this specific branch
+    const commSnap = await db
+      .collection("employee_commissions")
+      .where("branch_id", "==", branchId)
+      .where("status", "==", "pending")
+      .get();
+
+    for (const commDoc of commSnap.docs) {
+      const commData = commDoc.data();
+      const empId = commData.employee_id as string;
+      batch.update(commDoc.ref, {
+        status: "cancelled",
+        cancelled_at: now,
+        cancelled_by: request.auth.uid,
+        cancel_reason: reason || "Branch activation reverted by admin",
+      });
+
+      if (empId) {
+        const empRef = db.collection("employees").doc(empId);
+        batch.update(empRef, {
+          total_commissions_earned: FieldValue.increment(-EMPLOYEE_COMMISSION_AMOUNT),
+          total_enrollments: FieldValue.increment(-1),
+          this_month_enrollments: FieldValue.increment(-1),
+        });
+      }
+    }
+
+    await batch.commit();
+
+    logger.info("adminRevertBranchActivation: success", {
+      businessId,
+      branchId,
+      adminUid: request.auth.uid,
+      reason,
+    });
+
+    return {success: true, businessId, branchId};
+  }
+);
+

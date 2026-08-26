@@ -158,10 +158,24 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
           },
         ),
         GoRoute(
+          path: '/enroll/payment/:businessId/:branchId',
+          builder: (context, state) {
+            final bizId = state.pathParameters['businessId'] ?? '';
+            final branchId = state.pathParameters['branchId'] ?? '';
+            return PaymentScreen(businessId: bizId, branchId: branchId);
+          },
+        ),
+        GoRoute(
           path: '/business/:id',
           builder: (context, state) {
             final biz = state.extra;
-            if (biz == null) return const MyBusinessesScreen();
+            if (biz == null) {
+              // Fallback when navigated without extra (e.g. direct URL).
+              // Admin → admin dashboard, Employee → My Enrolled Businesses.
+              return _authProvider.isAdmin
+                  ? const AdminDashboardScreen()
+                  : const MyBusinessesScreen();
+            }
             return BusinessDetailScreen(business: biz as BusinessModel);
           },
         ),
@@ -169,7 +183,11 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
           path: '/business/:id/edit',
           builder: (context, state) {
             final biz = state.extra;
-            if (biz == null) return const MyBusinessesScreen();
+            if (biz == null) {
+              return _authProvider.isAdmin
+                  ? const AdminDashboardScreen()
+                  : const MyBusinessesScreen();
+            }
             return BusinessEditScreen(business: biz as BusinessModel);
           },
         ),
@@ -225,9 +243,10 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
           ),
         ),
 
-        // ── Expose services for direct reads / uploads ───────────────────────
+        // ── Expose services for direct reads / uploads / searches ───────────
         Provider<FirestoreService>.value(value: _firestoreService),
         Provider<StorageService>.value(value: _storageService),
+        Provider<PlacesService>.value(value: _placesService),
       ],
       child: MaterialApp.router(
         title: 'Review System Panel',

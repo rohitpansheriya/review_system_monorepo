@@ -66,11 +66,13 @@ export {searchPlaces, getPlacePhoto} from "./placeSearch.js";
 export {onBranchCreated, generateBranchQr} from "./qrGenerator.js";
 export {
   createOrder,
+  createBranchOrder,
   createSubscription,
   razorpayWebhook,
   renewalLifecycle,
   cleanupAbandonedDrafts,
   resendPaymentLink,
+  resendBranchPaymentLink,
   provisionOwner,
 } from "./razorpay.js";
 export {
@@ -80,7 +82,11 @@ export {
 } from "./notifications.js";
 export {
   confirmCashPaymentAdmin,
+  adminCashActivateBranch,
+  adminRevertBusinessActivation,
+  adminRevertBranchActivation,
   onBusinessActivated,
+  onBranchActivated,
   markCommissionsPaidBulk,
 } from "./commissions.js";
 export {

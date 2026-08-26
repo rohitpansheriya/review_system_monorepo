@@ -9,6 +9,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../core/constants.dart';
+import '../models/branch_model.dart';
 import '../models/business_model.dart';
 import '../models/employee_commission_model.dart';
 import '../models/employee_profile_model.dart';
@@ -37,14 +38,20 @@ class AdminDashboardProvider extends ChangeNotifier {
   int _renewalsDue1 = 0;
 
   double _revenueSnapshot = 0.0;
+  double _onlineRevenue = 0.0;
+  double _cashRevenue = 0.0;
+  int _totalActiveBranches = 0;
+  int _totalPendingBranches = 0;
+  int _onlinePaymentsCount = 0;
+  int _cashPaymentsCount = 0;
 
   // ── Employee Management State ──────────────────────────────────────────────
   List<EmployeeProfileModel> _employees = [];
-  Map<String, List<BusinessModel>> _employeeBusinesses = {};
-  Map<String, Map<String, double>> _employeeCommissionSummaries = {};
-  Map<String, int> _employeeTotalEnrollments = {};
-  Map<String, int> _employeeThisMonthEnrollments = {};
-  Map<String, int> _employeeManagedCount = {};
+  final Map<String, List<BusinessModel>> _employeeBusinesses = {};
+  final Map<String, Map<String, double>> _employeeCommissionSummaries = {};
+  final Map<String, int> _employeeTotalEnrollments = {};
+  final Map<String, int> _employeeThisMonthEnrollments = {};
+  final Map<String, int> _employeeManagedCount = {};
 
   // ── Category Template Library State ────────────────────────────────────────
   List<Map<String, dynamic>> _templates = [];
@@ -53,6 +60,8 @@ class AdminDashboardProvider extends ChangeNotifier {
 
   // ── All Businesses List (for Subscription Overrides & Management) ────────
   List<BusinessModel> _allBusinesses = [];
+  final Map<String, List<BranchModel>> _businessBranches = {};
+  final Map<String, ({int active, int pending, int total})> _businessBranchStats = {};
 
   // ── Standee Fulfillment State ──────────────────────────────────────────────
   List<StandeeFulfillmentModel> _standeeItems = [];
@@ -75,6 +84,12 @@ class AdminDashboardProvider extends ChangeNotifier {
   int get renewalsDue1 => _renewalsDue1;
 
   double get revenueSnapshot => _revenueSnapshot;
+  double get onlineRevenue => _onlineRevenue;
+  double get cashRevenue => _cashRevenue;
+  int get totalActiveBranches => _totalActiveBranches;
+  int get totalPendingBranches => _totalPendingBranches;
+  int get onlinePaymentsCount => _onlinePaymentsCount;
+  int get cashPaymentsCount => _cashPaymentsCount;
 
   List<EmployeeProfileModel> get employees => _employees;
   Map<String, List<BusinessModel>> get employeeBusinesses => _employeeBusinesses;
@@ -85,6 +100,8 @@ class AdminDashboardProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> get templates => _templates;
   List<BusinessModel> get allBusinesses => _allBusinesses;
+  Map<String, List<BranchModel>> get businessBranches => _businessBranches;
+  Map<String, ({int active, int pending, int total})> get businessBranchStats => _businessBranchStats;
   List<StandeeFulfillmentModel> get standeeItems => _standeeItems;
   bool get standeeLoading => _standeeLoading;
   String? get standeeError => _standeeError;
@@ -191,9 +208,98 @@ class AdminDashboardProvider extends ChangeNotifier {
         .count().get();
     _renewalsDue1 = r1.count ?? 0;
 
+    // 7. Robust Branch-Level & Payment Collection Metrics
+    int activeBranchesCount = 0;
+    int pendingBranchesCount = 0;
+    int onlineCount = 0;
+    int cashCount = 0;
+
+    try {
+      _businessBranchStats.clear();
+      final allBizSnap = await _db.collection('businesses').get();
+      for (final doc in allBizSnap.docs) {
+        final bizData = doc.data();
+        final bizStatus = bizData['subscription_status'] as String? ?? 'pending_payment';
+        final bizPaymentMode = bizData['payment_mode'] as String? ?? 'pending';
+
+        final branchesSnap = await doc.reference.collection('branches').get();
+        int bActive = 0;
+        int bPending = 0;
+
+        if (branchesSnap.docs.isEmpty) {
+          if (bizStatus == 'active' || bizStatus == 'grace_period') {
+            activeBranchesCount++;
+            bActive++;
+            if (bizPaymentMode == 'cash') {
+              cashCount++;
+            } else {
+              onlineCount++;
+            }
+          } else if (bizStatus == 'pending_payment') {
+            pendingBranchesCount++;
+            bPending++;
+          }
+        } else {
+          for (final bDoc in branchesSnap.docs) {
+            final bData = bDoc.data();
+            final bStatus = bData['subscription_status'] as String? ?? (bizStatus == 'active' ? 'active' : 'pending_payment');
+            final bPaymentMode = bData['payment_mode'] as String? ?? bizPaymentMode;
+
+            if (bStatus == 'active' || bStatus == 'grace_period') {
+              activeBranchesCount++;
+              bActive++;
+              if (bPaymentMode == 'cash') {
+                cashCount++;
+              } else if (bPaymentMode == 'online') {
+                onlineCount++;
+              } else {
+                if (bizPaymentMode == 'cash') {
+                  cashCount++;
+                } else {
+                  onlineCount++;
+                }
+              }
+            } else if (bStatus == 'pending_payment') {
+              pendingBranchesCount++;
+              bPending++;
+            }
+          }
+        }
+        _businessBranchStats[doc.id] = (
+          active: bActive,
+          pending: bPending,
+          total: bActive + bPending,
+        );
+      }
+    } catch (_) {
+      // Fallback
+    }
+
+    _totalActiveBranches = activeBranchesCount;
+    _totalPendingBranches = pendingBranchesCount;
+    _onlinePaymentsCount = onlineCount;
+    _cashPaymentsCount = cashCount;
+
+    _onlineRevenue = _onlinePaymentsCount * 1999.0;
+    _cashRevenue = _cashPaymentsCount * 1999.0;
+
     // Revenue Snapshot Calculation
-    _revenueSnapshot = (_activeBusinessesCount * 1999.0) + (_graceBusinessesCount * 999.0);
+    _revenueSnapshot = _onlineRevenue + _cashRevenue + (_graceBusinessesCount * 999.0);
     notifyListeners();
+  }
+
+  /// Admin reverts a business from active back to pending_payment.
+  Future<void> revertBusinessActivation(String businessId, {String? reason}) async {
+    await _firestoreService.adminRevertBusinessActivation(businessId: businessId, reason: reason);
+    await refreshPlatformStats();
+    await fetchAllBusinesses();
+  }
+
+  /// Admin reverts a single branch from active back to pending_payment.
+  Future<void> revertBranchActivation(String businessId, String branchId, {String? reason}) async {
+    await _firestoreService.adminRevertBranchActivation(businessId: businessId, branchId: branchId, reason: reason);
+    await refreshPlatformStats();
+    await fetchAllBusinesses();
   }
 
   // ── 2. EMPLOYEE MANAGEMENT ────────────────────────────────────────────────
@@ -516,6 +622,40 @@ class AdminDashboardProvider extends ChangeNotifier {
         .get();
     _allBusinesses = snap.docs.map(BusinessModel.fromDoc).toList();
     _allBusinessesRaw = snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+
+    _businessBranches.clear();
+    _businessBranchStats.clear();
+
+    for (final doc in snap.docs) {
+      final branchesSnap = await doc.reference.collection('branches').get();
+      final branches = branchesSnap.docs
+          .map((bDoc) => BranchModel.fromDoc(bDoc, businessId: doc.id))
+          .toList();
+      _businessBranches[doc.id] = branches;
+
+      int bActive = 0;
+      int bPending = 0;
+      for (final b in branches) {
+        if (b.isActive) {
+          bActive++;
+        } else if (b.isPendingPayment) {
+          bPending++;
+        }
+      }
+      if (branches.isEmpty) {
+        final bizStatus = doc.data()['subscription_status'] as String? ?? 'pending_payment';
+        if (bizStatus == 'active' || bizStatus == 'grace_period') {
+          bActive = 1;
+        } else {
+          bPending = 1;
+        }
+      }
+      _businessBranchStats[doc.id] = (
+        active: bActive,
+        pending: bPending,
+        total: bActive + bPending,
+      );
+    }
     notifyListeners();
   }
 
@@ -528,6 +668,14 @@ class AdminDashboardProvider extends ChangeNotifier {
     required String ownerPhone,
     required String subscriptionStatus,
   }) async {
+    if (subscriptionStatus == 'pending_payment') {
+      try {
+        await _firestoreService.adminRevertBusinessActivation(
+          businessId: businessId,
+          reason: 'Status changed to Pending Payment in Admin Dashboard',
+        );
+      } catch (_) {}
+    }
     await _db.collection('businesses').doc(businessId).update({
       'brand_name': brandName,
       'category_type': categoryType,
@@ -548,10 +696,14 @@ class AdminDashboardProvider extends ChangeNotifier {
     DateTime? newGracePeriodEnds,
     required String adminUid,
     String? reason,
+    String? paymentMode,
   }) async {
     final updateData = <String, dynamic>{
       'subscription_status': newStatus,
     };
+    if (paymentMode != null) {
+      updateData['payment_mode'] = paymentMode;
+    }
     if (newRenewalDate != null) {
       updateData['renewal_date'] = Timestamp.fromDate(newRenewalDate);
     }
@@ -563,10 +715,23 @@ class AdminDashboardProvider extends ChangeNotifier {
 
     await _db.collection('businesses').doc(businessId).update(updateData);
 
+    // Also update all branch subcollection documents
+    final branchesSnap = await _db.collection('businesses').doc(businessId).collection('branches').get();
+    for (final bDoc in branchesSnap.docs) {
+      final bUpdate = <String, dynamic>{
+        'subscription_status': newStatus,
+      };
+      if (paymentMode != null) {
+        bUpdate['payment_mode'] = paymentMode;
+      }
+      await bDoc.reference.update(bUpdate);
+    }
+
     // Audit log
     await _db.collection('subscription_override_logs').add({
       'business_id': businessId,
       'new_status': newStatus,
+      'payment_mode': paymentMode,
       'renewal_date': newRenewalDate != null ? Timestamp.fromDate(newRenewalDate) : null,
       'grace_period_ends': newGracePeriodEnds != null ? Timestamp.fromDate(newGracePeriodEnds) : null,
       'overridden_by': adminUid,
@@ -574,6 +739,43 @@ class AdminDashboardProvider extends ChangeNotifier {
       'timestamp': FieldValue.serverTimestamp(),
     });
 
+    await refreshPlatformStats();
+    await fetchAllBusinesses();
+  }
+
+  /// Delete a pending_payment draft business (admin). Removes in-memory immediately.
+  Future<void> deleteDraftBusiness(String businessId) async {
+    await _firestoreService.deleteDraftBusiness(businessId);
+    _allBusinesses.removeWhere((b) => b.id == businessId);
+    notifyListeners();
+    await refreshPlatformStats();
+  }
+
+  /// Directly activates a pending_payment draft business via cash (admin).
+  Future<void> adminCashActivate({
+    required String businessId,
+    required String adminUid,
+  }) async {
+    await _firestoreService.adminCashActivate(
+      businessId: businessId,
+      adminUid: adminUid,
+    );
+    await refreshPlatformStats();
+    await fetchAllBusinesses();
+  }
+
+  /// Reverse activation of an active business → back to pending_payment.
+  /// Voids commission, marks QR stale, writes audit log.
+  Future<void> reverseActivation({
+    required String businessId,
+    required String adminUid,
+    required String reason,
+  }) async {
+    await _firestoreService.reverseActivation(
+      businessId: businessId,
+      adminUid: adminUid,
+      reason: reason,
+    );
     await refreshPlatformStats();
     await fetchAllBusinesses();
   }

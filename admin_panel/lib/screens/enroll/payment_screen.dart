@@ -25,6 +25,7 @@ import 'dart:js' as js;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -37,46 +38,89 @@ import '../../services/firestore_service.dart';
 /// Razorpay checkout key — placeholder. Replace with real key before production.
 const String _rzpKeyId = 'rzp_test_PLACEHOLDER';
 
-/// Setup fee in paise (1 INR = 100 paise).
-const int _setupFeePaise = 199900; // ₹1999
-
 class PaymentScreen extends StatefulWidget {
   final String businessId;
-  const PaymentScreen({super.key, required this.businessId});
+  final String? branchId;
+
+  const PaymentScreen({
+    super.key,
+    required this.businessId,
+    this.branchId,
+  });
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
 }
 
+/// Returns the role-aware home route: admin → /admin, employee → /businesses.
+String _homeRoute(BuildContext context) {
+  final isAdmin = context.read<AppAuthProvider>().isAdmin;
+  return isAdmin ? '/admin' : '/businesses';
+}
+
 class _PaymentScreenState extends State<PaymentScreen> {
-  bool _loadingBusiness = true;
+  bool _loading = true;
   String _brandName = '';
   String _ownerName  = '';
+  String _branchName = '';
+  String _branchAddress = '';
+  int _branchCount = 1;
   bool   _paying     = false;
   bool   _cashActivating = false;
+  bool   _sharingLink = false;
+  String? _shortUrl;
   String? _payError;
+
+  bool get isBranchPayment => widget.branchId != null && widget.branchId!.isNotEmpty;
+  int get setupFeeRupees => isBranchPayment ? 1999 : (_branchCount * 1999);
+  int get setupFeePaise => setupFeeRupees * 100;
+  int get renewalFeeRupees => isBranchPayment ? 999 : (_branchCount * 999);
 
   @override
   void initState() {
     super.initState();
-    _loadBusiness();
+    _loadDetails();
   }
 
-  Future<void> _loadBusiness() async {
+  Future<void> _loadDetails() async {
     try {
-      final doc = await FirebaseFirestore.instance
+      final bizDoc = await FirebaseFirestore.instance
           .collection(AppConstants.colBusinesses)
           .doc(widget.businessId)
           .get();
+
       if (!mounted) return;
-      final d = doc.data();
-      setState(() {
-        _brandName       = d?['brand_name'] as String? ?? '—';
-        _ownerName       = d?['owner_name']  as String? ?? '—';
-        _loadingBusiness = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loadingBusiness = false);
+      final bizData = bizDoc.data();
+      _brandName = bizData?['brand_name'] as String? ?? '—';
+      _ownerName = bizData?['owner_name'] as String? ?? '—';
+
+      if (isBranchPayment) {
+        _branchCount = 1;
+        final branchDoc = await FirebaseFirestore.instance
+            .collection(AppConstants.colBusinesses)
+            .doc(widget.businessId)
+            .collection(AppConstants.colBranches)
+            .doc(widget.branchId!)
+            .get();
+        if (mounted && branchDoc.exists) {
+          final bData = branchDoc.data();
+          _branchName = bData?['branch_name'] as String? ?? 'Branch';
+          _branchAddress = bData?['address'] as String? ?? '';
+        }
+      } else {
+        final branchesSnap = await FirebaseFirestore.instance
+            .collection(AppConstants.colBusinesses)
+            .doc(widget.businessId)
+            .collection(AppConstants.colBranches)
+            .get();
+        if (mounted && branchesSnap.docs.isNotEmpty) {
+          _branchCount = branchesSnap.docs.length;
+        }
+      }
+
+      setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -101,7 +145,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
         final biz = context.read<MyBusinessesProvider>();
         biz.setPendingActivation(bizId);
         biz.refresh();
-        context.go('/businesses');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Payment received! Activation in progress.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        if (isBranchPayment) {
+          context.go('/business/$bizId');
+        } else {
+          context.go(_homeRoute(context));
+        }
       });
 
       final handlerDismiss = js.allowInterop(() {
@@ -112,16 +166,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
         });
       });
 
+      final notesMap = <String, dynamic>{
+        'business_id': bizId,
+        'enrolled_by': empId,
+        'branch_count': _branchCount,
+      };
+
+      if (isBranchPayment) {
+        notesMap['branch_id'] = widget.branchId!;
+        notesMap['type'] = 'branch_setup_fee';
+      }
+
       final options = js.JsObject.jsify({
         'key':         _rzpKeyId,
-        'amount':      _setupFeePaise,
+        'amount':      setupFeePaise,
         'currency':    'INR',
         'name':        'Review System',
-        'description': 'Business setup fee — $_brandName',
-        'notes': {
-          'business_id': bizId,
-          'enrolled_by': empId,
-        },
+        'description': isBranchPayment
+            ? 'Branch setup fee — $_branchName ($_brandName)'
+            : (_branchCount > 1
+                ? 'Setup fee ($_branchCount branches) — $_brandName'
+                : 'Business setup fee — $_brandName'),
+        'notes': notesMap,
         'handler': handlerSuccess,
         'modal':   {'ondismiss': handlerDismiss},
         'prefill': {'name': _ownerName},
@@ -140,33 +206,49 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  // ── Admin Cash Activate (GROUP C — new model) ──────────────────────────────
-  // Admin-only: directly activates the business via cash payment.
-  // Creates commission record with payment_mode="cash", activates business.
+  // ── Admin Cash Activate (Admin only) ───────────────────────────────────────
   Future<void> _adminCashActivate() async {
     setState(() { _cashActivating = true; _payError = null; });
 
+    final auth = context.read<AppAuthProvider>();
+    if (!auth.isAdmin) {
+      setState(() {
+        _cashActivating = false;
+        _payError = 'Permission denied: Only admins can activate with cash.';
+      });
+      return;
+    }
+
     try {
-      final adminUid = context.read<AppAuthProvider>().uid ?? '';
+      final adminUid = auth.uid ?? '';
       final svc = context.read<FirestoreService>();
-      await svc.adminCashActivate(
-        businessId: widget.businessId,
-        adminUid: adminUid,
-      );
+
+      if (isBranchPayment) {
+        await svc.adminCashActivateBranch(
+          businessId: widget.businessId,
+          branchId: widget.branchId!,
+        );
+      } else {
+        await svc.adminCashActivate(
+          businessId: widget.businessId,
+          adminUid: adminUid,
+        );
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Business activated via cash payment! QR generation triggered.'),
+        SnackBar(
+          content: Text(isBranchPayment
+              ? '✅ Branch "$_branchName" activated via cash payment! QR generation triggered.'
+              : '✅ Business "$_brandName" activated via cash payment! QR generation triggered.'),
           backgroundColor: Colors.green,
         ),
       );
-      // Navigate to admin dashboard or businesses
-      final auth = context.read<AppAuthProvider>();
-      if (auth.isAdmin) {
-        context.go('/admin');
+
+      if (isBranchPayment) {
+        context.go('/business/${widget.businessId}');
       } else {
-        context.go('/businesses');
+        context.go('/admin');
       }
     } catch (e) {
       if (mounted) {
@@ -178,9 +260,55 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  // ── Generate / Share Payment Link ──────────────────────────────────────────
+  Future<void> _sharePaymentLink() async {
+    setState(() {
+      _sharingLink = true;
+      _payError = null;
+    });
+
+    try {
+      final svc = context.read<FirestoreService>();
+      final Map<String, dynamic> res;
+
+      if (isBranchPayment) {
+        res = await svc.resendBranchPaymentLink(
+          businessId: widget.businessId,
+          branchId: widget.branchId!,
+        );
+      } else {
+        res = await svc.resendPaymentLink(widget.businessId);
+      }
+
+      final url = res['shortUrl'] as String?;
+      if (mounted) {
+        setState(() => _shortUrl = url);
+        if (url != null) {
+          await Clipboard.setData(ClipboardData(text: url));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Payment link copied to clipboard!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _payError = 'Failed to generate link: $e');
+    } finally {
+      if (mounted) setState(() => _sharingLink = false);
+    }
+  }
+
   // ── Defer ────────────────────────────────────────────────────────────────────
   void _defer() {
-    context.go('/businesses');
+    if (isBranchPayment) {
+      context.go('/business/${widget.businessId}');
+    } else {
+      context.go(_homeRoute(context));
+    }
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -190,15 +318,43 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final tt     = Theme.of(context).textTheme;
     final isAdmin = context.read<AppAuthProvider>().isAdmin;
 
+    final headerTitle = isBranchPayment
+        ? 'Payment for Branch: $_branchName'
+        : (_branchCount > 1
+            ? 'Payment for $_brandName ($_branchCount Locations)'
+            : 'Payment for $_brandName');
+
+    final headerSubtitle = isBranchPayment
+        ? 'Branch enrolled under $_brandName.\nCollect setup fee now or let the owner pay online later.'
+        : (_branchCount > 1
+            ? '$_branchCount locations enrolled under $_brandName.\nCollect total setup fee (₹1,999 × $_branchCount) now or let the owner pay online later.'
+            : 'Business enrolled successfully as a draft.\nCollect setup fee now or let the owner pay online later.');
+
+    final planSummaryTitle = isBranchPayment
+        ? 'Branch Plan Summary'
+        : (_branchCount > 1 ? 'Plan Summary ($_branchCount Locations)' : 'Plan Summary');
+
+    final setupBadgeText = isBranchPayment
+        ? 'Due now'
+        : (_branchCount > 1 ? 'Due now (₹1,999 × $_branchCount)' : 'Due now');
+
+    final renewalBadgeText = isBranchPayment
+        ? 'Next year'
+        : (_branchCount > 1 ? 'From Year 2 (₹999 × $_branchCount)' : 'Next year');
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Collect Payment'),
-        leading: BackButton(onPressed: () => context.go('/businesses')),
+        title: Text(isBranchPayment ? 'Collect Branch Payment' : 'Collect Payment'),
+        leading: BackButton(
+          onPressed: () => isBranchPayment
+              ? context.go('/business/${widget.businessId}')
+              : context.go(_homeRoute(context)),
+        ),
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
-          child: _loadingBusiness
+          child: _loading
               ? const Center(child: CircularProgressIndicator())
               : ListView(
                   padding: const EdgeInsets.all(24),
@@ -208,13 +364,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         size: 48, color: cs.primary),
                     const SizedBox(height: 16),
                     Text(
-                      'Payment for $_brandName',
-                      style: tt.headlineSmall,
+                      headerTitle,
+                      style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
+                    if (isBranchPayment && _branchAddress.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _branchAddress,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Text(
-                      'Business enrolled successfully as a draft.\nCollect the setup fee now or let the owner pay later.',
+                      headerSubtitle,
                       style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                       textAlign: TextAlign.center,
                     ),
@@ -227,20 +391,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Plan Summary', style: tt.titleMedium),
+                            Text(planSummaryTitle,
+                                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                             const SizedBox(height: 16),
                             _PlanRow(
                               label: 'Setup fee (one-time)',
-                              value: '₹1,999',
-                              badge: 'Due now',
+                              value: '₹$setupFeeRupees',
+                              badge: setupBadgeText,
                               badgeColor: AppTheme.statusColor('pending_payment'),
                               badgeFgColor: AppTheme.statusForeground('pending_payment'),
                             ),
                             const Divider(height: 24),
                             _PlanRow(
                               label: 'Annual renewal (from Year 2)',
-                              value: '₹999 / year',
-                              badge: 'Next year',
+                              value: '₹$renewalFeeRupees / year',
+                              badge: renewalBadgeText,
                               badgeColor: Theme.of(context).colorScheme.surfaceContainerLowest,
                               badgeFgColor: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
@@ -259,7 +424,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'The ₹999/year renewal starts from the 2nd year. '
+                                      'The renewal starts from the 2nd year (₹999/year per location). '
                                       'Razorpay will auto-collect it — no manual follow-up needed.',
                                       style: tt.bodySmall,
                                     ),
@@ -299,10 +464,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       const SizedBox(height: 16),
                     ],
 
+                    if (_shortUrl != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        ),
+                        child: SelectableText(
+                          'Payment Link: $_shortUrl',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
                     // ── Admin-only: Cash Activate button ──────────────────────
                     if (isAdmin) ...[
                       FilledButton.icon(
-                        onPressed: (_paying || _cashActivating) ? null : _adminCashActivate,
+                        onPressed: (_paying || _cashActivating || _sharingLink)
+                            ? null
+                            : _adminCashActivate,
                         icon: _cashActivating
                             ? SizedBox(
                                 width: 18, height: 18,
@@ -313,7 +496,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         label: Text(
                             _cashActivating
                                 ? 'Activating…'
-                                : 'Cash Payment — Activate Now (₹1,999)'),
+                                : (isBranchPayment
+                                    ? 'Cash Payment — Activate Branch (₹1,999)'
+                                    : (_branchCount > 1
+                                        ? 'Cash Payment — Activate $_branchCount Branches (₹$setupFeeRupees)'
+                                        : 'Cash Payment — Activate Business (₹1,999)'))),
                         style: FilledButton.styleFrom(
                           backgroundColor: cs.tertiary,
                           foregroundColor: cs.onTertiary,
@@ -325,7 +512,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     // ── Primary CTA: Online payment ───────────────────────────
                     ElevatedButton.icon(
-                      onPressed: (_paying || _cashActivating) ? null : _launchRazorpay,
+                      onPressed: (_paying || _cashActivating || _sharingLink)
+                          ? null
+                          : _launchRazorpay,
                       icon: _paying
                           ? SizedBox(
                               width: 18, height: 18,
@@ -334,7 +523,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   color: cs.onPrimary))
                           : const Icon(Icons.payments_outlined),
                       label: Text(
-                          _paying ? 'Opening checkout…' : 'Online Payment (Razorpay ₹1,999)'),
+                          _paying ? 'Opening checkout…' : 'Online Payment (Razorpay ₹$setupFeeRupees)'),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(52),
                       ),
@@ -342,12 +531,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     const SizedBox(height: 12),
 
-                    // ── Tertiary CTA: Defer ──────────────────────────────────
+                    // ── Share Payment Link CTA ───────────────────────────────
                     OutlinedButton.icon(
-                      onPressed: (_paying || _cashActivating) ? null : _defer,
-                      icon: const Icon(Icons.schedule_outlined),
-                      label: const Text('Owner will pay online later'),
+                      onPressed: (_paying || _cashActivating || _sharingLink)
+                          ? null
+                          : _sharePaymentLink,
+                      icon: _sharingLink
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.share_outlined),
+                      label: const Text('Send / Copy Online Payment Link'),
                       style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ── Defer CTA ───────────────────────────────────────────
+                    TextButton.icon(
+                      onPressed: (_paying || _cashActivating || _sharingLink) ? null : _defer,
+                      icon: const Icon(Icons.schedule_outlined),
+                      label: const Text('Owner will pay online later (Defer)'),
+                      style: TextButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                       ),
                     ),
@@ -356,9 +565,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     // ── Defer explanation ─────────────────────────────────────
                     Text(
-                      'If deferred, the business appears in your list with an '
-                      '"Awaiting payment" badge. Use the "Resend payment link" '
-                      'action to send a payment link to the owner later.',
+                      'If deferred, this location appears with an "Awaiting payment" badge. '
+                      'Use the payment link or pay online action whenever the owner is ready.',
                       style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                       textAlign: TextAlign.center,
                     ),

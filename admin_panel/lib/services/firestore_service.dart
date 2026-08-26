@@ -61,16 +61,23 @@ class FirestoreService {
 
   // ── Category templates ────────────────────────────────────────────────────
 
-  /// Returns all templates. If collection is empty, returns [].
+  List<Map<String, dynamic>>? _cachedTemplates;
+
+  /// Returns all templates with in-memory caching for instant UI response.
+  /// If collection is empty, returns [].
   /// Never throws — graceful empty-state per doc 07 constraint.
-  Future<List<Map<String, dynamic>>> getCategoryTemplates() async {
+  Future<List<Map<String, dynamic>>> getCategoryTemplates({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedTemplates != null && _cachedTemplates!.isNotEmpty) {
+      return _cachedTemplates!;
+    }
     try {
       final snap = await _db.collection(AppConstants.colTemplates).get();
-      return snap.docs
+      _cachedTemplates = snap.docs
           .map((d) => {'id': d.id, ...d.data()})
           .toList();
+      return _cachedTemplates!;
     } catch (_) {
-      return [];
+      return _cachedTemplates ?? [];
     }
   }
 
@@ -106,10 +113,42 @@ class FirestoreService {
       }
       return false;
     } catch (e) {
-      // Collection group query may fail due to missing index or permission
-      // denied. Don't block enrollment — duplicate place_id is a soft guard.
       // ignore: avoid_print
       print('placeIdExists: query failed (non-blocking): $e');
+      return false;
+    }
+  }
+
+  Future<bool> ownerEmailExists(String email) async {
+    final clean = email.trim().toLowerCase();
+    if (clean.isEmpty) return false;
+    try {
+      final snap = await _db
+          .collection(AppConstants.colBusinesses)
+          .where('owner_email', isEqualTo: clean)
+          .limit(1)
+          .get();
+      return snap.docs.isNotEmpty;
+    } catch (e) {
+      // ignore: avoid_print
+      print('ownerEmailExists: query error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> ownerEmailExistsForEdit(String email, String currentBusinessId) async {
+    final clean = email.trim().toLowerCase();
+    if (clean.isEmpty) return false;
+    try {
+      final snap = await _db
+          .collection(AppConstants.colBusinesses)
+          .where('owner_email', isEqualTo: clean)
+          .limit(2)
+          .get();
+      return snap.docs.any((d) => d.id != currentBusinessId);
+    } catch (e) {
+      // ignore: avoid_print
+      print('ownerEmailExistsForEdit: query error: $e');
       return false;
     }
   }
@@ -204,10 +243,11 @@ class FirestoreService {
       throw Exception('Business is not in pending_payment status');
     }
 
-    final batch = _db.batch();
-
-    // 1. Activate the business
-    batch.update(bizRef, {
+    // Activate the business.
+    // Commission is NOT created here — the onBusinessActivated CF trigger
+    // fires when subscription_status flips to 'active' and creates the
+    // employee_commissions entry server-side (same path as online payments).
+    await bizRef.update({
       'subscription_status': AppConstants.statusActive,
       'renewal_date': Timestamp.fromDate(
         DateTime.now().add(const Duration(days: AppConstants.renewalDays)),
@@ -216,23 +256,6 @@ class FirestoreService {
       'cash_payment_confirmed_at': FieldValue.serverTimestamp(),
       'cash_confirmed_by_admin': adminUid,
     });
-
-    // 2. Create commission record for audit trail
-    final commRef = _db.collection(AppConstants.colCommission).doc();
-    batch.set(commRef, {
-      'business_id': businessId,
-      'employee_id': adminUid,
-      'amount': 1999,
-      'payment_mode': 'cash',
-      'status': AppConstants.commVerified,
-      'admin_confirmed': true,
-      'admin_confirmed_by': adminUid,
-      'admin_confirmed_at': FieldValue.serverTimestamp(),
-      'date_claimed': FieldValue.serverTimestamp(),
-      'date_verified': FieldValue.serverTimestamp(),
-    });
-
-    await batch.commit();
   }
 
   // ── My businesses — paginated, filtered, date-windowed ───────────────────
@@ -379,6 +402,96 @@ class FirestoreService {
         .collection(AppConstants.colBranches)
         .doc(branchId)
         .update(data);
+  }
+
+  /// Adds a new branch to an existing business in pending_payment status.
+  Future<String> addBranchToBusiness(
+    String businessId,
+    BranchDraft draft, {
+    String? enrolledBy,
+  }) async {
+    final branchRef = _db
+        .collection(AppConstants.colBusinesses)
+        .doc(businessId)
+        .collection(AppConstants.colBranches)
+        .doc();
+
+    final data = draft.toFirestore();
+    data['created_at'] = FieldValue.serverTimestamp();
+    data['subscription_status'] = AppConstants.statusPendingPayment;
+    data['payment_mode'] = 'pending';
+    if (enrolledBy != null && enrolledBy.isNotEmpty) {
+      data['enrolled_by'] = enrolledBy;
+    }
+
+    await branchRef.set(data);
+    return branchRef.id;
+  }
+
+  /// Admin activates a specific branch via cash payment (₹1999).
+  Future<void> adminCashActivateBranch({
+    required String businessId,
+    required String branchId,
+    String? notes,
+  }) async {
+    final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+    await fn.httpsCallable('adminCashActivateBranch').call({
+      'businessId': businessId,
+      'branchId': branchId,
+      if (notes != null) 'notes': notes,
+    });
+  }
+
+  /// Creates a Razorpay order for activating a specific branch (₹1999).
+  Future<Map<String, dynamic>> createBranchOrder({
+    required String businessId,
+    required String branchId,
+  }) async {
+    final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+    final result = await fn.httpsCallable('createBranchOrder').call({
+      'businessId': businessId,
+      'branchId': branchId,
+    });
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
+  /// Resends or generates a Razorpay payment link for a specific branch.
+  Future<Map<String, dynamic>> resendBranchPaymentLink({
+    required String businessId,
+    required String branchId,
+  }) async {
+    final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+    final result = await fn.httpsCallable('resendBranchPaymentLink').call({
+      'businessId': businessId,
+      'branchId': branchId,
+    });
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
+  /// Admin reverts a business from active back to pending_payment.
+  Future<void> adminRevertBusinessActivation({
+    required String businessId,
+    String? reason,
+  }) async {
+    final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+    await fn.httpsCallable('adminRevertBusinessActivation').call({
+      'businessId': businessId,
+      if (reason != null) 'reason': reason,
+    });
+  }
+
+  /// Admin reverts a single branch from active back to pending_payment.
+  Future<void> adminRevertBranchActivation({
+    required String businessId,
+    required String branchId,
+    String? reason,
+  }) async {
+    final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+    await fn.httpsCallable('adminRevertBranchActivation').call({
+      'businessId': businessId,
+      'branchId': branchId,
+      if (reason != null) 'reason': reason,
+    });
   }
 
   // ── Delete — pending_payment drafts only ─────────────────────────────────
@@ -562,6 +675,78 @@ class FirestoreService {
         }
       }
     }
+  }
+
+  // ── Reverse Activation (Admin-only recovery tool) ─────────────────────────
+  //
+  // Reverts an active business to pending_payment:
+  //   1. Sets subscription_status → pending_payment, clears payment fields.
+  //   2. Voids (not deletes) the commission entry.
+  //   3. Marks QR stale on all branches.
+  //   4. Writes audit log.
+
+  Future<void> reverseActivation({
+    required String businessId,
+    required String adminUid,
+    required String reason,
+  }) async {
+    final bizRef = _db.collection(AppConstants.colBusinesses).doc(businessId);
+    final bizSnap = await bizRef.get();
+    if (!bizSnap.exists) throw Exception('Business not found');
+
+    final bizData = bizSnap.data()!;
+    final currentStatus = bizData['subscription_status'] as String?;
+    if (currentStatus != AppConstants.statusActive) {
+      throw Exception('Business is not active (current: $currentStatus). Cannot reverse.');
+    }
+
+    final batch = _db.batch();
+
+    // 1. Revert business to pending_payment, clear payment fields
+    batch.update(bizRef, {
+      'subscription_status': AppConstants.statusPendingPayment,
+      'payment_mode': FieldValue.delete(),
+      'renewal_date': FieldValue.delete(),
+      'cash_payment_confirmed_at': FieldValue.delete(),
+      'cash_confirmed_by_admin': FieldValue.delete(),
+      'reversed_at': FieldValue.serverTimestamp(),
+      'reversed_by': adminUid,
+    });
+
+    // 2. Mark QR stale on all branches
+    final branchSnap = await bizRef.collection(AppConstants.colBranches).get();
+    for (final branchDoc in branchSnap.docs) {
+      batch.update(branchDoc.reference, {
+        'qr_stale': true,
+      });
+    }
+
+    await batch.commit();
+
+    // 3. Void the commission entry (if it exists)
+    final commDocId = 'comm_$businessId';
+    final commRef = _db.collection(AppConstants.colEmployeeCommissions).doc(commDocId);
+    final commSnap = await commRef.get();
+    if (commSnap.exists) {
+      await commRef.update({
+        'status': 'voided',
+        'voided_at': FieldValue.serverTimestamp(),
+        'voided_by': adminUid,
+        'void_reason': reason,
+      });
+    }
+
+    // 4. Write audit log
+    await _db.collection('subscription_override_logs').add({
+      'business_id': businessId,
+      'business_name': bizData['brand_name'] ?? '',
+      'action': 'reverse_activation',
+      'previous_status': currentStatus,
+      'new_status': AppConstants.statusPendingPayment,
+      'reversed_by': adminUid,
+      'reason': reason,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════════

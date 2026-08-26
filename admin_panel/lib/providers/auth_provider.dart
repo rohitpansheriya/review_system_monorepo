@@ -148,6 +148,12 @@ class AppAuthProvider extends ChangeNotifier {
     // _onAuthStateChanged fires and clears state / triggers router redirect.
   }
 
+  /// Sends a password reset/setup link to the specified email address.
+  /// Returns null on success or an error message on failure.
+  Future<String?> sendPasswordResetEmail(String email) async {
+    return await _authService.sendPasswordResetEmail(email);
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

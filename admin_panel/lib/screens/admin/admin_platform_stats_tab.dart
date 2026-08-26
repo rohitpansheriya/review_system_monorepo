@@ -72,7 +72,7 @@ class AdminPlatformStatsTab extends StatelessWidget {
                     context,
                     title: 'Total Paying Businesses',
                     value: '${provider.totalBusinessesCount}',
-                    subtitle: 'Active + Grace Period',
+                    subtitle: '${provider.totalActiveBranches} active location${provider.totalActiveBranches == 1 ? '' : 's'} across ${provider.totalBusinessesCount} brand${provider.totalBusinessesCount == 1 ? '' : 's'}',
                     icon: Icons.store,
                     color: colorScheme.primary,
                   ),
@@ -80,7 +80,7 @@ class AdminPlatformStatsTab extends StatelessWidget {
                     context,
                     title: 'Active Subscriptions',
                     value: '${provider.activeBusinessesCount}',
-                    subtitle: 'Full access active',
+                    subtitle: '${provider.totalActiveBranches} active paid branch${provider.totalActiveBranches == 1 ? '' : 'es'}',
                     icon: Icons.check_circle,
                     color: Colors.green,
                   ),
@@ -106,89 +106,166 @@ class AdminPlatformStatsTab extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // ── Revenue Snapshot & Renewals Due Breakdown ─────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 1,
-                child: Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+          // ── Revenue, Payment Collections & Renewals Breakdown ────────────
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 960;
+              return Flex(
+                direction: isWide ? Axis.horizontal : Axis.vertical,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Card 1: Payment Collections & Revenue
+                  Expanded(
+                    flex: isWide ? 1 : 0,
+                    child: Card(
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.monetization_on_outlined, color: colorScheme.primary),
-                            const SizedBox(width: 10),
+                            Row(
+                              children: [
+                                Icon(Icons.account_balance_wallet_outlined, color: colorScheme.primary),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Payment Collections & Revenue',
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 20),
                             Text(
-                              'Revenue Snapshot',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                              '₹${provider.revenueSnapshot.toStringAsFixed(0)}',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildPaymentMethodRow(
+                              context,
+                              label: 'Online (Razorpay)',
+                              amount: provider.onlineRevenue,
+                              count: provider.onlinePaymentsCount,
+                              icon: Icons.credit_card,
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildPaymentMethodRow(
+                              context,
+                              label: 'Cash (Admin Verified)',
+                              amount: provider.cashRevenue,
+                              count: provider.cashPaymentsCount,
+                              icon: Icons.payments_outlined,
+                              color: Colors.green,
                             ),
                           ],
                         ),
-                        const Divider(height: 24),
-                        Text(
-                          '₹${provider.revenueSnapshot.toStringAsFixed(0)}',
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Calculated from setup fees (₹1999) + renewals (₹999).',
-                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 1,
-                child: Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
+
+                  // Card 2: Branch Locations Overview
+                  Expanded(
+                    flex: isWide ? 1 : 0,
+                    child: Card(
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.calendar_month, color: colorScheme.primary),
-                            const SizedBox(width: 10),
+                            Row(
+                              children: [
+                                Icon(Icons.location_city_outlined, color: colorScheme.primary),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Branch Locations Health',
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 20),
                             Text(
-                              'Upcoming Renewals Breakdown',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                              '${provider.totalActiveBranches} Active',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildBranchStatusRow(
+                              context,
+                              label: 'Active Branches (Paid / Live)',
+                              count: provider.totalActiveBranches,
+                              icon: Icons.check_circle_outline,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildBranchStatusRow(
+                              context,
+                              label: 'Pending Payment Branches',
+                              count: provider.totalPendingBranches,
+                              icon: Icons.hourglass_top_outlined,
+                              color: Colors.amber[800]!,
                             ),
                           ],
                         ),
-                        const Divider(height: 24),
-                        _buildRenewalRow(context, 'Due in 30 Days', provider.renewalsDue30, Colors.blue),
-                        const SizedBox(height: 8),
-                        _buildRenewalRow(context, 'Due in 15 Days', provider.renewalsDue15, Colors.amber),
-                        const SizedBox(height: 8),
-                        _buildRenewalRow(context, 'Due in 7 Days', provider.renewalsDue7, Colors.deepOrange),
-                        const SizedBox(height: 8),
-                        _buildRenewalRow(context, 'Due Tomorrow / Today', provider.renewalsDue1, Colors.red),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
+                  SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
+
+                  // Card 3: Renewals Due Breakdown
+                  Expanded(
+                    flex: isWide ? 1 : 0,
+                    child: Card(
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.calendar_month, color: colorScheme.primary),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Upcoming Renewals',
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 20),
+                            _buildRenewalRow(context, 'Due in 30 Days', provider.renewalsDue30, Colors.blue),
+                            const SizedBox(height: 6),
+                            _buildRenewalRow(context, 'Due in 15 Days', provider.renewalsDue15, Colors.amber),
+                            const SizedBox(height: 6),
+                            _buildRenewalRow(context, 'Due in 7 Days', provider.renewalsDue7, Colors.deepOrange),
+                            const SizedBox(height: 6),
+                            _buildRenewalRow(context, 'Due Today / Tomorrow', provider.renewalsDue1, Colors.red),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 32),
 
@@ -256,6 +333,73 @@ class AdminPlatformStatsTab extends StatelessWidget {
           child: Text(
             '$count',
             style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentMethodRow(
+    BuildContext context, {
+    required String label,
+    required double amount,
+    required int count,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '₹${amount.toStringAsFixed(0)}',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color),
+            ),
+            Text(
+              '$count paid',
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBranchStatusRow(
+    BuildContext context, {
+    required String label,
+    required int count,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '$count',
+            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
       ],
@@ -372,7 +516,13 @@ class _AllBusinessesTableSectionState extends State<_AllBusinessesTableSection> 
     final allBiz = provider.allBusinesses;
 
     final filtered = allBiz.where((b) {
-      final statusMatch = _filterStatus == 'all' || b.subscriptionStatus == _filterStatus;
+      final branchStats = provider.businessBranchStats[b.id];
+      final hasPendingBranch = (branchStats?.pending ?? 0) > 0;
+      final statusMatch = _filterStatus == 'all'
+          ? true
+          : (_filterStatus == 'has_pending_branch'
+              ? hasPendingBranch
+              : b.subscriptionStatus == _filterStatus);
       final brandName = b.brandName.toLowerCase();
       final ownerEmail = (b.ownerEmail ?? '').toLowerCase();
       final q = _searchQuery.toLowerCase().trim();
@@ -417,6 +567,7 @@ class _AllBusinessesTableSectionState extends State<_AllBusinessesTableSection> 
                       items: const [
                         DropdownMenuItem(value: 'all', child: Text('All Statuses')),
                         DropdownMenuItem(value: 'active', child: Text('Active')),
+                        DropdownMenuItem(value: 'has_pending_branch', child: Text('Has Pending Branch ⚠️')),
                         DropdownMenuItem(value: 'pending_payment', child: Text('Pending Payment')),
                         DropdownMenuItem(value: 'grace_period', child: Text('Grace Period')),
                       ],
@@ -444,11 +595,15 @@ class _AllBusinessesTableSectionState extends State<_AllBusinessesTableSection> 
                     DataColumn(label: Text('Category')),
                     DataColumn(label: Text('Owner Name / Email')),
                     DataColumn(label: Text('Status')),
+                    DataColumn(label: Text('Branches / Locations')),
                     DataColumn(label: Text('Managed By')),
                     DataColumn(label: Text('Actions')),
                   ],
                   rows: filtered.map((b) {
                     final status = b.subscriptionStatus;
+                    final stats = provider.businessBranchStats[b.id];
+                    final hasPending = (stats?.pending ?? 0) > 0;
+
                     return DataRow(
                       cells: [
                         DataCell(
@@ -480,6 +635,52 @@ class _AllBusinessesTableSectionState extends State<_AllBusinessesTableSection> 
                                 ? Colors.green.withValues(alpha: 0.15)
                                 : Colors.amber.withValues(alpha: 0.15),
                           ),
+                        ),
+                        DataCell(
+                          stats == null
+                              ? const Text('1 Location')
+                              : (hasPending
+                                  ? InkWell(
+                                      onTap: () => context.push('/business/${b.id}', extra: b),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: Colors.amber.withValues(alpha: 0.6)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.orange),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${stats.active} Active, ${stats.pending} Pending',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                                color: Colors.deepOrange,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        '${stats.active} Active ${stats.active == 1 ? "Location" : "Locations"}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                    )),
                         ),
                         DataCell(Text(provider.resolveEmployeeName(b.currentlyManagedBy))),
                         DataCell(

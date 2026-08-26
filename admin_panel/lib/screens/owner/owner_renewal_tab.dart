@@ -7,7 +7,7 @@
 // RENEWAL PATH: Status flips and renewal_date extends ONLY via the
 // existing payment webhook in razorpay.ts — NO SECOND ACTIVATION PATH.
 
-// ignore: avoid_web_libraries_in_flutter
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:js' as js;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';

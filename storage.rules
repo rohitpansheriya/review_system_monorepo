@@ -24,11 +24,11 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // ── QR code images: qr_codes/{branchId}/{filename} ───────────────────────
-    // Generated server-side by the generateBranchQr Cloud Function.
-    // Panel users can read to display the QR image.
-    match /qr_codes/{branchId}/{filename} {
-      allow read:  if isEmployee() || isAdmin() || isOwner();
+    // ── QR code images: qr_codes/{allPaths=**} ───────────────────────────────
+    // Generated server-side by the generateBranchQr Cloud Function / onBusinessActivated.
+    // Panel users (employee, admin, owner) can read and download the QR images.
+    match /qr_codes/{allPaths=**} {
+      allow read:  if isSignedIn();
       // Client writes blocked — Cloud Functions service account writes only.
       allow write: if false;
     }

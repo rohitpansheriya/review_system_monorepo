@@ -43,9 +43,13 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
     super.initState();
     _scrollCtrl = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final uid = context.read<AppAuthProvider>().uid;
+      final auth = context.read<AppAuthProvider>();
+      final uid = auth.uid;
       if (uid != null) {
-        context.read<MyBusinessesProvider>().loadFirst(uid);
+        // Admin enrollments store enrolled_by='admin' (not the admin's UID),
+        // so the query must use 'admin' to match.
+        final queryId = auth.isAdmin ? 'admin' : uid;
+        context.read<MyBusinessesProvider>().loadFirst(queryId);
       }
     });
   }
@@ -196,8 +200,12 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
                     ? _ErrorState(
                         message:  provider.error!,
                         onRetry: () {
-                          final uid = context.read<AppAuthProvider>().uid;
-                          if (uid != null) provider.loadFirst(uid);
+                          final auth = context.read<AppAuthProvider>();
+                          final uid = auth.uid;
+                          if (uid != null) {
+                            final queryId = auth.isAdmin ? 'admin' : uid;
+                            provider.loadFirst(queryId);
+                          }
                         },
                       )
                     : provider.businesses.isEmpty

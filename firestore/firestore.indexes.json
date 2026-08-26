@@ -111,7 +111,7 @@
     },
 
     // -------------------------------------------------------
-    // scan_logs collection
+    // scan_logs collection (LEGACY — kept for historical data)
     // -------------------------------------------------------
 
     // Aggregate: filter logs by branch_id and timestamp range.
@@ -142,6 +142,22 @@
         { "fieldPath": "timestamp", "order": "ASCENDING" }
       ]
     },
+
+    // -------------------------------------------------------
+    // scans subcollection (NEW — per-business scan logs)
+    // -------------------------------------------------------
+
+    // Recent scans for a specific branch, newest first.
+    {
+      "collectionGroup": "scans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "branch_id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    // All recent scans for a business, newest first (paginated).
+    // Single-field timestamp index is auto-created by Firestore.
 
     // -------------------------------------------------------
     // commission_records collection (LEGACY — kept for old data)

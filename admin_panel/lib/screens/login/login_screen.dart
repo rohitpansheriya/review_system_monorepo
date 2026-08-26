@@ -80,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Review System',
+                      'Review System Portal',
                       style: GoogleFonts.inter(
                         fontSize:   26,
                         fontWeight: FontWeight.w700,
@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Employee & Admin Panel',
+                      'Employee & Business Owner Sign In',
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color:    Colors.white.withValues(alpha: 0.82),
@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Enter your employee credentials to continue.',
+                                  'Enter your credentials to continue.',
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodySmall
@@ -145,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   _AlertBanner(
                                     icon:    Icons.lock_outline,
                                     message: auth.error ??
-                                        'Access denied: this account does not have employee or admin access.',
+                                        'Access denied: this account does not have access to this portal.',
                                     backgroundColor: scheme.errorContainer,
                                     borderColor:     scheme.error.withValues(alpha: 0.3),
                                     iconColor:       scheme.error,
@@ -185,7 +185,28 @@ class _LoginScreenState extends State<LoginScreen> {
                                       (v == null || v.isEmpty) ? 'Password is required' : null,
                                   onFieldSubmitted: (_) => _submit(),
                                 ),
-                                const SizedBox(height: AppSpacing.xl - 4),
+                                const SizedBox(height: 8),
+
+                                // Forgot / Set Password action
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: () => _showForgotPasswordDialog(context),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    child: Text(
+                                      'Forgot or set password?',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: scheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
 
                                 // Sign in button
                                 ElevatedButton(
@@ -202,13 +223,45 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
 
                                 const SizedBox(height: AppSpacing.md),
-                                Text(
-                                  'Credentials are created by an admin.\nContact your admin if you cannot sign in.',
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(color: scheme.onSurfaceVariant),
+
+                                // First-time business owner guidance banner
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(Icons.info_outline_rounded, size: 18, color: scheme.primary),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text.rich(
+                                          TextSpan(
+                                            text: 'First time logging in as a Business Owner? ',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: scheme.onSurface,
+                                              height: 1.4,
+                                            ),
+                                            children: [
+                                              TextSpan(
+                                                text: 'Use "Forgot or set password?" above to create your password. A setup link will be sent to your registered email address.',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w400,
+                                                  color: scheme.onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -223,6 +276,188 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showForgotPasswordDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _ForgotPasswordDialog(
+        initialEmail: _emailCtrl.text.trim(),
+      ),
+    );
+  }
+}
+
+// ── Forgot / Set Password Dialog ──────────────────────────────────────────────
+class _ForgotPasswordDialog extends StatefulWidget {
+  final String initialEmail;
+
+  const _ForgotPasswordDialog({required this.initialEmail});
+
+  @override
+  State<_ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _emailCtrl;
+  bool _loading = false;
+  String? _error;
+  bool _sent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl = TextEditingController(text: widget.initialEmail);
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final auth = context.read<AppAuthProvider>();
+    final err = await auth.sendPasswordResetEmail(_emailCtrl.text.trim());
+
+    if (!mounted) return;
+
+    if (err != null) {
+      setState(() {
+        _loading = false;
+        _error = err;
+      });
+    } else {
+      setState(() {
+        _loading = false;
+        _sent = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Icon(Icons.lock_reset_rounded, color: scheme.primary),
+          const SizedBox(width: 10),
+          const Text('Set / Reset Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: _sent
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.activeBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.activeFg.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.check_circle_outline, color: AppColors.activeFg, size: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Password link sent to ${_emailCtrl.text.trim()}! Please check your inbox (and spam folder) to set or reset your password.',
+                            style: const TextStyle(fontSize: 13, color: AppColors.activeFg),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enter your registered email address. We will send a secure link to create or reset your password.',
+                      style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 16),
+                    if (_error != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: scheme.errorContainer,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline, color: scheme.error, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _error!,
+                                style: TextStyle(fontSize: 12, color: scheme.onErrorContainer),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    TextFormField(
+                      controller: _emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Registered Email',
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Email is required' : null,
+                      onFieldSubmitted: (_) => _send(),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+      actions: [
+        if (_sent)
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Done'),
+          )
+        else ...[
+          TextButton(
+            onPressed: _loading ? null : () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: _loading ? null : _send,
+            child: _loading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('Send Link'),
+          ),
+        ],
+      ],
     );
   }
 }

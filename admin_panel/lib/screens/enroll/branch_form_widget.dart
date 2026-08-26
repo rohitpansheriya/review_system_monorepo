@@ -26,6 +26,7 @@ import '../../core/phone_field.dart';
 import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 import '../../providers/enroll_provider.dart';
+import '../../services/places_service.dart';
 import 'star_routing_widget.dart';
 
 class BranchFormWidget extends StatefulWidget {
@@ -53,48 +54,71 @@ class BranchFormWidget extends StatefulWidget {
 class _BranchFormWidgetState extends State<BranchFormWidget> {
   // ── Local text controllers synced to draft ────────────────────────────────
   late final TextEditingController _nameCtrl;
-  // _whatsappCtrl removed — PhoneField manages its own controller
   late final TextEditingController _whatsappMonitoredByCtrl; // Change 5
   late final TextEditingController _addressCtrl;
   late final TextEditingController _placeIdCtrl;
   late final TextEditingController _searchNameCtrl;
   late final TextEditingController _searchCityCtrl;
 
-  final _nameFocus                 = FocusNode();
-  final _whatsappMonitoredByFocus  = FocusNode();
-  final _addressFocus              = FocusNode();
+  // ── FocusNodes for programmatic focus ─────────────────────────────────────
+  late final FocusNode _nameFocus;
+  late final FocusNode _addressFocus;
+  late final FocusNode _whatsappMonitoredByFocus; // Change 5
 
   @override
   void initState() {
     super.initState();
-    final d = widget.draft;
-    _nameCtrl                 = TextEditingController(text: d.name);
-    // _whatsappCtrl removed — PhoneField initialises from draft.whatsappNumber
-    _whatsappMonitoredByCtrl  = TextEditingController(text: d.whatsappMonitoredBy);
-    _addressCtrl              = TextEditingController(text: d.address);
-    _placeIdCtrl              = TextEditingController(text: d.placeId ?? '');
-    _searchNameCtrl           = TextEditingController();
-    _searchCityCtrl           = TextEditingController();
+    _nameCtrl                = TextEditingController(text: widget.draft.name);
+    _whatsappMonitoredByCtrl = TextEditingController(text: widget.draft.whatsappMonitoredBy);
+    _addressCtrl             = TextEditingController(text: widget.draft.address);
+    _placeIdCtrl             = TextEditingController(text: widget.draft.placeId ?? '');
+    _searchNameCtrl          = TextEditingController();
+    _searchCityCtrl          = TextEditingController();
+
+    _nameFocus                = FocusNode();
+    _addressFocus             = FocusNode();
+    _whatsappMonitoredByFocus = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(BranchFormWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.draft.name != widget.draft.name &&
+        _nameCtrl.text != widget.draft.name) {
+      _nameCtrl.text = widget.draft.name;
+    }
+    if (oldWidget.draft.whatsappMonitoredBy != widget.draft.whatsappMonitoredBy &&
+        _whatsappMonitoredByCtrl.text != widget.draft.whatsappMonitoredBy) {
+      _whatsappMonitoredByCtrl.text = widget.draft.whatsappMonitoredBy;
+    }
+    if (oldWidget.draft.address != widget.draft.address &&
+        _addressCtrl.text != widget.draft.address) {
+      _addressCtrl.text = widget.draft.address;
+    }
+    if (oldWidget.draft.placeId != widget.draft.placeId &&
+        _placeIdCtrl.text != (widget.draft.placeId ?? '')) {
+      _placeIdCtrl.text = widget.draft.placeId ?? '';
+    }
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    // _whatsappCtrl not here — owned by PhoneField
     _whatsappMonitoredByCtrl.dispose();
     _addressCtrl.dispose();
     _placeIdCtrl.dispose();
     _searchNameCtrl.dispose();
     _searchCityCtrl.dispose();
+
     _nameFocus.dispose();
-    _whatsappMonitoredByFocus.dispose();
     _addressFocus.dispose();
+    _whatsappMonitoredByFocus.dispose();
     super.dispose();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  void _search() {
+  Future<void> _search() async {
     final bizName = _searchNameCtrl.text.trim();
     final city    = _searchCityCtrl.text.trim();
     if (bizName.isEmpty || city.isEmpty) {
@@ -106,8 +130,39 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
       );
       return;
     }
-    context.read<EnrollProvider>().searchPlaces(
-          widget.branchIndex, bizName, city);
+
+    setState(() {
+      widget.draft.isSearching = true;
+      widget.draft.searchError = null;
+      widget.draft.candidates  = [];
+    });
+
+    try {
+      final placesSvc = context.read<PlacesService>();
+      final results   = await placesSvc.search(bizName, city);
+      if (mounted) {
+        setState(() {
+          widget.draft.candidates  = results;
+          widget.draft.searchError = results.isEmpty
+              ? 'No matches found — try a different name or enter manually.'
+              : null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          widget.draft.candidates  = [];
+          widget.draft.searchError = 'Search failed — use manual entry below.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          widget.draft.isSearching = false;
+        });
+      }
+      widget.onChanged();
+    }
   }
 
   void _confirmCandidate(dynamic candidate) {

@@ -37,20 +37,34 @@ class AuthService {
       final idToken = await user.getIdTokenResult(true);
       final role = idToken.claims?[AppConstants.claimRole] as String?;
 
-      if (role == AppConstants.roleAdmin || role == AppConstants.roleEmployee) {
+      if (role == AppConstants.roleAdmin ||
+          role == AppConstants.roleEmployee ||
+          role == AppConstants.roleOwner) {
         return AuthResult(success: true, role: role);
       } else {
         // Reject at the app level — sign out immediately.
         await _auth.signOut();
-        return AuthResult(
+        return const AuthResult(
           success: false,
-          error: 'Access denied: this account does not have employee or admin access.',
+          error: 'Access denied: this account does not have access to this portal.',
         );
       }
     } on FirebaseAuthException catch (e) {
       return AuthResult(success: false, error: _friendlyError(e));
     } catch (e) {
       return AuthResult(success: false, error: 'Unexpected error: $e');
+    }
+  }
+
+  /// Sends a password reset email to set or reset account password.
+  Future<String?> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+      return null; // success
+    } on FirebaseAuthException catch (e) {
+      return _friendlyError(e);
+    } catch (e) {
+      return 'Unexpected error: $e';
     }
   }
 
@@ -73,9 +87,12 @@ class AuthService {
   String _friendlyError(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
+        return 'This email is not registered in our system. Please check the email or contact admin.';
       case 'wrong-password':
       case 'invalid-credential':
         return 'Invalid email or password.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
       case 'user-disabled':
         return 'This account has been deactivated. Contact your admin.';
       case 'too-many-requests':

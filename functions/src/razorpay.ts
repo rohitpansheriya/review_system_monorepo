@@ -232,6 +232,10 @@ export const createOrder = onCall(
       throw new HttpsError("not-found", `Business '${businessId}' not found.`);
     }
 
+    const branchesSnap = await db.collection("businesses").doc(businessId).collection("branches").get();
+    const branchCount = Math.max(branchesSnap.size, 1);
+    const totalAmountPaise = branchCount * SETUP_FEE_PAISE;
+
     const razorpay = new Razorpay({
       key_id: razorpayKeyId.value(),
       key_secret: razorpayKeySecret.value(),
@@ -240,13 +244,14 @@ export const createOrder = onCall(
     let order: {id: string; amount: number; currency: string};
     try {
       order = await razorpay.orders.create({
-        amount: SETUP_FEE_PAISE,
+        amount: totalAmountPaise,
         currency: "INR",
         // receipt is used by the webhook to map payment → business.
         receipt: businessId,
         notes: {
           businessId,
           type: "setup_fee",
+          branchCount: String(branchCount),
         },
       }) as {id: string; amount: number; currency: string};
     } catch (err) {
@@ -520,6 +525,7 @@ async function handleSuccessfulPayment(
   }
 
   let businessId: string | undefined;
+  let branchId: string | undefined;
   let amountPaise: number;
 
   if (eventName === "payment.captured") {
@@ -541,6 +547,7 @@ async function handleSuccessfulPayment(
       paymentEntity["description"] as string | undefined;
     const notesId = notes?.["businessId"] as string | undefined;
     businessId = descId ?? notesId;
+    branchId = notes?.["branchId"] as string | undefined;
 
     // If still no businessId from notes, try fetching the order.
     if (!businessId) {
@@ -564,6 +571,9 @@ async function handleSuccessfulPayment(
         };
         businessId =
           orderData.receipt ?? orderData.notes?.["businessId"];
+        if (!branchId) {
+          branchId = orderData.notes?.["branchId"];
+        }
       } catch (err) {
         logger.error(
           "handleSuccessfulPayment: failed to fetch order",
@@ -585,6 +595,7 @@ async function handleSuccessfulPayment(
     const subNotes =
       subscriptionEntity?.["notes"] as Record<string, unknown> | undefined;
     businessId = subNotes?.["businessId"] as string | undefined;
+    branchId = subNotes?.["branchId"] as string | undefined;
     amountPaise = RENEWAL_FEE_PAISE;
   }
 
@@ -606,6 +617,7 @@ async function handleSuccessfulPayment(
   }
 
   const bizData = bizSnap.data() as {
+    brand_name?: string;
     enrolled_by?: string;
     subscription_status?: string;
     renewal_date?: Timestamp;
@@ -641,27 +653,26 @@ async function handleSuccessfulPayment(
 
   // 2. Increment employee counters — ONLY on first activation (draft → active).
   //    Renewal payments skip this to avoid double-counting.
-  if (isPendingDraft && bizData.enrolled_by) {
-    const empRef = db.collection("employees").doc(bizData.enrolled_by);
-    batch.update(empRef, {
-      total_enrollments: FieldValue.increment(1),
-      this_month_enrollments: FieldValue.increment(1),
-    });
-    logger.info("handleSuccessfulPayment: employee counters incremented", {
-      employeeId: bizData.enrolled_by, businessId,
-    });
+  if (isPendingDraft && bizData.enrolled_by && bizData.enrolled_by !== "admin") {
+    const empRef = db.collection("employees").doc(bizData.enrolled_by as string);
+    const empSnap = await empRef.get();
+    if (empSnap.exists) {
+      batch.update(empRef, {
+        total_enrollments: FieldValue.increment(1),
+        this_month_enrollments: FieldValue.increment(1),
+      });
+      logger.info("handleSuccessfulPayment: employee counters incremented", {
+        employeeId: bizData.enrolled_by,
+        businessId,
+      });
+    }
   }
-
-  // NOTE: commission_records creation REMOVED.
-  // Employee commissions are now handled by the onBusinessActivated trigger
-  // in commissions.ts, which fires when subscription_status → 'active'.
-  // This keeps payment tracking (owner→Appnexa) separate from commission
-  // tracking (Appnexa→employee).
 
   await batch.commit();
 
   logger.info("handleSuccessfulPayment: business activated", {
     businessId,
+    branchId,
     wasDraft: isPendingDraft,
     newRenewalDate: newRenewalDate.toISOString(),
     eventName,
@@ -687,71 +698,90 @@ async function handleSuccessfulPayment(
     }
   }
 
-  // 4. Generate QR PNGs for every branch (doc 09).
-  //    Both standee QR and plain printable QR are generated per branch.
-  //    Each branch is processed independently — one failure does NOT
-  //    block the others. Activation is already committed above.
-  try {
-    const branchesSnap = await bizRef.collection("branches").get();
-    logger.info("handleSuccessfulPayment: generating QR for branches", {
-      businessId, branchCount: branchesSnap.size,
-    });
-    for (const branchDoc of branchesSnap.docs) {
-      // Change 2: Set standee_status to "not_ordered" on activation.
-      // This is the first write; standee_status_updated_at will be set
-      // on subsequent employee updates via the panel.
+  // 4. Generate QR PNGs for branches.
+  if (branchId) {
+    const branchRef = bizRef.collection("branches").doc(branchId);
+    const branchSnap = await branchRef.get();
+    if (branchSnap.exists) {
       try {
-        await branchDoc.ref.update({
+        await branchRef.update({
+          subscription_status: "active",
+          payment_mode: "online",
+          activated_at: Timestamp.now(),
           standee_status: STANDEE_STATUS_DEFAULT,
           standee_status_updated_at: Timestamp.now(),
         });
-        logger.info("handleSuccessfulPayment: standee_status initialized", {
-          businessId, branchId: branchDoc.id,
-        });
-      } catch (standeeErr) {
-        logger.error("handleSuccessfulPayment: standee_status init failed", {
-          businessId, branchId: branchDoc.id, err: standeeErr,
-        });
+      } catch (e) {
+        logger.warn("handleSuccessfulPayment: failed updating branch status", {businessId, branchId, error: e});
       }
-
-      // Standee QR (branded, print-ready, 4×6 — doc 09 pipeline).
       try {
-        const result = await buildQrForBranch(
-          businessId,
-          branchDoc.id,
-          branchDoc.ref
-        );
-        logger.info("handleSuccessfulPayment: standee QR generated", {
-          businessId, branchId: branchDoc.id, qrPath: result.qrStoragePath,
-        });
-      } catch (branchErr) {
-        // Per-branch failure is non-fatal.
-        logger.error("handleSuccessfulPayment: standee QR generation failed for branch", {
-          businessId, branchId: branchDoc.id, err: branchErr,
-        });
-      }
-
-      // Change 1: Plain printable QR (instant digital deliverable).
-      try {
-        const plainResult = await buildPlainQrForBranch(
-          businessId,
-          branchDoc.id,
-          branchDoc.ref
-        );
-        logger.info("handleSuccessfulPayment: plain QR generated", {
-          businessId, branchId: branchDoc.id, path: plainResult.plainQrStoragePath,
-        });
-      } catch (plainErr) {
-        logger.error("handleSuccessfulPayment: plain QR generation failed for branch", {
-          businessId, branchId: branchDoc.id, err: plainErr,
-        });
+        await buildQrForBranch(businessId, branchId, branchRef);
+        await buildPlainQrForBranch(businessId, branchId, branchRef);
+      } catch (qrErr) {
+        logger.error("handleSuccessfulPayment: branch QR failed", {businessId, branchId, qrErr});
       }
     }
-  } catch (err) {
-    // If reading the branches collection itself fails, log and continue.
-    logger.error("handleSuccessfulPayment: failed to read branches for QR generation", {
-      businessId, err,
-    });
+  } else {
+    try {
+      const branchesSnap = await bizRef.collection("branches").get();
+      logger.info("handleSuccessfulPayment: activating branches and generating QR", {
+        businessId, branchCount: branchesSnap.size,
+      });
+      for (const branchDoc of branchesSnap.docs) {
+        try {
+          await branchDoc.ref.update({
+            subscription_status: "active",
+            payment_mode: "online",
+            activated_at: Timestamp.now(),
+            standee_status: STANDEE_STATUS_DEFAULT,
+            standee_status_updated_at: Timestamp.now(),
+          });
+          logger.info("handleSuccessfulPayment: branch activated & standee initialized", {
+            businessId, branchId: branchDoc.id,
+          });
+        } catch (standeeErr) {
+          logger.error("handleSuccessfulPayment: branch activation update failed", {
+            businessId, branchId: branchDoc.id, err: standeeErr,
+          });
+        }
+
+        // Standee QR (branded, print-ready, 4×6 — doc 09 pipeline).
+        try {
+          const result = await buildQrForBranch(
+            businessId,
+            branchDoc.id,
+            branchDoc.ref
+          );
+          logger.info("handleSuccessfulPayment: standee QR generated", {
+            businessId, branchId: branchDoc.id, qrPath: result.qrStoragePath,
+          });
+        } catch (branchErr) {
+          logger.error("handleSuccessfulPayment: standee QR generation failed for branch", {
+            businessId, branchId: branchDoc.id, err: branchErr,
+          });
+        }
+
+        // Change 1: Plain printable QR (instant digital deliverable).
+        try {
+          const plainResult = await buildPlainQrForBranch(
+            businessId,
+            branchDoc.id,
+            branchDoc.ref
+          );
+          logger.info("handleSuccessfulPayment: plain QR generated", {
+            businessId, branchId: branchDoc.id, path: plainResult.plainQrStoragePath,
+          });
+        } catch (plainErr) {
+          logger.error("handleSuccessfulPayment: plain QR generation failed for branch", {
+            businessId, branchId: branchDoc.id, err: plainErr,
+          });
+        }
+      }
+    } catch (err) {
+      logger.error("handleSuccessfulPayment: failed to read branches for QR generation", {
+        businessId, err,
+      });
+    }
   }
 }
 
@@ -1075,6 +1105,10 @@ export const resendPaymentLink = onCall(
     }
 
     // ── Create Razorpay Payment Link ─────────────────────────────────────────
+    const branchesSnap = await bizRef.collection("branches").get();
+    const branchCount = Math.max(branchesSnap.size, 1);
+    const totalAmountPaise = branchCount * SETUP_FEE_PAISE;
+
     const razorpay = new Razorpay({
       key_id: razorpayKeyId.value(),
       key_secret: razorpayKeySecret.value(),
@@ -1082,26 +1116,22 @@ export const resendPaymentLink = onCall(
 
     let paymentLink: {id: string; short_url: string};
     try {
-      // razorpay.paymentLink.create() — Razorpay Payment Links API.
-      // Returns a short_url (e.g. https://rzp.io/l/xxx) suitable for
-      // WhatsApp sharing and email embedding.
       paymentLink = await (razorpay as unknown as {
         paymentLink: {
           create: (opts: Record<string, unknown>) => Promise<{id: string; short_url: string}>;
         };
       }).paymentLink.create({
-        amount: SETUP_FEE_PAISE,
+        amount: totalAmountPaise,
         currency: "INR",
-        description: `Enrollment setup fee — ${brandName}`,
-        // IMPORTANT: notes.businessId is read by the webhook (payment.captured)
-        // to map the payment back to the correct business document.
+        description: branchCount > 1 ?
+          `Enrollment setup fee (${branchCount} locations) — ${brandName}` :
+          `Enrollment setup fee — ${brandName}`,
         notes: {
           businessId,
           type: "setup_fee",
+          branchCount: String(branchCount),
         },
-        // No auto-send — we send our own email below.
         notify: {sms: false, email: false},
-        // No expiry — the draft cleanup job handles old abandoned drafts.
         callback_method: "get",
       });
     } catch (err) {
@@ -1146,6 +1176,196 @@ export const resendPaymentLink = onCall(
       shortUrl: paymentLink.short_url,
       callerUid: request.auth?.uid,
     });
+
+    return {
+      shortUrl: paymentLink.short_url,
+      paymentLinkId: paymentLink.id,
+    };
+  }
+);
+
+/**
+ * Creates a Razorpay order for the ₹1999 one-time setup fee for a specific branch.
+ *
+ * Input:  { businessId: string, branchId: string }
+ * Output: { orderId: string, amount: number, currency: string, keyId: string }
+ */
+export const createBranchOrder = onCall(
+  {
+    secrets: [razorpayKeyId, razorpayKeySecret],
+    maxInstances: 10,
+    region: "asia-south1",
+  },
+  async (request) => {
+    requireAuth(request.auth);
+
+    const {businessId, branchId} = request.data as {
+      businessId?: unknown;
+      branchId?: unknown;
+    };
+    if (typeof businessId !== "string" || businessId.trim().length === 0 ||
+        typeof branchId !== "string" || branchId.trim().length === 0) {
+      throw new HttpsError(
+        "invalid-argument",
+        "`businessId` and `branchId` must be non-empty strings."
+      );
+    }
+
+    const db = admin.firestore();
+    const branchRef = db
+      .collection("businesses")
+      .doc(businessId)
+      .collection("branches")
+      .doc(branchId);
+    const branchSnap = await branchRef.get();
+    if (!branchSnap.exists) {
+      throw new HttpsError("not-found", `Branch '${branchId}' not found.`);
+    }
+
+    const razorpay = new Razorpay({
+      key_id: razorpayKeyId.value(),
+      key_secret: razorpayKeySecret.value(),
+    });
+
+    let order: {id: string; amount: number; currency: string};
+    try {
+      order = await razorpay.orders.create({
+        amount: SETUP_FEE_PAISE,
+        currency: "INR",
+        receipt: `${businessId}_${branchId}`,
+        notes: {
+          businessId,
+          branchId,
+          type: "branch_setup_fee",
+        },
+      }) as {id: string; amount: number; currency: string};
+    } catch (err) {
+      logger.error("Razorpay orders.create for branch failed", {err, businessId, branchId});
+      throw new HttpsError(
+        "internal",
+        "Failed to create branch payment order. Please try again."
+      );
+    }
+
+    logger.info("createBranchOrder: order created", {
+      orderId: order.id,
+      businessId,
+      branchId,
+      callerUid: request.auth?.uid,
+    });
+
+    return {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: razorpayKeyId.value(),
+    };
+  }
+);
+
+/**
+ * Creates a Razorpay Payment Link for a pending_payment branch (₹1999)
+ * and returns the short_url.
+ */
+export const resendBranchPaymentLink = onCall(
+  {
+    secrets: [razorpayKeyId, razorpayKeySecret],
+    maxInstances: 10,
+    region: "asia-south1",
+  },
+  async (request) => {
+    requireAuth(request.auth);
+
+    const {businessId, branchId} = request.data as {
+      businessId?: unknown;
+      branchId?: unknown;
+    };
+    if (typeof businessId !== "string" || businessId.trim().length === 0 ||
+        typeof branchId !== "string" || branchId.trim().length === 0) {
+      throw new HttpsError(
+        "invalid-argument",
+        "`businessId` and `branchId` must be non-empty strings."
+      );
+    }
+
+    const db = admin.firestore();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const branchRef = bizRef.collection("branches").doc(branchId);
+
+    const [bizSnap, branchSnap] = await Promise.all([bizRef.get(), branchRef.get()]);
+
+    if (!bizSnap.exists || !branchSnap.exists) {
+      throw new HttpsError("not-found", "Business or Branch not found.");
+    }
+
+    const bizData = bizSnap.data() as Record<string, unknown>;
+    const branchData = branchSnap.data() as Record<string, unknown>;
+
+    const ownerEmail = bizData["owner_email"] as string | undefined;
+    const ownerName = (bizData["owner_name"] as string | undefined) ?? "Business Owner";
+    const brandName = (bizData["brand_name"] as string | undefined) ?? "Business";
+    const branchName = (branchData["branch_name"] as string | undefined) ?? "Branch";
+
+    if (!ownerEmail) {
+      throw new HttpsError(
+        "not-found",
+        "Business owner_email is not set. Cannot send payment link."
+      );
+    }
+
+    const razorpay = new Razorpay({
+      key_id: razorpayKeyId.value(),
+      key_secret: razorpayKeySecret.value(),
+    });
+
+    let paymentLink: {id: string; short_url: string};
+    try {
+      paymentLink = await (razorpay as unknown as {
+        paymentLink: {
+          create: (opts: Record<string, unknown>) => Promise<{id: string; short_url: string}>;
+        };
+      }).paymentLink.create({
+        amount: SETUP_FEE_PAISE,
+        currency: "INR",
+        description: `Setup fee for ${brandName} (${branchName})`,
+        notes: {
+          businessId,
+          branchId,
+          type: "branch_setup_fee",
+        },
+        customer: {
+          name: ownerName,
+          email: ownerEmail,
+        },
+        notify: {
+          sms: false,
+          email: true,
+        },
+        reminder_enable: true,
+      });
+    } catch (err) {
+      logger.error("resendBranchPaymentLink: Razorpay paymentLink.create failed", {
+        businessId, branchId, err,
+      });
+      throw new HttpsError(
+        "internal",
+        "Failed to generate payment link. Please try again."
+      );
+    }
+
+    try {
+      await sendPaymentLinkEmail({
+        ownerEmail,
+        ownerName,
+        brandName: `${brandName} (${branchName})`,
+        paymentLinkUrl: paymentLink.short_url,
+        businessId,
+      });
+    } catch (emailErr) {
+      logger.error("resendBranchPaymentLink: email send failed (non-fatal)", {
+        businessId, branchId, err: emailErr,
+      });
+    }
 
     return {
       shortUrl: paymentLink.short_url,

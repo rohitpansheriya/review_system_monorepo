@@ -15,7 +15,10 @@
 
 // ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
+import 'dart:js' as js;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -23,10 +26,13 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../models/branch_draft.dart';
 import '../../models/branch_model.dart';
 import '../../models/business_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/share_business_qr.dart';
+import '../enroll/branch_form_widget.dart';
 
 class BusinessDetailScreen extends StatefulWidget {
   final BusinessModel business;
@@ -37,6 +43,7 @@ class BusinessDetailScreen extends StatefulWidget {
 }
 
 class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
+  late BusinessModel _business;
   List<BranchModel> _branches = [];
   bool _loading = true;
   String? _error;
@@ -46,14 +53,30 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _business = widget.business;
     _loadBranches();
+  }
+
+  Future<void> _refreshBusiness() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection(AppConstants.colBusinesses)
+          .doc(_business.id)
+          .get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _business = BusinessModel.fromDoc(doc);
+        });
+        _loadBranches();
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadBranches() async {
     try {
       final svc = context.read<FirestoreService>();
-      final branches = await svc.getBranches(widget.business.id);
-      final empName = await svc.getEmployeeName(widget.business.enrolledBy);
+      final branches = await svc.getBranches(_business.id);
+      final empName = await svc.getEmployeeName(_business.enrolledBy);
       if (mounted) {
         setState(() {
           _branches = branches;
@@ -71,9 +94,197 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
     }
   }
 
+  void _showAddBranchDialog(BuildContext context) {
+    final draft = BranchDraft();
+    bool showErrors = false;
+    bool saving = false;
+    String? saveError;
+    final auth = context.read<AppAuthProvider>();
+    final enrolledBy = auth.isAdmin ? 'admin' : (auth.uid ?? '');
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: Text('Add New Branch to "${_business.brandName}"'),
+          content: SizedBox(
+            width: 580,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  BranchFormWidget(
+                    branchIndex: _branches.length,
+                    draft: draft,
+                    showBranchName: true,
+                    showError: showErrors,
+                    onChanged: () => setDlgState(() {}),
+                  ),
+                  if (saveError != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        saveError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      showErrors = true;
+                      if (draft.name.trim().isEmpty) {
+                        setDlgState(() => saveError = 'Branch name is required.');
+                        return;
+                      }
+                      if (draft.address.trim().isEmpty) {
+                        setDlgState(() => saveError = 'Address is required.');
+                        return;
+                      }
+                      if (draft.whatsappNumber.trim().isEmpty) {
+                        setDlgState(() => saveError = 'WhatsApp number is required.');
+                        return;
+                      }
+                      if (draft.whatsappMonitoredBy.trim().isEmpty) {
+                        setDlgState(() => saveError = '"Monitored by" is required.');
+                        return;
+                      }
+                      if (!draft.starRoutingComplete) {
+                        setDlgState(() => saveError = 'Please set routing for all 5 star ratings.');
+                        return;
+                      }
+
+                      setDlgState(() {
+                        saving = true;
+                        saveError = null;
+                      });
+
+                      try {
+                        final svc = context.read<FirestoreService>();
+                        if (draft.placeId != null && draft.placeId!.isNotEmpty) {
+                          final exists = await svc.placeIdExists(draft.placeId!);
+                          if (exists) {
+                            setDlgState(() {
+                              saveError = 'Place ID "${draft.placeId}" is already registered.';
+                              saving = false;
+                            });
+                            return;
+                          }
+                        }
+
+                        final newBranchId = await svc.addBranchToBusiness(
+                          _business.id,
+                          draft,
+                          enrolledBy: enrolledBy,
+                        );
+
+                        if (dialogCtx.mounted) {
+                          Navigator.of(dialogCtx).pop();
+                        }
+                        if (mounted) {
+                          _loadBranches();
+                          // Redirect directly to the dedicated Branch Payment Screen!
+                          // ignore: use_build_context_synchronously
+                          context.push('/enroll/payment/${_business.id}/$newBranchId');
+                        }
+                      } catch (e) {
+                        setDlgState(() {
+                          saveError = 'Error: $e';
+                          saving = false;
+                        });
+                      }
+                    },
+              icon: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.arrow_forward, size: 16),
+              label: Text(saving ? 'Saving…' : 'Continue to Payment'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRevertBusinessDialog(BuildContext context) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final errorColor = Theme.of(context).colorScheme.error;
+    final svc = context.read<FirestoreService>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Revert Business Activation?'),
+        content: const Text(
+          'This will revert this business and ALL its branches back to "Payment Pending". '
+          'Any pending employee commission records for this business will also be cancelled.\n\n'
+          'Are you sure you want to proceed?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            child: const Text('Revert to Pending'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await svc.adminRevertBusinessActivation(businessId: _business.id);
+        if (mounted) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('✅ Business activation reverted to Payment Pending.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          _refreshBusiness();
+          _loadBranches();
+        }
+      } catch (e) {
+        if (mounted) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Failed to revert business: $e'),
+              backgroundColor: errorColor,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final biz    = widget.business;
+    final biz    = _business;
     final scheme = Theme.of(context).colorScheme;
     final status = biz.subscriptionStatus;
     final isDue  = biz.isDueSoon(30);
@@ -84,11 +295,20 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
         ? DateFormat('d MMM yyyy').format(biz.renewalDate!)
         : '—';
     final isPendingPayment = status == AppConstants.statusPendingPayment;
+    final isAdmin = context.watch<AppAuthProvider>().isAdmin;
 
     return Scaffold(
       appBar: AppBar(
         title:       Text(biz.brandName),
         centerTitle: false,
+        actions: [
+          if (isAdmin && !isPendingPayment)
+            TextButton.icon(
+              onPressed: () => _showRevertBusinessDialog(context),
+              icon: const Icon(Icons.undo, size: 16, color: Colors.orange),
+              label: const Text('Revert Activation', style: TextStyle(color: Colors.orange)),
+            ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/business/${biz.id}/edit', extra: biz),
@@ -100,7 +320,11 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
         children: [
           // ── Change 3: Pending payment banner ─────────────────────────
           if (isPendingPayment)
-            _PendingPaymentPanel(business: biz),
+            _PendingPaymentPanel(
+              business: biz,
+              branchCount: _branches.length,
+              onActivated: _refreshBusiness,
+            ),
 
           if (isPendingPayment) const SizedBox(height: AppSpacing.md),
 
@@ -169,13 +393,23 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
 
           const SizedBox(height: AppSpacing.lg - 4),
 
-          // ── Branches ─────────────────────────────────────────────────
-          Text(
-            'Branches (${_branches.length})',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
+          // ── Branches Header with Add Branch Button ─────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Branches (${_branches.length})',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () => _showAddBranchDialog(context),
+                icon: const Icon(Icons.add_business_outlined, size: 18),
+                label: const Text('Add Branch'),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.sm + 4),
 
@@ -213,10 +447,11 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
               (b) => Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
                 child: _BranchCard(
-                  branch:             b,
-                  businessId:         biz.id,
-                  ownerPhone:         biz.ownerPhone,
-                  showStandeeControls: !isPendingPayment,
+                  branch:              b,
+                  businessId:          biz.id,
+                  ownerPhone:          biz.ownerPhone,
+                  showStandeeControls: !isPendingPayment && b.isActive,
+                  onBranchUpdated:     _loadBranches,
                 ),
               ),
             ),
@@ -232,7 +467,13 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
 
 class _PendingPaymentPanel extends StatefulWidget {
   final BusinessModel business;
-  const _PendingPaymentPanel({required this.business});
+  final int branchCount;
+  final VoidCallback? onActivated;
+  const _PendingPaymentPanel({
+    required this.business,
+    this.branchCount = 1,
+    this.onActivated,
+  });
 
   @override
   State<_PendingPaymentPanel> createState() => _PendingPaymentPanelState();
@@ -240,8 +481,46 @@ class _PendingPaymentPanel extends StatefulWidget {
 
 class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
   bool    _sending = false;
+  bool    _cashActivating = false;
   String? _shortUrl;
   String? _error;
+
+  int get totalFee => (widget.branchCount > 0 ? widget.branchCount : 1) * 1999;
+
+  Future<void> _adminCashActivate() async {
+    setState(() {
+      _cashActivating = true;
+      _error = null;
+    });
+    try {
+      final auth = context.read<AppAuthProvider>();
+      if (!auth.isAdmin) {
+        throw Exception('Only admins can activate businesses with cash.');
+      }
+      final svc = context.read<FirestoreService>();
+      await svc.adminCashActivate(
+        businessId: widget.business.id,
+        adminUid: auth.uid ?? 'admin',
+      );
+      if (mounted) {
+        setState(() => _cashActivating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ "${widget.business.brandName}" activated via cash payment!'),
+            backgroundColor: AppColors.activeFg,
+          ),
+        );
+        widget.onActivated?.call();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _cashActivating = false;
+        });
+      }
+    }
+  }
 
   Future<void> _resend() async {
     setState(() {
@@ -287,7 +566,18 @@ class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final auth   = context.watch<AppAuthProvider>();
     final scheme = Theme.of(context).colorScheme;
+    final isAdmin = auth.isAdmin;
+
+    final bannerDesc = isAdmin
+        ? (widget.branchCount > 1
+            ? 'This business has ${widget.branchCount} enrolled locations awaiting total setup fee of ₹$totalFee (₹1,999 × ${widget.branchCount}). As an admin, you can activate all branches with cash or send an online payment link.'
+            : 'This business is enrolled but the setup fee (₹1,999) has not yet been paid. As an admin, you can activate it directly with cash or send an online payment link.')
+        : (widget.branchCount > 1
+            ? 'This business has ${widget.branchCount} enrolled locations awaiting setup payment of ₹$totalFee. Use the button below to generate a fresh payment link.'
+            : 'This business is enrolled but the owner has not yet paid the ₹1,999 setup fee. Use the button below to generate a fresh payment link.');
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -308,7 +598,9 @@ class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  'Awaiting Payment',
+                  widget.branchCount > 1
+                      ? 'Awaiting Payment (${widget.branchCount} Locations — ₹$totalFee)'
+                      : 'Awaiting Payment (₹1,999)',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color:      AppColors.pendingFg,
@@ -320,26 +612,62 @@ class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'This business is enrolled but the owner has not yet paid the '
-            '₹1999 setup fee. Use the button below to generate a fresh '
-            'payment link and email it to ${widget.business.ownerEmail ?? "the owner"}.',
+            bannerDesc,
             style: TextStyle(fontSize: 13, color: AppColors.pendingFg),
           ),
           const SizedBox(height: AppSpacing.sm + 4),
 
-          // Action button
-          ElevatedButton.icon(
-            onPressed: _sending ? null : _resend,
-            icon: _sending
-                ? SizedBox(
-                    width: 16, height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: scheme.onPrimary,
-                    ),
-                  )
-                : const Icon(Icons.send_outlined, size: 16),
-            label: Text(_sending ? 'Sending…' : 'Resend payment link'),
+          // Action buttons
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              // Admin-only Cash Activate
+              if (isAdmin)
+                FilledButton.icon(
+                  onPressed: (_sending || _cashActivating) ? null : _adminCashActivate,
+                  icon: _cashActivating
+                      ? SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: scheme.onTertiary,
+                          ),
+                        )
+                      : const Icon(Icons.local_atm_outlined, size: 16),
+                  label: Text(_cashActivating
+                      ? 'Activating…'
+                      : (widget.branchCount > 1
+                          ? 'Cash: Activate ${widget.branchCount} Branches (₹$totalFee)'
+                          : 'Cash Payment — Activate Now (₹1,999)')),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: scheme.tertiary,
+                    foregroundColor: scheme.onTertiary,
+                  ),
+                ),
+
+              // Online: Resend payment link
+              ElevatedButton.icon(
+                onPressed: (_sending || _cashActivating) ? null : _resend,
+                icon: _sending
+                    ? SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: scheme.onPrimary,
+                        ),
+                      )
+                    : const Icon(Icons.send_outlined, size: 16),
+                label: Text(_sending ? 'Sending…' : 'Resend payment link'),
+              ),
+
+              // Open Payment Page
+              OutlinedButton.icon(
+                onPressed: () => context.push('/enroll/payment/${widget.business.id}'),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Open Payment Page'),
+              ),
+            ],
           ),
 
           // Error
@@ -429,12 +757,14 @@ class _BranchCard extends StatefulWidget {
   final String      businessId;
   final String?     ownerPhone;
   final bool        showStandeeControls;
+  final VoidCallback? onBranchUpdated;
 
   const _BranchCard({
     required this.branch,
     required this.businessId,
     this.ownerPhone,
     this.showStandeeControls = true,
+    this.onBranchUpdated,
   });
 
   @override
@@ -503,6 +833,62 @@ class _BranchCardState extends State<_BranchCard> {
     }
   }
 
+  Future<void> _showRevertBranchDialog(BuildContext context) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final errorColor = Theme.of(context).colorScheme.error;
+    final svc = context.read<FirestoreService>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Revert Branch "${widget.branch.branchName}"?'),
+        content: const Text(
+          'This will revert this branch back to "Payment Pending". '
+          'Any pending employee commission record for this branch will also be cancelled.\n\n'
+          'Are you sure you want to proceed?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            child: const Text('Revert to Pending'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await svc.adminRevertBranchActivation(
+          businessId: widget.businessId,
+          branchId: widget.branch.id,
+        );
+        if (mounted) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('✅ Branch "${widget.branch.branchName}" reverted to Payment Pending.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          widget.onBranchUpdated?.call();
+        }
+      } catch (e) {
+        if (mounted) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Failed to revert branch: $e'),
+              backgroundColor: errorColor,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final branch = widget.branch;
@@ -528,11 +914,75 @@ class _BranchCardState extends State<_BranchCard> {
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
+              if (branch.isPendingPayment)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.pendingBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.pendingFg.withValues(alpha: 0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.hourglass_empty, size: 12, color: AppColors.pendingFg),
+                      SizedBox(width: 4),
+                      Text(
+                        'Payment Pending (₹1,999)',
+                        style: TextStyle(
+                          color: AppColors.pendingFg,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.activeBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.activeFg.withValues(alpha: 0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 12, color: AppColors.activeFg),
+                      SizedBox(width: 4),
+                      Text(
+                        'Active',
+                        style: TextStyle(
+                          color: AppColors.activeFg,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (context.watch<AppAuthProvider>().isAdmin && branch.isActive) ...[
+                const SizedBox(width: 6),
+                IconButton(
+                  onPressed: () => _showRevertBranchDialog(context),
+                  icon: const Icon(Icons.undo, size: 16, color: Colors.orange),
+                  tooltip: 'Revert branch activation to Payment Pending',
+                ),
+              ],
             ],
           ),
           const SizedBox(height: AppSpacing.sm + 4),
           const Divider(height: 1),
           const SizedBox(height: AppSpacing.sm + 4),
+
+          // ── Branch Payment Panel (when pending payment) ───────────────
+          if (branch.isPendingPayment)
+            _BranchPaymentPanel(
+              branch: branch,
+              businessId: widget.businessId,
+              onActivated: widget.onBranchUpdated ?? () {},
+            ),
 
           _InfoRow(label: 'Address',  value: branch.address),
           _InfoRow(label: 'WhatsApp', value: branch.whatsappNumber),
@@ -550,7 +1000,7 @@ class _BranchCardState extends State<_BranchCard> {
 
           const SizedBox(height: AppSpacing.md),
 
-          // ── Change 1: Plain printable QR download ─────────────────────
+          // ── Change 1: Plain printable QR download (active branches) ───
           _PlainQrRow(
             plainQrStoragePath: branch.plainQrStoragePath,
             qrLoading:          _qrLoading,
@@ -587,6 +1037,263 @@ class _BranchCardState extends State<_BranchCard> {
           ShareBusinessQr(
             branch: branch,
             ownerPhone: widget.ownerPhone,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Branch Payment Panel ─────────────────────────────────────────────────────
+
+class _BranchPaymentPanel extends StatefulWidget {
+  final BranchModel branch;
+  final String businessId;
+  final VoidCallback onActivated;
+
+  const _BranchPaymentPanel({
+    required this.branch,
+    required this.businessId,
+    required this.onActivated,
+  });
+
+  @override
+  State<_BranchPaymentPanel> createState() => _BranchPaymentPanelState();
+}
+
+class _BranchPaymentPanelState extends State<_BranchPaymentPanel> {
+  bool _activatingCash = false;
+  bool _sendingLink = false;
+  bool _payingOnline = false;
+  String? _shortUrl;
+  String? _error;
+
+  Future<void> _adminCashActivate() async {
+    setState(() {
+      _activatingCash = true;
+      _error = null;
+    });
+    try {
+      final svc = context.read<FirestoreService>();
+      await svc.adminCashActivateBranch(
+        businessId: widget.businessId,
+        branchId: widget.branch.id,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Branch activated via cash payment! QR code generation initiated.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        widget.onActivated();
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Cash activation failed: $e');
+    } finally {
+      if (mounted) setState(() => _activatingCash = false);
+    }
+  }
+
+  Future<void> _resendPaymentLink() async {
+    setState(() {
+      _sendingLink = true;
+      _error = null;
+    });
+    try {
+      final svc = context.read<FirestoreService>();
+      final res = await svc.resendBranchPaymentLink(
+        businessId: widget.businessId,
+        branchId: widget.branch.id,
+      );
+      final url = res['shortUrl'] as String?;
+      if (mounted) {
+        setState(() => _shortUrl = url);
+        if (url != null) {
+          await Clipboard.setData(ClipboardData(text: url));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Payment link created and copied to clipboard!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Failed generating link: $e');
+    } finally {
+      if (mounted) setState(() => _sendingLink = false);
+    }
+  }
+
+  Future<void> _payOnlineRazorpay() async {
+    setState(() {
+      _payingOnline = true;
+      _error = null;
+    });
+
+    if (!js.context.hasProperty('Razorpay')) {
+      setState(() {
+        _payingOnline = false;
+        _error = 'Razorpay script not loaded.';
+      });
+      return;
+    }
+
+    try {
+      final empId = context.read<AppAuthProvider>().uid ?? '';
+      final handlerSuccess = js.allowInterop((dynamic response) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Payment received! Branch activation in progress.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        widget.onActivated();
+      });
+
+      final handlerDismiss = js.allowInterop(() {
+        if (!mounted) return;
+        setState(() {
+          _payingOnline = false;
+          _error = 'Payment cancelled.';
+        });
+      });
+
+      final options = js.JsObject.jsify({
+        'key': 'rzp_test_PLACEHOLDER',
+        'amount': 199900,
+        'currency': 'INR',
+        'name': 'Review System',
+        'description': 'Branch setup fee — ${widget.branch.branchName}',
+        'notes': {
+          'business_id': widget.businessId,
+          'branch_id': widget.branch.id,
+          'type': 'branch_setup_fee',
+          'enrolled_by': empId,
+        },
+        'handler': handlerSuccess,
+        'modal': {'ondismiss': handlerDismiss},
+        'theme': {'color': '#3B4DB8'},
+      });
+
+      final rzp = js.JsObject(js.context['Razorpay'] as js.JsFunction, [options]);
+      rzp.callMethod('open');
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _payingOnline = false;
+          _error = 'Failed opening Razorpay: $e';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = context.watch<AppAuthProvider>().isAdmin;
+    final theme = Theme.of(context);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.pendingBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.pendingFg.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.info_outline, color: AppColors.pendingFg, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Branch Payment Required (₹1,999 setup fee)',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.pendingFg,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'This branch is inactive. Review page, QR codes, and acrylic standees will activate once payment of ₹1,999 is completed.',
+            style: TextStyle(fontSize: 12, color: Colors.black87),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+            ),
+          ],
+          if (_shortUrl != null) ...[
+            const SizedBox(height: 8),
+            SelectableText(
+              'Link: $_shortUrl',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (isAdmin)
+                FilledButton.icon(
+                  onPressed: (_activatingCash || _payingOnline || _sendingLink)
+                      ? null
+                      : _adminCashActivate,
+                  icon: _activatingCash
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.payments_outlined, size: 16),
+                  label: const Text('Cash: Activate (₹1,999)'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                  ),
+                ),
+              FilledButton.tonalIcon(
+                onPressed: (_activatingCash || _payingOnline || _sendingLink)
+                    ? null
+                    : _payOnlineRazorpay,
+                icon: _payingOnline
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.credit_card, size: 16),
+                label: const Text('Pay Online (₹1,999)'),
+              ),
+              OutlinedButton.icon(
+                onPressed: (_activatingCash || _payingOnline || _sendingLink)
+                    ? null
+                    : _resendPaymentLink,
+                icon: _sendingLink
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_outlined, size: 16),
+                label: const Text('Send Payment Link'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/enroll/payment/${widget.businessId}/${widget.branch.id}'),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Open Payment Page'),
+              ),
+            ],
           ),
         ],
       ),

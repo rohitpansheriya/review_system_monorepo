@@ -1,4 +1,4 @@
-// firestore/firestore.rules
+// firestore.rules
 // Production security rules for Review System.
 //
 // Authentication & Role model:
@@ -109,6 +109,7 @@ service cloud.firestore {
         // - Admin: full update.
         // - Employees: standee tracking fields & whatsapp_monitored_by + editable branch fields.
         // - Owners: star_routing_config & active_categories.
+        // - Public (review page): atomic stats_summary counter increments only.
         allow update: if isAdmin()
           || (
             isEmployee()
@@ -119,10 +120,45 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/businesses/$(bizId)).data.owner_auth_uid == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['star_routing_config', 'active_categories'])
+          )
+          || (
+            // Public scan counter increments from review page (unauthenticated)
+            request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['stats_summary'])
           );
 
         // DELETE: Allowed during draft deletion only.
         allow delete: if isAdmin() || (isEmployee() && get(/databases/$(database)/documents/businesses/$(bizId)).data.subscription_status == 'pending_payment');
+      }
+
+      // ─── businesses/{bizId}/scans/{scanId} ──────────────────────────────
+      // Per-business scan log subcollection. One small doc per customer scan.
+
+      match /scans/{scanId} {
+        // CREATE: Public (unauthenticated customer scan from review page).
+        // Strictly validated schema with capped string sizes.
+        allow create: if request.resource.data.keys().hasAll(['branch_id', 'timestamp'])
+          && request.resource.data.keys().hasOnly(['branch_id', 'star_rating', 'timestamp', 'session_token', 'action_taken'])
+          && request.resource.data.branch_id is string && request.resource.data.branch_id.size() <= 128
+          && (
+            !('session_token' in request.resource.data)
+            || (request.resource.data.session_token is string && request.resource.data.session_token.size() <= 128)
+          )
+          && (
+            !('star_rating' in request.resource.data)
+            || (request.resource.data.star_rating is int && request.resource.data.star_rating >= 1 && request.resource.data.star_rating <= 5)
+          )
+          && (
+            !('action_taken' in request.resource.data)
+            || (request.resource.data.action_taken is string && request.resource.data.action_taken.size() <= 64)
+          );
+
+        // READ: Admin reads all. Owner reads only their own business's scans.
+        allow read: if isAdmin()
+          || (isOwner() && get(/databases/$(database)/documents/businesses/$(bizId)).data.owner_auth_uid == request.auth.uid);
+
+        // Immutable — no updates or deletes.
+        allow update, delete: if false;
       }
     }
 
@@ -246,6 +282,16 @@ service cloud.firestore {
         );
 
       allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ─── subscription_override_logs/{logId} ──────────────────────────────
+    // Admin audit trail for subscription overrides and reverse activations.
+    // Immutable once created — corrections are new entries, never edits.
+
+    match /subscription_override_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
       allow update, delete: if false;
     }
 

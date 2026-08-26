@@ -11,6 +11,7 @@ class BusinessModel {
   final String enrolledByOriginal;
   final String currentlyManagedBy;
   final String subscriptionStatus;
+  final String paymentMode;
   final DateTime? renewalDate;
   final DateTime? gracePeriodEnds;
   final String? ownerAuthUid;
@@ -30,6 +31,7 @@ class BusinessModel {
     required this.enrolledByOriginal,
     required this.currentlyManagedBy,
     required this.subscriptionStatus,
+    this.paymentMode = 'pending',
     this.renewalDate,
     this.gracePeriodEnds,
     this.ownerAuthUid,
@@ -53,6 +55,7 @@ class BusinessModel {
       enrolledByOriginal:         d['enrolled_by_original']          as String? ?? '',
       currentlyManagedBy:         d['currently_managed_by']          as String? ?? '',
       subscriptionStatus:         d['subscription_status']           as String? ?? 'active',
+      paymentMode:                d['payment_mode']                  as String? ?? 'pending',
       renewalDate:                (d['renewal_date']    as Timestamp?)?.toDate(),
       gracePeriodEnds:            (d['grace_period_ends'] as Timestamp?)?.toDate(),
       ownerAuthUid:               d['owner_auth_uid']                as String?,
@@ -82,6 +85,7 @@ class BusinessModel {
     String?  ownerName,
     String?  ownerEmail,
     String?  ownerPhone,
+    String?  paymentMode,
     Map<String, bool>? activeCategories,
   }) => BusinessModel(
     id:                        id,
@@ -93,6 +97,7 @@ class BusinessModel {
     enrolledByOriginal:        enrolledByOriginal,
     currentlyManagedBy:        currentlyManagedBy,
     subscriptionStatus:        subscriptionStatus,
+    paymentMode:               paymentMode ?? this.paymentMode,
     renewalDate:               renewalDate,
     gracePeriodEnds:           gracePeriodEnds,
     ownerAuthUid:              ownerAuthUid,

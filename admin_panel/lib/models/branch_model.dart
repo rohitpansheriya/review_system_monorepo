@@ -18,6 +18,13 @@ class BranchModel {
   final DateTime? standeeStatusUpdatedAt;
   final String whatsappMonitoredBy;
 
+  // ── Branch-Level Payment & Lifecycle ──────────────────────────────────────
+  final String subscriptionStatus; // 'active' | 'pending_payment'
+  final String paymentMode;        // 'online' | 'cash' | 'pending'
+  final String? enrolledBy;
+  final DateTime? cashConfirmedAt;
+  final String? cashConfirmedByAdmin;
+
   // ── Pre-aggregated Stats Summary ───────────────────────────────────────────
   final int totalScans;
   final int googleReviewsOpened;
@@ -38,10 +45,18 @@ class BranchModel {
     this.standeeStatus = AppConstants.standeeNotOrdered,
     this.standeeStatusUpdatedAt,
     this.whatsappMonitoredBy = '',
+    this.subscriptionStatus = AppConstants.statusActive,
+    this.paymentMode = 'pending',
+    this.enrolledBy,
+    this.cashConfirmedAt,
+    this.cashConfirmedByAdmin,
     this.totalScans = 0,
     this.googleReviewsOpened = 0,
     this.starDistribution = const {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0},
   });
+
+  bool get isPendingPayment => subscriptionStatus == AppConstants.statusPendingPayment;
+  bool get isActive => subscriptionStatus == AppConstants.statusActive;
 
   factory BranchModel.fromDoc(DocumentSnapshot doc, {required String businessId}) {
     final d = doc.data() as Map<String, dynamic>;
@@ -73,6 +88,11 @@ class BranchModel {
                                   ?? AppConstants.standeeNotOrdered,
       standeeStatusUpdatedAt: (d['standee_status_updated_at'] as Timestamp?)?.toDate(),
       whatsappMonitoredBy:    d['whatsapp_monitored_by'] as String? ?? '',
+      subscriptionStatus:     d['subscription_status'] as String? ?? AppConstants.statusActive,
+      paymentMode:            d['payment_mode'] as String? ?? 'pending',
+      enrolledBy:             d['enrolled_by'] as String?,
+      cashConfirmedAt:        (d['cash_payment_confirmed_at'] as Timestamp?)?.toDate(),
+      cashConfirmedByAdmin:   d['cash_confirmed_by_admin'] as String?,
       totalScans:             (stats['total_scans'] as num? ?? 0).toInt(),
       googleReviewsOpened:    (stats['monthly_google_reviews'] as num? ?? stats['total_reviews_redirected'] as num? ?? 0).toInt(),
       starDistribution:       starsMap,
@@ -85,6 +105,8 @@ class BranchModel {
     String? whatsappNumber,
     Map<String, String>? starRoutingConfig,
     String? standeeStatus,
+    String? subscriptionStatus,
+    String? paymentMode,
   }) {
     return BranchModel(
       id: id,
@@ -101,6 +123,11 @@ class BranchModel {
       standeeStatus: standeeStatus ?? this.standeeStatus,
       standeeStatusUpdatedAt: standeeStatusUpdatedAt,
       whatsappMonitoredBy: whatsappMonitoredBy,
+      subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
+      paymentMode: paymentMode ?? this.paymentMode,
+      enrolledBy: enrolledBy,
+      cashConfirmedAt: cashConfirmedAt,
+      cashConfirmedByAdmin: cashConfirmedByAdmin,
       totalScans: totalScans,
       googleReviewsOpened: googleReviewsOpened,
       starDistribution: starDistribution,

@@ -8,35 +8,35 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Leave a Review</title>
 
-  <!-- Google Fonts: Roboto & Google Sans style -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
   <style>
-    /* ─── Google Maps / Google Review Design Tokens ─────────────────── */
+    /* ─── Design Tokens ─────────────────────────────────────────────── */
     :root {
-      --c-bg: #f8f9fa;
-      --c-surface: #ffffff;
-      --c-surface2: #f1f3f4;
-      --c-border: #dadce0;
-      --c-border-active: #1a73e8;
-      --c-text: #202124;
-      --c-text-muted: #5f6368;
-      --c-accent: #1a73e8;
-      --c-accent-glow: rgba(26, 115, 232, 0.15);
-      --c-star-off: #dadce0;
-      --c-star-on: #fbbc04;
-      --c-star-glow: rgba(251, 188, 4, 0.3);
-      --c-success: #1e8e3e;
-      --c-danger: #d93025;
+      --c-bg: #0e0e14;
+      --c-surface: #181824;
+      --c-surface2: #212132;
+      --c-border: rgba(255, 255, 255, 0.08);
+      --c-border-active: rgba(124, 108, 252, 0.45);
+      --c-text: #f3f3f8;
+      --c-text-muted: #8e8ea8;
+      --c-accent: #7c6cfc;
+      --c-accent-glow: rgba(124, 108, 252, 0.35);
+      --c-star-off: #2a2a3e;
+      --c-star-on: #ffb800;
+      --c-star-glow: rgba(255, 184, 0, 0.45);
+      --c-success: #10b981;
+      --c-danger: #ef4444;
       --c-whatsapp: #25d366;
-      --c-google: #1a73e8;
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --font: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-      --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --c-google: #4285f4;
+      --radius-sm: 10px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --font: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     /* ─── Reset ──────────────────────────────────────────────────────── */
@@ -71,7 +71,7 @@
       display: none;
       width: 100%;
       max-width: 480px;
-      animation: screenFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: screenFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     .screen.active {
@@ -83,7 +83,7 @@
     @keyframes screenFadeIn {
       from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(14px);
       }
       to {
         opacity: 1;
@@ -91,14 +91,14 @@
       }
     }
 
-    /* ─── Card (Google Material Card) ────────────────────────────────── */
+    /* ─── Card ───────────────────────────────────────────────────────── */
     .card {
       width: 100%;
       background: var(--c-surface);
       border: 1px solid var(--c-border);
       border-radius: var(--radius-lg);
-      padding: 22px 20px;
-      box-shadow: 0 1px 3px rgba(60, 64, 67, 0.08), 0 1px 2px rgba(60, 64, 67, 0.12);
+      padding: 24px 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
     }
 
     .thank-you-card {
@@ -118,15 +118,13 @@
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 20px 4px 12px;
+      padding: 24px 4px 12px;
     }
 
     .biz-logo-container {
       position: relative;
       width: 52px;
       height: 52px;
-      border-radius: var(--radius-md);
-      overflow: hidden;
       flex-shrink: 0;
     }
 
@@ -135,36 +133,27 @@
       height: 52px;
       border-radius: var(--radius-md);
       object-fit: cover;
-      border: 1px solid var(--c-border);
-      background: #ffffff;
-      display: none;
-      animation: logoFadeIn 0.35s ease both;
-    }
-
-    @keyframes logoFadeIn {
-      from {
-        opacity: 0;
-        transform: scale(0.96);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1);
-      }
+      border: 2px solid var(--c-border);
+      background: var(--c-surface2);
+      flex-shrink: 0;
+      transition: opacity 0.25s ease;
     }
 
     .biz-logo-placeholder {
       width: 52px;
       height: 52px;
       border-radius: var(--radius-md);
-      background: linear-gradient(135deg, #1a73e8, #1557d0);
+      background: linear-gradient(135deg, var(--c-accent), #4f46e5);
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
       font-size: 22px;
-      box-shadow: 0 2px 8px rgba(26, 115, 232, 0.25);
+      box-shadow: 0 4px 14px var(--c-accent-glow);
+      flex-shrink: 0;
       user-select: none;
+      transition: opacity 0.25s ease;
     }
 
     .biz-meta {
@@ -174,9 +163,8 @@
     }
 
     .biz-name {
-      font-size: 18px;
+      font-size: 19px;
       font-weight: 700;
-      color: #202124;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -229,12 +217,12 @@
       background: var(--c-accent);
       color: #fff;
       border-color: var(--c-accent);
-      font-weight: 500;
+      font-weight: 600;
     }
 
     /* ─── Typography ─────────────────────────────────────────────────── */
     .screen-title {
-      font-size: 19px;
+      font-size: 20px;
       font-weight: 700;
       margin-bottom: 6px;
       color: var(--c-text);
@@ -251,15 +239,15 @@
       font-weight: 600;
       color: var(--c-text);
       margin-bottom: 12px;
-      letter-spacing: 0.1px;
+      letter-spacing: 0.2px;
     }
 
-    /* ─── Stars Component (Google Review Style) ───────────────────────── */
+    /* ─── Stars Component ────────────────────────────────────────────── */
     .star-grid {
       display: flex;
       justify-content: center;
       gap: 10px;
-      margin: 16px 0 8px;
+      margin: 18px 0 8px;
     }
 
     .star-btn {
@@ -268,7 +256,7 @@
       font-size: 44px;
       color: var(--c-star-off);
       cursor: pointer;
-      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease;
+      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease, text-shadow 0.2s ease;
       line-height: 1;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
@@ -276,35 +264,35 @@
     }
 
     .star-btn:hover {
-      transform: scale(1.18);
+      transform: scale(1.2);
     }
 
     .star-btn:active {
-      transform: scale(1.28);
+      transform: scale(1.32);
     }
 
     .star-btn.lit {
       color: var(--c-star-on);
-      text-shadow: 0 1px 4px rgba(251, 188, 4, 0.4);
+      text-shadow: 0 0 18px var(--c-star-glow);
     }
 
     .rating-badge {
       display: inline-block;
       margin-top: 6px;
       padding: 4px 14px;
-      border-radius: 16px;
+      border-radius: 20px;
       font-size: 13px;
       font-weight: 600;
-      background: #fef7e0;
-      color: #b06000;
-      border: 1px solid #fce8b2;
-      animation: badgePop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      background: var(--c-surface2);
+      color: var(--c-star-on);
+      border: 1px solid rgba(255, 184, 0, 0.25);
+      animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
 
     @keyframes badgePop {
       0% {
         opacity: 0;
-        transform: scale(0.88);
+        transform: scale(0.85);
       }
       100% {
         opacity: 1;
@@ -329,13 +317,13 @@
 
     .dynamic-section.active {
       display: flex;
-      animation: dynamicSectionIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: dynamicSectionIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     @keyframes dynamicSectionIn {
       0% {
         opacity: 0;
-        transform: translateY(14px) scale(0.99);
+        transform: translateY(18px) scale(0.985);
       }
       100% {
         opacity: 1;
@@ -343,7 +331,7 @@
       }
     }
 
-    /* ─── Category Chips (Google Maps Filter Style) ───────────────────── */
+    /* ─── Category chips ──────────────────────────────────────────────── */
     #chip-grid {
       display: flex;
       flex-wrap: wrap;
@@ -351,103 +339,101 @@
     }
 
     .chip {
-      background: #ffffff;
+      background: var(--c-surface2);
       border: 1px solid var(--c-border);
-      color: #3c4043;
-      padding: 8px 14px;
-      border-radius: 18px;
+      color: var(--c-text-muted);
+      padding: 9px 15px;
+      border-radius: var(--radius-md);
       font-size: 13px;
       font-weight: 500;
       font-family: var(--font);
       cursor: pointer;
-      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
 
     .chip:hover {
-      background: #f1f3f4;
-      border-color: #bdc1c6;
-      color: #202124;
+      border-color: var(--c-accent);
+      color: var(--c-text);
       transform: translateY(-1px);
     }
 
     .chip:active {
-      transform: scale(0.96);
+      transform: scale(0.95);
     }
 
     .chip.selected {
-      background: #e8f0fe;
-      border-color: #1a73e8;
-      color: #1a73e8;
+      background: var(--c-accent);
+      border-color: var(--c-accent);
+      color: #fff;
       font-weight: 600;
+      box-shadow: 0 0 16px var(--c-accent-glow);
     }
 
     /* ─── Textarea & Buttons ─────────────────────────────────────────── */
     textarea {
       width: 100%;
-      background: #ffffff;
+      background: var(--c-surface2);
       border: 1px solid var(--c-border);
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-md);
       color: var(--c-text);
       font-family: var(--font);
       font-size: 14px;
       line-height: 1.6;
-      padding: 12px 14px;
+      padding: 14px;
       resize: vertical;
       outline: none;
-      transition: border-color var(--transition), box-shadow var(--transition);
+      transition: var(--transition);
     }
 
     textarea:focus {
       border-color: var(--c-accent);
-      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+      box-shadow: 0 0 14px var(--c-accent-glow);
     }
 
     .btn {
       width: 100%;
-      padding: 14px;
-      border-radius: 24px;
+      padding: 16px;
+      border-radius: var(--radius-md);
       border: none;
       font-family: var(--font);
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: 0.25px;
+      font-size: 15px;
+      font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease, box-shadow 0.2s ease;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
 
     .btn-google {
-      background: #1a73e8;
+      background: var(--c-google);
       color: #fff;
-      box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+      box-shadow: 0 4px 18px rgba(66, 133, 244, 0.35);
     }
 
     .btn-google:hover {
-      background: #1557d0;
-      box-shadow: 0 2px 6px rgba(60, 64, 67, 0.3), 0 6px 12px 4px rgba(60, 64, 67, 0.15);
+      opacity: 0.94;
       transform: translateY(-1px);
+      box-shadow: 0 6px 22px rgba(66, 133, 244, 0.45);
     }
 
     .btn-google:active {
-      background: #174ea6;
       transform: scale(0.98);
     }
 
     .btn-whatsapp {
-      background: #25d366;
+      background: var(--c-whatsapp);
       color: #fff;
-      box-shadow: 0 1px 3px rgba(37, 211, 102, 0.3), 0 4px 8px rgba(37, 211, 102, 0.15);
+      box-shadow: 0 4px 18px rgba(37, 211, 102, 0.3);
     }
 
     .btn-whatsapp:hover {
-      background: #1ebe5d;
+      opacity: 0.94;
       transform: translateY(-1px);
     }
 
@@ -456,14 +442,14 @@
     }
 
     .btn-outline {
-      background: #ffffff;
+      background: transparent;
       border: 1px solid var(--c-border);
       color: var(--c-text-muted);
       font-weight: 500;
     }
 
     .btn-outline:hover {
-      background: #f1f3f4;
+      border-color: rgba(255, 255, 255, 0.25);
       color: var(--c-text);
     }
 
@@ -475,7 +461,7 @@
 
     /* ─── Expandable Terms of Service policy box (Doc 07) ─────────────── */
     .tos-card {
-      background: #f8f9fa;
+      background: var(--c-surface2);
       border: 1px solid var(--c-border);
       border-radius: var(--radius-md);
       padding: 10px 14px;
@@ -486,7 +472,7 @@
     }
 
     .tos-card:hover {
-      border-color: #bdc1c6;
+      border-color: rgba(255, 255, 255, 0.18);
     }
 
     .tos-header {
@@ -552,10 +538,10 @@
 
     /* ─── Utility ────────────────────────────────────────────────────── */
     .spinner {
-      width: 36px;
-      height: 36px;
-      border: 3px solid #dadce0;
-      border-top-color: #1a73e8;
+      width: 38px;
+      height: 38px;
+      border: 3px solid var(--c-border);
+      border-top-color: var(--c-accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       margin: 60px auto;
@@ -568,7 +554,7 @@
     }
 
     .big-icon {
-      font-size: 50px;
+      font-size: 54px;
       margin-bottom: 14px;
     }
 
@@ -586,8 +572,8 @@
     <!-- Header band (Logo + Business Name) -->
     <div class="header-band" id="header-band" style="display:none;">
       <div class="biz-logo-container">
+        <img id="biz-logo" class="biz-logo" src="" alt="Logo" style="display:none;" />
         <div id="biz-logo-placeholder" class="biz-logo-placeholder">B</div>
-        <img id="biz-logo" class="biz-logo" alt="Logo" style="display:none;" />
       </div>
       <div class="biz-meta">
         <div class="biz-name" id="biz-name">Business</div>
@@ -730,7 +716,7 @@
             <div class="big-icon">🙏</div>
             <div class="screen-title" id="lbl-thanks-title">We appreciate your honesty</div>
             <p class="screen-sub" id="lbl-thanks-sub">Thank you for taking the time to share your feedback with us.</p>
-            <button class="btn btn-google" id="btn-thanks-submit" style="margin-top:20px;">
+            <button class="btn btn-google" id="btn-thanks-submit" style="margin-top:22px; background:var(--c-accent); box-shadow:0 4px 18px var(--c-accent-glow);">
               <span id="lbl-thanks-btn">Submit Feedback</span>
             </button>
           </div>
@@ -759,7 +745,7 @@
   <!-- ─── Firebase SDK (modular) ────────────────────────────────────────────── -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-    import { getFirestore, doc, getDoc, getDocs, addDoc, updateDoc, collection, increment, serverTimestamp, connectFirestoreEmulator }
+    import { getFirestore, doc, getDoc, getDocs, addDoc, collection, serverTimestamp, connectFirestoreEmulator }
       from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
     // ─── Firebase config ────────────────────────────────────────────────────
@@ -1123,20 +1109,20 @@
       }
     }
 
-    // ─── Category chips & Text Assembly (Randomized Order) ───────────────────
+    // ─── Category chips & Text Assembly ───────────────────────────────────────
     function buildChips() {
-      if (!state.template || !state.shuffledCategories) return;
+      if (!state.template || !state.template.categories) return;
       const grid = $('chip-grid');
       grid.innerHTML = '';
 
-      state.shuffledCategories.forEach(({ cat, originalIdx }) => {
+      state.template.categories.forEach((cat, idx) => {
         const btn = document.createElement('button');
         btn.className = 'chip';
         btn.textContent = getCategoryDisplayName(cat);
-        if (state.selectedCategories.has(originalIdx)) {
+        if (state.selectedCategories.has(idx)) {
           btn.classList.add('selected');
         }
-        btn.addEventListener('click', () => toggleChip(cat, originalIdx, btn));
+        btn.addEventListener('click', () => toggleChip(cat, idx, btn));
         grid.appendChild(btn);
       });
     }
@@ -1167,9 +1153,9 @@
         return;
       }
       const phrases = [];
-      state.shuffledCategories.forEach(({ originalIdx }) => {
-        if (state.selectedCategories.has(originalIdx) && state.phraseMap[originalIdx]) {
-          phrases.push(state.phraseMap[originalIdx]);
+      state.template.categories.forEach((cat, idx) => {
+        if (state.selectedCategories.has(idx) && state.phraseMap[idx]) {
+          phrases.push(state.phraseMap[idx]);
         }
       });
       ta.value = phrases.join(' ');
@@ -1180,33 +1166,19 @@
       state.wasAutoGenerated = false;
     });
 
-    // ─── Log scan to Firestore (per-business subcollection + aggregate) ────────
+    // ─── Log scan to Firestore ────────────────────────────────────────────────
     async function logScan({ actionTaken }) {
       try {
-        // 1. Write individual scan doc to businesses/{bizId}/scans/{auto-id}
-        await addDoc(collection(db, 'businesses', state.businessId, 'scans'), {
+        await addDoc(collection(db, 'scan_logs'), {
           branch_id: state.branchId,
+          business_id: state.businessId,
           star_rating: state.starRating,
           timestamp: serverTimestamp(),
           session_token: state.sessionToken,
           action_taken: actionTaken,
         });
-
-        // 2. Atomically increment aggregate counters on the branch doc
-        const branchRef = doc(db, 'businesses', state.businessId, 'branches', state.branchId);
-        const statsUpdates = {
-          'stats_summary.total_scans': increment(1),
-        };
-        if (actionTaken === 'google_maps') {
-          statsUpdates['stats_summary.total_reviews_redirected'] = increment(1);
-          statsUpdates['stats_summary.monthly_google_reviews'] = increment(1);
-        }
-        if (state.starRating >= 1 && state.starRating <= 5) {
-          statsUpdates[`stats_summary.star_counts.${state.starRating}`] = increment(1);
-        }
-        await updateDoc(branchRef, statsUpdates);
       } catch (e) {
-        console.warn('scan write failed', e);
+        console.warn('scan_logs write failed', e);
       }
     }
 
@@ -1365,21 +1337,8 @@
         }
 
         state.template = tplSnap.exists() ? tplSnap.data() : null;
-        if (state.template && Array.isArray(state.template.categories)) {
-          // Shuffle categories with Fisher-Yates algorithm so chip positions are randomized per visit
-          state.shuffledCategories = state.template.categories.map((cat, originalIdx) => ({
-            cat,
-            originalIdx
-          }));
-          for (let i = state.shuffledCategories.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [state.shuffledCategories[i], state.shuffledCategories[j]] = [state.shuffledCategories[j], state.shuffledCategories[i]];
-          }
-        } else {
-          state.shuffledCategories = [];
-        }
 
-        // Populate header immediately
+        // Populate header
         const brandName = state.business.brand_name || 'Business';
         $('biz-name').textContent = brandName;
         $('biz-branch').textContent = state.branch.branch_name || '';
@@ -1388,34 +1347,33 @@
         const placeholderEl = $('biz-logo-placeholder');
         const imgEl = $('biz-logo');
         placeholderEl.textContent = initial;
-        placeholderEl.style.display = 'flex';
-        imgEl.style.display = 'none';
 
-        // Reveal the review page immediately with business initial
-        applyLanguage('en');
-        showScreen('main');
-
-        // Asynchronously preload and swap in the logo
         const logoUrl = state.business.logo_url;
         if (logoUrl && typeof logoUrl === 'string' && logoUrl.trim().length > 0) {
-          const preloader = new Image();
-          preloader.onload = () => {
-            imgEl.src = logoUrl;
+          const showImg = () => {
             imgEl.style.display = 'block';
             placeholderEl.style.display = 'none';
           };
-          preloader.onerror = () => {
+          const showFallback = () => {
             imgEl.style.display = 'none';
             placeholderEl.style.display = 'flex';
           };
-          preloader.src = logoUrl;
 
-          if (preloader.complete && preloader.naturalWidth > 0) {
-            imgEl.src = logoUrl;
-            imgEl.style.display = 'block';
-            placeholderEl.style.display = 'none';
+          imgEl.onload = showImg;
+          imgEl.onerror = showFallback;
+          imgEl.src = logoUrl;
+
+          // Check if already cached/completed by browser
+          if (imgEl.complete && imgEl.naturalWidth > 0) {
+            showImg();
           }
+        } else {
+          imgEl.style.display = 'none';
+          placeholderEl.style.display = 'flex';
         }
+
+        applyLanguage('en');
+        showScreen('main');
 
       } catch (err) {
         console.error('Load error:', err);

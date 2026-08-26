@@ -31,8 +31,12 @@ class _AdminSubscriptionOverridesTabState
   String _mobileSearch = '';  // GROUP D3: mobile number filter
   int? _monthFilter;           // GROUP D3: month filter (1-12)
   int? _yearFilter;            // GROUP D3: year filter
+  String? _enrolledByFilter;   // null = All, 'admin' = Admin (Direct), emp.uid = Employee
 
-  List<BusinessModel> _filtered(List<BusinessModel> businesses) {
+  List<BusinessModel> _filtered(
+    List<BusinessModel> businesses,
+    AdminDashboardProvider provider,
+  ) {
     var list = businesses;
     if (_statusFilter != 'all') {
       list = list.where((b) => b.subscriptionStatus == _statusFilter).toList();
@@ -52,6 +56,17 @@ class _AdminSubscriptionOverridesTabState
         return b.createdAt!.month == _monthFilter &&
                b.createdAt!.year == _yearFilter;
       }).toList();
+    }
+    // Enrolled by filter (Admin Direct vs Specific Employee)
+    if (_enrolledByFilter != null) {
+      if (_enrolledByFilter == 'admin') {
+        list = list.where((b) {
+          final isEmp = provider.employees.any((e) => e.uid == b.enrolledBy);
+          return !isEmp || b.enrolledBy.isEmpty || b.enrolledBy == 'admin';
+        }).toList();
+      } else {
+        list = list.where((b) => b.enrolledBy == _enrolledByFilter).toList();
+      }
     }
     // Mobile number & keyword search
     if (_mobileSearch.trim().isNotEmpty) {
@@ -188,6 +203,8 @@ class _AdminSubscriptionOverridesTabState
     String adminUid,
   ) {
     String selectedStatus = biz.subscriptionStatus;
+    String selectedPaymentMode =
+        (biz.paymentMode.toLowerCase() == 'online') ? 'online' : 'cash';
     DateTime? selectedRenewalDate =
         biz.renewalDate ?? DateTime.now().add(const Duration(days: 365));
     DateTime? selectedGracePeriodEnds = biz.gracePeriodEnds;
@@ -226,6 +243,28 @@ class _AdminSubscriptionOverridesTabState
                     if (val != null) setState(() => selectedStatus = val);
                   },
                 ),
+                if (selectedStatus == 'active') ...[
+                  const SizedBox(height: 16),
+                  const Text('Payment Method:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  DropdownButton<String>(
+                    value: selectedPaymentMode,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'cash',
+                          child: Text('Cash Payment (CASH)')),
+                      DropdownMenuItem(
+                          value: 'online',
+                          child: Text('Online Payment (ONLINE)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => selectedPaymentMode = val);
+                      }
+                    },
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -334,6 +373,7 @@ class _AdminSubscriptionOverridesTabState
                   newGracePeriodEnds: selectedGracePeriodEnds,
                   adminUid: adminUid,
                   reason: reasonCtrl.text.trim(),
+                  paymentMode: selectedStatus == 'active' ? selectedPaymentMode : 'pending',
                 );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -352,13 +392,42 @@ class _AdminSubscriptionOverridesTabState
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AdminDashboardProvider>().fetchAllBusinesses();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final provider = context.watch<AdminDashboardProvider>();
     final auth = context.watch<AppAuthProvider>();
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final businesses = _filtered(provider.allBusinesses);
-    final dateFormat = DateFormat('dd MMM yyyy');
+    final dateFormat = DateFormat('d MMM yyyy');
+
+    final businesses = _filtered(provider.allBusinesses, provider);
+
+    int totalShowingBranches = 0;
+    int activeShowingBranches = 0;
+    int pendingShowingBranches = 0;
+
+    for (final b in businesses) {
+      final bStats = provider.businessBranchStats[b.id];
+      if (bStats != null) {
+        totalShowingBranches += bStats.total;
+        activeShowingBranches += bStats.active;
+        pendingShowingBranches += bStats.pending;
+      } else {
+        totalShowingBranches += 1;
+        if (b.subscriptionStatus == 'active') {
+          activeShowingBranches += 1;
+        } else if (b.subscriptionStatus == 'pending_payment') {
+          pendingShowingBranches += 1;
+        }
+      }
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -381,7 +450,7 @@ class _AdminSubscriptionOverridesTabState
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'View, edit, and manage subscription overrides for all enrolled businesses.',
+                      'View, edit, and manage subscription overrides for all enrolled businesses and active branch locations.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -401,6 +470,7 @@ class _AdminSubscriptionOverridesTabState
           Wrap(
             spacing: 8,
             runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               for (final entry in {
                 'all': 'All',
@@ -436,30 +506,76 @@ class _AdminSubscriptionOverridesTabState
                   label: const Text('Clear dates'),
                   onPressed: () => setState(() => _dateRange = null),
                 ),
+              // Enrolled By filter (Admin Direct vs Specific Employee)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                decoration: BoxDecoration(
+                  border: Border.all(color: colorScheme.outlineVariant),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButton<String?>(
+                  hint: const Text('Enrolled By'),
+                  value: _enrolledByFilter,
+                  underline: const SizedBox(),
+                  isDense: true,
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All Enrollers'),
+                    ),
+                    const DropdownMenuItem<String?>(
+                      value: 'admin',
+                      child: Text('👑 Admin (Direct)'),
+                    ),
+                    for (final emp in provider.employees)
+                      DropdownMenuItem<String?>(
+                        value: emp.uid,
+                        child: Text('👤 ${emp.name}'),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _enrolledByFilter = v),
+                ),
+              ),
               // GROUP D3: Month filter
-              DropdownButton<int>(
-                hint: const Text('Month'),
-                value: _monthFilter,
-                underline: const SizedBox(),
-                items: [
-                  const DropdownMenuItem<int>(value: null, child: Text('All Months')),
-                  for (int m = 1; m <= 12; m++)
-                    DropdownMenuItem(value: m, child: Text(DateFormat.MMMM().format(DateTime(2024, m)))),
-                ],
-                onChanged: (v) => setState(() {
-                  _monthFilter = v;
-                  _yearFilter = v != null ? (_yearFilter ?? DateTime.now().year) : null;
-                }),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                decoration: BoxDecoration(
+                  border: Border.all(color: colorScheme.outlineVariant),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButton<int>(
+                  hint: const Text('Month'),
+                  value: _monthFilter,
+                  underline: const SizedBox(),
+                  isDense: true,
+                  items: [
+                    const DropdownMenuItem<int>(value: null, child: Text('All Months')),
+                    for (int m = 1; m <= 12; m++)
+                      DropdownMenuItem(value: m, child: Text(DateFormat.MMMM().format(DateTime(2024, m)))),
+                  ],
+                  onChanged: (v) => setState(() {
+                    _monthFilter = v;
+                    _yearFilter = v != null ? (_yearFilter ?? DateTime.now().year) : null;
+                  }),
+                ),
               ),
               if (_monthFilter != null)
-                DropdownButton<int>(
-                  value: _yearFilter ?? DateTime.now().year,
-                  underline: const SizedBox(),
-                  items: [
-                    for (int y = DateTime.now().year; y >= 2024; y--)
-                      DropdownMenuItem(value: y, child: Text('$y')),
-                  ],
-                  onChanged: (v) => setState(() => _yearFilter = v),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: colorScheme.outlineVariant),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButton<int>(
+                    value: _yearFilter ?? DateTime.now().year,
+                    underline: const SizedBox(),
+                    isDense: true,
+                    items: [
+                      for (int y = DateTime.now().year; y >= 2024; y--)
+                        DropdownMenuItem(value: y, child: Text('$y')),
+                    ],
+                    onChanged: (v) => setState(() => _yearFilter = v),
+                  ),
                 ),
             ],
           ),
@@ -479,23 +595,32 @@ class _AdminSubscriptionOverridesTabState
           ),
           const SizedBox(height: 8),
 
-          // GROUP D3: Count summary
+          // Count summary with both Businesses and Branch Locations breakdown
           Wrap(
-            spacing: 16,
+            spacing: 12,
             runSpacing: 8,
             children: [
-              _CountBadge(label: 'Total', count: provider.allBusinesses.length, color: colorScheme.primary),
-              _CountBadge(label: 'Showing', count: businesses.length, color: colorScheme.secondary),
               _CountBadge(
-                label: 'Active',
-                count: provider.allBusinesses.where((b) => b.subscriptionStatus == 'active').length,
+                label: 'Businesses',
+                count: businesses.length,
+                color: colorScheme.primary,
+              ),
+              _CountBadge(
+                label: 'Total Locations',
+                count: totalShowingBranches,
+                color: Colors.indigo,
+              ),
+              _CountBadge(
+                label: 'Active Locations',
+                count: activeShowingBranches,
                 color: Colors.green,
               ),
-              _CountBadge(
-                label: 'Pending',
-                count: provider.allBusinesses.where((b) => b.subscriptionStatus == 'pending_payment').length,
-                color: Colors.blue,
-              ),
+              if (pendingShowingBranches > 0)
+                _CountBadge(
+                  label: 'Pending Locations',
+                  count: pendingShowingBranches,
+                  color: Colors.orange,
+                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -518,6 +643,8 @@ class _AdminSubscriptionOverridesTabState
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final biz = businesses[index];
+                final branches = provider.businessBranches[biz.id] ?? [];
+                final bStats = provider.businessBranchStats[biz.id];
                 final renewalStr = biz.renewalDate != null
                     ? dateFormat.format(biz.renewalDate!)
                     : '—';
@@ -557,9 +684,13 @@ class _AdminSubscriptionOverridesTabState
                                     BorderRadius.circular(6),
                               ),
                               child: Text(
-                                biz.subscriptionStatus
-                                    .replaceAll('_', ' ')
-                                    .toUpperCase(),
+                                biz.subscriptionStatus == 'active'
+                                    ? (biz.paymentMode.toLowerCase() == 'online'
+                                        ? 'ACTIVE (ONLINE)'
+                                        : 'ACTIVE (CASH)')
+                                    : biz.subscriptionStatus
+                                        .replaceAll('_', ' ')
+                                        .toUpperCase(),
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
@@ -577,8 +708,80 @@ class _AdminSubscriptionOverridesTabState
                           style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant),
                         ),
+                        if (branches.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.store_mall_directory_outlined, size: 15, color: colorScheme.primary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Locations (${branches.length} total • ${bStats?.active ?? 0} active)',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                for (final branch in branches) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 3),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            '${branch.branchName.isNotEmpty ? branch.branchName : "Main Location"} — ${branch.address.isNotEmpty ? branch.address : "No address"}',
+                                            style: const TextStyle(fontSize: 12),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: branch.isActive
+                                                ? Colors.green.withValues(alpha: 0.15)
+                                                : Colors.amber.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            branch.isActive
+                                                ? (branch.paymentMode.toLowerCase() == 'online' || biz.paymentMode.toLowerCase() == 'online'
+                                                    ? 'ACTIVE (ONLINE)'
+                                                    : 'ACTIVE (CASH)')
+                                                : 'AWAITING PAYMENT',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: branch.isActive ? Colors.green[800] : Colors.deepOrange,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 10),
-                        // Row 3: Actions — GROUP E3: wrap for mobile
+                        // Row 3: Actions
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -609,6 +812,46 @@ class _AdminSubscriptionOverridesTabState
                                   Icons.edit_calendar, size: 14),
                               label: const Text('Override'),
                             ),
+                            // Cash Activate — only for pending_payment
+                            if (biz.subscriptionStatus == 'pending_payment')
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.teal.shade700,
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: () => _showCashActivateDialog(
+                                  context,
+                                  provider,
+                                  biz,
+                                  auth.uid ?? 'admin',
+                                ),
+                                icon: const Icon(Icons.local_atm, size: 14),
+                                label: const Text('Cash Activate'),
+                              ),
+                            // Delete Draft — only for pending_payment
+                            if (biz.subscriptionStatus == 'pending_payment')
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: colorScheme.error,
+                                  side: BorderSide(color: colorScheme.error.withValues(alpha: 0.5)),
+                                ),
+                                onPressed: () => _showDeleteDraftDialog(context, provider, biz),
+                                icon: Icon(Icons.delete_outline, size: 14, color: colorScheme.error),
+                                label: const Text('Delete Draft'),
+                              ),
+                            // Reverse Activation — only for active businesses
+                            if (biz.subscriptionStatus == 'active')
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.amber.shade800,
+                                  side: BorderSide(color: Colors.amber.shade600.withValues(alpha: 0.5)),
+                                ),
+                                onPressed: () => _showReverseActivationDialog(
+                                  context, provider, biz, auth.uid ?? 'admin',
+                                ),
+                                icon: Icon(Icons.undo, size: 14, color: Colors.amber.shade800),
+                                label: const Text('Reverse Activation'),
+                              ),
                           ],
                         ),
                       ],
@@ -620,6 +863,241 @@ class _AdminSubscriptionOverridesTabState
         ],
       ),
     );
+  }
+
+  // ── Cash Activate Dialog ──────────────────────────────────────────────────
+  void _showCashActivateDialog(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    BusinessModel biz,
+    String adminUid,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.local_atm, color: Colors.teal.shade700, size: 40),
+        title: const Text('Confirm Cash Activation'),
+        content: Text(
+          'Activate "${biz.brandName}" directly via cash payment?\n\n'
+          '• Setup fee: ₹1,999 collected in cash\n'
+          '• Status: pending_payment → active\n'
+          '• 365 days subscription starts immediately\n'
+          '• Audit commission record marked as verified',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            icon: const Icon(Icons.check, size: 16),
+            label: const Text('Confirm & Activate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await provider.adminCashActivate(
+        businessId: biz.id,
+        adminUid: adminUid,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ "${biz.brandName}" activated successfully via cash payment!'),
+            backgroundColor: Colors.teal.shade700,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Cash activation failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // ── Delete Draft Dialog ──────────────────────────────────────────────────
+  void _showDeleteDraftDialog(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    BusinessModel biz,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete draft?'),
+        content: Text(
+          'This will permanently delete "${biz.brandName}" and all its branches.\n\n'
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await provider.deleteDraftBusiness(biz.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${biz.brandName}" draft deleted.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Delete failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ── Reverse Activation Dialog (Double Confirm) ──────────────────────────
+  void _showReverseActivationDialog(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    BusinessModel biz,
+    String adminUid,
+  ) async {
+    // Step 1: First confirmation
+    final firstConfirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.warning_amber_rounded, color: Colors.amber.shade700, size: 40),
+        title: const Text('Reverse Activation?'),
+        content: Text(
+          'Are you sure you want to reverse activation for "${biz.brandName}"?\n\n'
+          '• subscription_status → pending_payment\n'
+          '• payment_mode & renewal_date cleared\n'
+          '• Commission entry VOIDED (not deleted)\n'
+          '• QR codes marked stale\n\n'
+          'The business will become a draft again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    if (firstConfirm != true || !context.mounted) return;
+
+    // Step 2: Second confirmation — type business name
+    final nameCtrl = TextEditingController();
+    final reasonCtrl = TextEditingController();
+    final secondConfirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text('Confirm by typing business name'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Type "${biz.brandName}" exactly to confirm reversal:',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Business name',
+                  hintText: 'Type business name here…',
+                ),
+                onChanged: (_) => setDlg(() {}),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for reversal *',
+                  hintText: 'e.g., Accidental activation, wrong business…',
+                ),
+                maxLines: 2,
+                onChanged: (_) => setDlg(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: nameCtrl.text.trim() == biz.brandName &&
+                      reasonCtrl.text.trim().isNotEmpty
+                  ? () => Navigator.of(ctx).pop(true)
+                  : null,
+              child: const Text('Reverse Activation'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (secondConfirm != true || !context.mounted) return;
+
+    try {
+      await provider.reverseActivation(
+        businessId: biz.id,
+        adminUid: adminUid,
+        reason: reasonCtrl.text.trim(),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${biz.brandName}" reversed to pending_payment. Commission voided.'),
+            backgroundColor: Colors.amber.shade700,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Reversal failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Color _statusColor(String status) {

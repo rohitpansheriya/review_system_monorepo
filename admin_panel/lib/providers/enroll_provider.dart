@@ -231,6 +231,17 @@ class EnrollProvider extends ChangeNotifier {
         return _error;
       }
 
+      // 3b — Duplicate Owner Email guard
+      if (ownerEmail.trim().isNotEmpty) {
+        final emailExists = await _firestore.ownerEmailExists(ownerEmail.trim());
+        if (emailExists) {
+          _status = EnrollStatus.error;
+          _error  = 'Owner email "${ownerEmail.trim()}" is already registered to another business. Please enter a unique owner email.';
+          notifyListeners();
+          return _error;
+        }
+      }
+
       // 4 — In single mode, set branch_name = brand_name if empty
       if (_mode == EnrollMode.single) {
         _branches[0].name = brandName.trim().isEmpty ? 'Main' : brandName.trim();

@@ -8,33 +8,35 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Leave a Review</title>
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts: Roboto & Google Sans style -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <style>
-    /* ─── Design Tokens ─────────────────────────────────────────────── */
+    /* ─── Google Maps / Google Review Design Tokens ─────────────────── */
     :root {
-      --c-bg: #0f0f13;
-      --c-surface: #1a1a24;
-      --c-surface2: #22222f;
-      --c-border: rgba(255, 255, 255, 0.08);
-      --c-text: #f0f0f8;
-      --c-text-muted: #8888aa;
-      --c-accent: #7c6cfc;
-      --c-accent-glow: rgba(124, 108, 252, 0.35);
-      --c-star-off: #2a2a3a;
-      --c-star-on: #ffcc44;
-      --c-success: #34d399;
-      --c-danger: #f87171;
+      --c-bg: #f8f9fa;
+      --c-surface: #ffffff;
+      --c-surface2: #f1f3f4;
+      --c-border: #dadce0;
+      --c-border-active: #1a73e8;
+      --c-text: #202124;
+      --c-text-muted: #5f6368;
+      --c-accent: #1a73e8;
+      --c-accent-glow: rgba(26, 115, 232, 0.15);
+      --c-star-off: #dadce0;
+      --c-star-on: #fbbc04;
+      --c-star-glow: rgba(251, 188, 4, 0.3);
+      --c-success: #1e8e3e;
+      --c-danger: #d93025;
       --c-whatsapp: #25d366;
-      --c-google: #4285f4;
-      --radius-sm: 10px;
-      --radius-md: 18px;
-      --radius-lg: 26px;
-      --font: 'Outfit', sans-serif;
-      --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      --c-google: #1a73e8;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --font: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     /* ─── Reset ──────────────────────────────────────────────────────── */
@@ -48,11 +50,12 @@
 
     html,
     body {
-      height: 100%;
+      min-height: 100%;
       background: var(--c-bg);
       color: var(--c-text);
       font-family: var(--font);
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
 
     /* ─── Layout ─────────────────────────────────────────────────────── */
@@ -68,33 +71,121 @@
       display: none;
       width: 100%;
       max-width: 480px;
-      animation: fadeIn 0.4s ease both;
+      animation: screenFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     .screen.active {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
     }
 
-    @keyframes fadeIn {
+    @keyframes screenFadeIn {
       from {
         opacity: 0;
-        transform: translateY(18px);
+        transform: translateY(10px);
       }
-
       to {
         opacity: 1;
         transform: none;
       }
     }
 
-    /* ─── Card ───────────────────────────────────────────────────────── */
+    /* ─── Card (Google Material Card) ────────────────────────────────── */
     .card {
+      width: 100%;
       background: var(--c-surface);
       border: 1px solid var(--c-border);
       border-radius: var(--radius-lg);
-      padding: 28px 24px;
+      padding: 22px 20px;
+      box-shadow: 0 1px 3px rgba(60, 64, 67, 0.08), 0 1px 2px rgba(60, 64, 67, 0.12);
+    }
+
+    .thank-you-card {
+      width: 100%;
+      text-align: center;
+      padding: 38px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ─── Header band ────────────────────────────────────────────────── */
+    .header-band {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 20px 4px 12px;
+    }
+
+    .biz-logo-container {
+      position: relative;
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .biz-logo {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-md);
+      object-fit: cover;
+      border: 1px solid var(--c-border);
+      background: #ffffff;
+      display: none;
+      animation: logoFadeIn 0.35s ease both;
+    }
+
+    @keyframes logoFadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .biz-logo-placeholder {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #1a73e8, #1557d0);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 22px;
+      box-shadow: 0 2px 8px rgba(26, 115, 232, 0.25);
+      user-select: none;
+    }
+
+    .biz-meta {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .biz-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #202124;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .biz-branch {
+      font-size: 13px;
+      color: var(--c-text-muted);
+      margin-top: 2px;
     }
 
     /* ─── Language Bar ───────────────────────────────────────────────── */
@@ -104,15 +195,15 @@
       justify-content: space-between;
       width: 100%;
       max-width: 480px;
-      margin-top: 16px;
-      padding: 8px 16px;
+      margin-bottom: 8px;
+      padding: 6px 14px;
       background: var(--c-surface);
       border: 1px solid var(--c-border);
       border-radius: var(--radius-md);
     }
 
     .lang-label {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--c-text-muted);
       font-weight: 500;
     }
@@ -126,7 +217,7 @@
       background: transparent;
       border: 1px solid var(--c-border);
       color: var(--c-text-muted);
-      padding: 4px 10px;
+      padding: 3px 10px;
       border-radius: 12px;
       font-size: 12px;
       font-family: var(--font);
@@ -138,60 +229,15 @@
       background: var(--c-accent);
       color: #fff;
       border-color: var(--c-accent);
-      font-weight: 600;
+      font-weight: 500;
     }
 
-    /* ─── Header band ────────────────────────────────────────────────── */
-    .header-band {
-      width: 100%;
-      max-width: 480px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 24px 0 12px;
-    }
-
-    .biz-logo {
-      width: 56px;
-      height: 56px;
-      border-radius: var(--radius-md);
-      object-fit: cover;
-      border: 2px solid var(--c-border);
-    }
-
-    .biz-logo-placeholder {
-      width: 56px;
-      height: 56px;
-      border-radius: var(--radius-md);
-      background: var(--c-accent);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 22px;
-    }
-
-    .biz-meta {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .biz-name {
-      font-size: 20px;
-      font-weight: 700;
-    }
-
-    .biz-branch {
-      font-size: 13px;
-      color: var(--c-text-muted);
-    }
-
-    /* ─── Typography & Form Components ───────────────────────────────── */
+    /* ─── Typography ─────────────────────────────────────────────────── */
     .screen-title {
-      font-size: 22px;
+      font-size: 19px;
       font-weight: 700;
       margin-bottom: 6px;
+      color: var(--c-text);
     }
 
     .screen-sub {
@@ -201,157 +247,301 @@
     }
 
     .section-title {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       color: var(--c-text);
-      margin-bottom: 14px;
+      margin-bottom: 12px;
+      letter-spacing: 0.1px;
     }
 
-    /* ─── Stars ──────────────────────────────────────────────────────── */
+    /* ─── Stars Component (Google Review Style) ───────────────────────── */
     .star-grid {
       display: flex;
       justify-content: center;
-      gap: 12px;
-      margin: 20px 0 10px;
+      gap: 10px;
+      margin: 16px 0 8px;
     }
 
     .star-btn {
       background: none;
       border: none;
-      font-size: 38px;
+      font-size: 44px;
       color: var(--c-star-off);
       cursor: pointer;
-      transition: transform 0.15s ease, color 0.15s ease;
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease;
       line-height: 1;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: 4px;
+    }
+
+    .star-btn:hover {
+      transform: scale(1.18);
     }
 
     .star-btn:active {
-      transform: scale(1.25);
+      transform: scale(1.28);
     }
 
     .star-btn.lit {
       color: var(--c-star-on);
-      text-shadow: 0 0 12px rgba(255, 204, 68, 0.4);
+      text-shadow: 0 1px 4px rgba(251, 188, 4, 0.4);
     }
 
-    /* ─── Category chips ──────────────────────────────────────────────── */
+    .rating-badge {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 4px 14px;
+      border-radius: 16px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #fef7e0;
+      color: #b06000;
+      border: 1px solid #fce8b2;
+      animation: badgePop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes badgePop {
+      0% {
+        opacity: 0;
+        transform: scale(0.88);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* ─── Dynamic Rating Container & Transitions ─────────────────────── */
+    .dynamic-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .dynamic-section {
+      display: none;
+      width: 100%;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .dynamic-section.active {
+      display: flex;
+      animation: dynamicSectionIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes dynamicSectionIn {
+      0% {
+        opacity: 0;
+        transform: translateY(14px) scale(0.99);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* ─── Category Chips (Google Maps Filter Style) ───────────────────── */
     #chip-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 8px;
     }
 
     .chip {
-      background: var(--c-surface2);
+      background: #ffffff;
       border: 1px solid var(--c-border);
-      color: var(--c-text-muted);
-      padding: 10px 16px;
-      border-radius: var(--radius-md);
-      font-size: 14px;
+      color: #3c4043;
+      padding: 8px 14px;
+      border-radius: 18px;
+      font-size: 13px;
+      font-weight: 500;
       font-family: var(--font);
       cursor: pointer;
-      transition: var(--transition);
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
       user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .chip:hover {
-      border-color: var(--c-accent);
-      color: var(--c-text);
+      background: #f1f3f4;
+      border-color: #bdc1c6;
+      color: #202124;
+      transform: translateY(-1px);
+    }
+
+    .chip:active {
+      transform: scale(0.96);
     }
 
     .chip.selected {
-      background: var(--c-accent);
-      border-color: var(--c-accent);
-      color: #fff;
-      box-shadow: 0 0 14px var(--c-accent-glow);
+      background: #e8f0fe;
+      border-color: #1a73e8;
+      color: #1a73e8;
+      font-weight: 600;
     }
 
     /* ─── Textarea & Buttons ─────────────────────────────────────────── */
     textarea {
       width: 100%;
-      background: var(--c-surface2);
+      background: #ffffff;
       border: 1px solid var(--c-border);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-sm);
       color: var(--c-text);
       font-family: var(--font);
       font-size: 14px;
       line-height: 1.6;
-      padding: 14px;
+      padding: 12px 14px;
       resize: vertical;
       outline: none;
-      transition: var(--transition);
+      transition: border-color var(--transition), box-shadow var(--transition);
     }
 
     textarea:focus {
       border-color: var(--c-accent);
-      box-shadow: 0 0 12px var(--c-accent-glow);
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
     }
 
     .btn {
       width: 100%;
-      padding: 16px;
-      border-radius: var(--radius-md);
+      padding: 14px;
+      border-radius: 24px;
       border: none;
       font-family: var(--font);
-      font-size: 16px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.25px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      transition: var(--transition);
+      transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .btn-google {
-      background: var(--c-google);
+      background: #1a73e8;
       color: #fff;
+      box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
     }
 
     .btn-google:hover {
-      opacity: 0.92;
+      background: #1557d0;
+      box-shadow: 0 2px 6px rgba(60, 64, 67, 0.3), 0 6px 12px 4px rgba(60, 64, 67, 0.15);
       transform: translateY(-1px);
     }
 
+    .btn-google:active {
+      background: #174ea6;
+      transform: scale(0.98);
+    }
+
     .btn-whatsapp {
-      background: var(--c-whatsapp);
+      background: #25d366;
       color: #fff;
+      box-shadow: 0 1px 3px rgba(37, 211, 102, 0.3), 0 4px 8px rgba(37, 211, 102, 0.15);
+    }
+
+    .btn-whatsapp:hover {
+      background: #1ebe5d;
+      transform: translateY(-1px);
+    }
+
+    .btn-whatsapp:active {
+      transform: scale(0.98);
     }
 
     .btn-outline {
-      background: transparent;
+      background: #ffffff;
       border: 1px solid var(--c-border);
       color: var(--c-text-muted);
+      font-weight: 500;
+    }
+
+    .btn-outline:hover {
+      background: #f1f3f4;
+      color: var(--c-text);
     }
 
     .icon {
       width: 20px;
       height: 20px;
+      flex-shrink: 0;
     }
 
-    /* ─── Terms of Service policy box (Doc 07) ───────────────────────── */
+    /* ─── Expandable Terms of Service policy box (Doc 07) ─────────────── */
     .tos-card {
-      background: var(--c-surface2);
+      background: #f8f9fa;
       border: 1px solid var(--c-border);
       border-radius: var(--radius-md);
-      padding: 16px 18px;
+      padding: 10px 14px;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color var(--transition), background var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .tos-card:hover {
+      border-color: #bdc1c6;
+    }
+
+    .tos-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
     }
 
     .tos-heading {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--c-text);
-      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--c-text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tos-heading .asterisks {
+      color: var(--c-accent);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .tos-chevron {
+      font-size: 9px;
+      color: var(--c-text-muted);
+      transition: transform 0.25s ease;
+    }
+
+    .tos-card.expanded .tos-chevron {
+      transform: rotate(180deg);
+    }
+
+    .tos-body {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, margin-top 0.25s ease;
+    }
+
+    .tos-card.expanded .tos-body {
+      max-height: 350px;
+      opacity: 1;
+      margin-top: 10px;
     }
 
     .tos-list {
       list-style-type: disc;
-      padding-left: 18px;
+      padding-left: 16px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
     }
 
     .tos-list li {
@@ -364,11 +554,11 @@
     .spinner {
       width: 36px;
       height: 36px;
-      border: 3px solid var(--c-border);
-      border-top-color: var(--c-accent);
+      border: 3px solid #dadce0;
+      border-top-color: #1a73e8;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
-      margin: 40px auto;
+      margin: 60px auto;
     }
 
     @keyframes spin {
@@ -378,8 +568,15 @@
     }
 
     .big-icon {
-      font-size: 54px;
-      margin-bottom: 12px;
+      font-size: 50px;
+      margin-bottom: 14px;
+    }
+
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: var(--c-border);
+      margin: 18px 0;
     }
   </style>
 </head>
@@ -388,8 +585,10 @@
   <div id="app">
     <!-- Header band (Logo + Business Name) -->
     <div class="header-band" id="header-band" style="display:none;">
-      <img id="biz-logo" class="biz-logo" src="" alt="Logo" style="display:none;" />
-      <div id="biz-logo-placeholder" class="biz-logo-placeholder">B</div>
+      <div class="biz-logo-container">
+        <div id="biz-logo-placeholder" class="biz-logo-placeholder">B</div>
+        <img id="biz-logo" class="biz-logo" alt="Logo" style="display:none;" />
+      </div>
       <div class="biz-meta">
         <div class="biz-name" id="biz-name">Business</div>
         <div class="biz-branch" id="biz-branch">Location</div>
@@ -413,7 +612,7 @@
 
     <!-- Screen 0B: Error -->
     <div id="screen-error" class="screen" style="display:none;">
-      <div class="card" style="text-align:center;">
+      <div class="card thank-you-card">
         <div class="big-icon">⚠️</div>
         <div class="screen-title">Link Invalid</div>
         <p class="screen-sub">This review link is missing parameters or no longer valid.</p>
@@ -422,105 +621,133 @@
 
     <!-- Screen 0C: Unavailable / Deactivated -->
     <div id="screen-unavailable" class="screen" style="display:none;">
-      <div class="card" style="text-align:center;">
+      <div class="card thank-you-card">
         <div class="big-icon">🔒</div>
         <div class="screen-title">Temporarily Unavailable</div>
         <p class="screen-sub">This business page is currently not accepting reviews.</p>
       </div>
     </div>
 
-    <!-- Screen 0D: Already Submitted -->
+    <!-- Screen 0D: Already Submitted / Confirmation -->
     <div id="screen-done" class="screen" style="display:none;">
-      <div class="card" style="text-align:center;">
+      <div class="card thank-you-card">
         <div class="big-icon">✨</div>
-        <div class="screen-title">Already Submitted</div>
-        <p class="screen-sub">Thank you! You've already submitted feedback for this visit.</p>
+        <div class="screen-title" id="lbl-done-title">Feedback Submitted!</div>
+        <p class="screen-sub" id="lbl-done-sub">Thank you! Your feedback has been received and helps us serve you better.</p>
+        <div class="divider"></div>
+        <div style="font-size:13px; color:var(--c-text-muted);">You may now safely close this window.</div>
       </div>
     </div>
 
-    <!-- Screen 1: Landing (Rating Star Selection) -->
-    <div id="screen-landing" class="screen">
+    <!-- Screen 1: Unified Single-Screen Review Interface -->
+    <div id="screen-main" class="screen">
+      
+      <!-- Primary Rating Card (Stars always visible & editable) -->
       <div class="card" style="text-align:center;">
-        <div class="screen-title">Thank you for visiting!</div>
+        <div class="screen-title" id="lbl-landing-title">Thank you for visiting!</div>
         <p class="screen-sub" id="lbl-landing-sub">How was your experience today?</p>
-        <div class="star-grid">
-          <button class="star-btn" data-val="1">★</button>
-          <button class="star-btn" data-val="2">★</button>
-          <button class="star-btn" data-val="3">★</button>
-          <button class="star-btn" data-val="4">★</button>
-          <button class="star-btn" data-val="5">★</button>
+        
+        <div class="star-grid" id="star-grid">
+          <button class="star-btn" data-val="1" aria-label="1 Star">★</button>
+          <button class="star-btn" data-val="2" aria-label="2 Stars">★</button>
+          <button class="star-btn" data-val="3" aria-label="3 Stars">★</button>
+          <button class="star-btn" data-val="4" aria-label="4 Stars">★</button>
+          <button class="star-btn" data-val="5" aria-label="5 Stars">★</button>
+        </div>
+
+        <div id="rating-badge-container" style="display:none;">
+          <span id="rating-badge" class="rating-badge"></span>
         </div>
       </div>
-    </div>
 
-    <!-- Screen 2A: Low Rating — WhatsApp path -->
-    <div id="screen-low-wa" class="screen">
-      <div class="card">
-        <div class="screen-title" id="lbl-wa-title">Sorry to hear that</div>
-        <p class="screen-sub" id="lbl-wa-sub">Please tell us what went wrong so we can make it right.</p>
-        <textarea id="wa-text" rows="5" placeholder="Describe your experience…" style="margin-top:14px;"></textarea>
-        <button class="btn btn-whatsapp" id="btn-wa-send" style="margin-top:14px;">
-          <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-            <path
-              d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.531 5.848L0 24l6.335-1.509A11.932 11.932 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.798 9.798 0 0 1-5.031-1.388l-.361-.214-3.741.981.999-3.647-.236-.374A9.774 9.774 0 0 1 2.182 12c0-5.413 4.405-9.818 9.818-9.818 5.413 0 9.818 4.405 9.818 9.818 0 5.413-4.405 9.818-9.818 9.818z" />
-          </svg>
-          <span id="lbl-wa-send">Send via WhatsApp</span>
-        </button>
-        <button class="btn btn-outline" id="btn-low-skip" style="margin-top:10px;">Skip</button>
-      </div>
-    </div>
+      <!-- Dynamic Section Container (Reveals & changes underneath stars with smooth animation) -->
+      <div id="dynamic-content" class="dynamic-container" style="display:none;">
 
-    <!-- Screen 2A-alt: Low Rating — Thank you only path -->
-    <div id="screen-low-thanks" class="screen">
-      <div class="card" style="text-align:center;">
-        <div class="big-icon">🙏</div>
-        <div class="screen-title" id="lbl-thanks-title">We appreciate your honesty</div>
-        <p class="screen-sub" id="lbl-thanks-sub">Thank you for taking the time to share your experience.</p>
-      </div>
-    </div>
+        <!-- Section A: Google Maps Path (High Rating) -->
+        <div id="section-high" class="dynamic-section">
+          
+          <div class="card">
+            <div class="section-title" id="lbl-what-loved">What did you love? (select all that apply)</div>
+            <div id="chip-grid"></div>
+          </div>
 
-    <!-- Screen 2B: High Rating — Category + phrases -->
-    <div id="screen-high" class="screen">
-      <div class="card">
-        <div class="section-title" id="lbl-what-loved">What did you love? (select all that apply)</div>
-        <div id="chip-grid"></div>
-      </div>
-      <div class="card" id="review-card" style="display:none;">
-        <div class="section-title" id="lbl-your-review">Your review (feel free to edit)</div>
-        <textarea id="review-text" rows="7" placeholder="Select categories above to build your review…"></textarea>
-      </div>
+          <div class="card" id="review-card">
+            <div class="section-title" id="lbl-your-review">Your review (feel free to edit)</div>
+            <textarea id="review-text" rows="5" placeholder="Write your review here, or select categories above for quick suggestions…"></textarea>
+          </div>
 
-      <!-- Persistent Review Integrity Policy (Terms of Service - Doc 07) -->
-      <div class="card tos-card">
-        <div class="tos-heading" id="lbl-tos-heading">Review Integrity Policy:</div>
-        <ul class="tos-list">
-          <li id="lbl-tos-1">Suggested phrases are provided only as a starting point — they don't replace your own words.</li>
-          <li id="lbl-tos-2">You are free to edit the review before posting it.</li>
-          <li id="lbl-tos-3">You should only describe your own genuine experience.</li>
-          <li id="lbl-tos-4">Fake or false reviews must not be posted.</li>
-          <li id="lbl-tos-5">You have complete freedom to give any rating, regardless of the review content.</li>
-        </ul>
-      </div>
+          <!-- Expandable Review Integrity Policy -->
+          <div class="card tos-card" id="tos-card" role="button" aria-expanded="false" tabindex="0">
+            <div class="tos-header">
+              <div class="tos-heading">
+                <span class="asterisks">**</span>
+                <span id="lbl-tos-heading">Review Integrity Policy</span>
+              </div>
+              <span class="tos-chevron">▼</span>
+            </div>
+            <div class="tos-body" id="tos-body">
+              <ul class="tos-list">
+                <li id="lbl-tos-1">Suggested phrases are provided only as a starting point — they don't replace your own words.</li>
+                <li id="lbl-tos-2">You are free to edit the review before posting it.</li>
+                <li id="lbl-tos-3">You should only describe your own genuine experience.</li>
+                <li id="lbl-tos-4">Fake or false reviews must not be posted.</li>
+                <li id="lbl-tos-5">You have complete freedom to give any rating, regardless of the review content.</li>
+              </ul>
+            </div>
+          </div>
 
-      <button class="btn btn-google" id="btn-google-post">
-        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M21.35 11.1H12.18V13.83H18.69C18.36 17.64 15.19 19.27 12.19 19.27C8.36 19.27 5 16.25 5 12C5 7.9 8.2 4.73 12.2 4.73C15.29 4.73 17.1 6.7 17.1 6.7L19 4.72C19 4.72 16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12C2.03 17.05 6.16 22 12.25 22C17.6 22 21.5 18.33 21.5 12.91C21.5 11.76 21.35 11.1 21.35 11.1Z" />
-        </svg>
-        <span id="lbl-google-post">Copy & Open Google Maps</span>
-      </button>
-    </div>
+          <button class="btn btn-google" id="btn-google-post">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M21.35 11.1H12.18V13.83H18.69C18.36 17.64 15.19 19.27 12.19 19.27C8.36 19.27 5 16.25 5 12C5 7.9 8.2 4.73 12.2 4.73C15.29 4.73 17.1 6.7 17.1 6.7L19 4.72C19 4.72 16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12C2.03 17.05 6.16 22 12.25 22C17.6 22 21.5 18.33 21.5 12.91C21.5 11.76 21.35 11.1 21.35 11.1Z" />
+            </svg>
+            <span id="lbl-google-post">Copy & Open Google Maps</span>
+          </button>
+        </div>
 
-    <!-- Screen 3: Posted confirmation -->
+        <!-- Section B: Direct Feedback / WhatsApp Path (Low Rating) -->
+        <div id="section-low-wa" class="dynamic-section">
+          <div class="card">
+            <div class="screen-title" id="lbl-wa-title">Sorry to hear that</div>
+            <p class="screen-sub" id="lbl-wa-sub">Please tell us what went wrong so we can make it right.</p>
+            <textarea id="wa-text" rows="4" placeholder="Describe your experience…" style="margin-top:14px;"></textarea>
+            <button class="btn btn-whatsapp" id="btn-wa-send" style="margin-top:14px;">
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.531 5.848L0 24l6.335-1.509A11.932 11.932 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.798 9.798 0 0 1-5.031-1.388l-.361-.214-3.741.981.999-3.647-.236-.374A9.774 9.774 0 0 1 2.182 12c0-5.413 4.405-9.818 9.818-9.818 5.413 0 9.818 4.405 9.818 9.818 0 5.413-4.405 9.818-9.818 9.818z" />
+              </svg>
+              <span id="lbl-wa-send">Send via WhatsApp</span>
+            </button>
+            <button class="btn btn-outline" id="btn-low-skip" style="margin-top:10px;">Skip / Submit</button>
+          </div>
+        </div>
+
+        <!-- Section C: Thank You Only Path -->
+        <div id="section-low-thanks" class="dynamic-section">
+          <div class="card thank-you-card">
+            <div class="big-icon">🙏</div>
+            <div class="screen-title" id="lbl-thanks-title">We appreciate your honesty</div>
+            <p class="screen-sub" id="lbl-thanks-sub">Thank you for taking the time to share your feedback with us.</p>
+            <button class="btn btn-google" id="btn-thanks-submit" style="margin-top:20px;">
+              <span id="lbl-thanks-btn">Submit Feedback</span>
+            </button>
+          </div>
+        </div>
+
+      </div><!-- #dynamic-content -->
+
+    </div><!-- #screen-main -->
+
+    <!-- Screen 3: Posted / Copied confirmation -->
     <div id="screen-posted" class="screen" style="display:none;">
-      <div class="card" style="text-align:center;">
+      <div class="card thank-you-card">
         <div class="big-icon">✅</div>
         <div class="screen-title" id="lbl-posted-title">Almost there!</div>
         <p class="screen-sub" id="lbl-posted-sub">Your review has been copied. Google Maps should open — just paste and post!</p>
-        <div class="divider" style="margin:18px 0;"></div>
-        <p class="screen-sub" style="font-size:12px;">Can't see Google Maps? Open it manually and search for the business.</p>
+        <div class="divider"></div>
+        <p class="screen-sub" style="font-size:13px; line-height:1.5;">Can't see Google Maps? Open it manually and paste your review.</p>
       </div>
     </div>
 
@@ -532,7 +759,7 @@
   <!-- ─── Firebase SDK (modular) ────────────────────────────────────────────── -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-    import { getFirestore, doc, getDoc, addDoc, collection, serverTimestamp, connectFirestoreEmulator }
+    import { getFirestore, doc, getDoc, getDocs, addDoc, updateDoc, collection, increment, serverTimestamp, connectFirestoreEmulator }
       from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
     // ─── Firebase config ────────────────────────────────────────────────────
@@ -561,10 +788,12 @@
     const UI_STRINGS = {
       en: {
         langLabel: "Language:",
+        landingTitle: "Thank you for visiting!",
         landingSub: "How was your experience today?",
+        ratingLabels: ["1 Star • Disappointed", "2 Stars • Could be better", "3 Stars • Good", "4 Stars • Great!", "5 Stars • Excellent!"],
         whatLoved: "What did you love? (select all that apply)",
         yourReview: "Your review (feel free to edit)",
-        reviewPlaceholder: "Select categories above to build your review…",
+        reviewPlaceholder: "Write your review here, or tap categories above for suggestions…",
         googlePost: "Copy & Open Google Maps",
         postedTitle: "Almost there!",
         postedSub: "Your review has been copied. Google Maps should open — just paste and post!",
@@ -572,10 +801,13 @@
         waSub: "Please tell us what went wrong so we can make it right.",
         waPlaceholder: "Describe your experience…",
         waSend: "Send via WhatsApp",
-        skip: "Skip",
+        skip: "Skip / Submit",
         thanksTitle: "We appreciate your honesty",
-        thanksSub: "Thank you for taking the time to share your experience.",
-        tosHeading: "Review Integrity Policy:",
+        thanksSub: "Thank you for taking the time to share your feedback.",
+        thanksBtn: "Submit Feedback",
+        doneTitle: "Feedback Submitted!",
+        doneSub: "Thank you! Your feedback has been received and helps us serve you better.",
+        tosHeading: "Review Integrity Policy",
         tos1: "Suggested phrases are provided only as a starting point — they don't replace your own words.",
         tos2: "You are free to edit the review before posting it.",
         tos3: "You should only describe your own genuine experience.",
@@ -584,10 +816,12 @@
       },
       hi: {
         langLabel: "भाषा:",
+        landingTitle: "आने के लिए धन्यवाद!",
         landingSub: "आज आपका अनुभव कैसा रहा?",
+        ratingLabels: ["1 स्टार • असंतोषजनक", "2 स्टार • बेहतर हो सकता है", "3 स्टार • अच्छा", "4 स्टार • बहुत अच्छा!", "5 स्टार • उत्कृष्ट!"],
         whatLoved: "आपको क्या पसंद आया? (सभी उपयुक्त चुनें)",
         yourReview: "आपकी समीक्षा (आप संपादन कर सकते हैं)",
-        reviewPlaceholder: "समीक्षा बनाने के लिए ऊपर की श्रेणियां चुनें…",
+        reviewPlaceholder: "अपनी समीक्षा यहां लिखें, या सुझावों के लिए ऊपर श्रेणियां चुनें…",
         googlePost: "कॉपी करें और गूगल मैप्स खोलें",
         postedTitle: "बस एक कदम दूर!",
         postedSub: "आपकी समीक्षा कॉपी हो गई है। गूगल मैप्स खुलेगा — बस पेस्ट करें और पोस्ट करें!",
@@ -598,7 +832,10 @@
         skip: "छोड़ें",
         thanksTitle: "हम आपकी ईमानदारी की सराहना करते हैं",
         thanksSub: "अपना अनुभव साझा करने के लिए समय निकालने के लिए धन्यवाद।",
-        tosHeading: "समीक्षा अखंडता नीति:",
+        thanksBtn: "प्रतिक्रिया सबमिट करें",
+        doneTitle: "प्रतिक्रिया सबमिट हो गई!",
+        doneSub: "धन्यवाद! आपकी प्रतिक्रिया प्राप्त हो गई है और यह हमें बेहतर सेवा देने में मदद करती है।",
+        tosHeading: "समीक्षा अखंडता नीति",
         tos1: "सुझाए गए वाक्यांश केवल एक शुरुआती बिंदु के रूप में दिए गए हैं — वे आपके अपने शब्दों का स्थान नहीं लेते हैं।",
         tos2: "आप पोस्ट करने से पहले समीक्षा को संपादित करने के लिए स्वतंत्र हैं।",
         tos3: "आपको केवल अपने वास्तविक अनुभव का वर्णन करना चाहिए।",
@@ -607,10 +844,12 @@
       },
       gu: {
         langLabel: "ભાષા:",
+        landingTitle: "મુલાકાત માટે આભાર!",
         landingSub: "આજે તમારો અનુભવ કેવો રહ્યો?",
+        ratingLabels: ["1 સ્ટાર • અસંતોષકારક", "2 સ્ટાર • સુધારી શકાય", "3 સ્ટાર • સારું", "4 સ્ટાર • ખૂબ સરસ!", "5 સ્ટાર • ઉત્તમ!"],
         whatLoved: "તમને શું પસંદ આવ્યું? (લાગુ પડતા તમામ પસંદ કરો)",
         yourReview: "તમારી સમીક્ષા (તમે ફેરફાર કરી શકો છો)",
-        reviewPlaceholder: "સમીક્ષા બનાવવા માટે ઉપરના કેટેગરીઝ પસંદ કરો…",
+        reviewPlaceholder: "તમારી સમીક્ષા અહીં લખો, અથવા સૂચનો માટે ઉપરના કેટેગરીઝ પસંદ કરો…",
         googlePost: "કોપી કરો અને ગુગલ મેપ્સ ખોલો",
         postedTitle: "બસ એક પગલું દૂર!",
         postedSub: "તમારી સમીક્ષા કોપી થઈ ગઈ છે. ગુગલ મેપ્સ ખુલશે — બસ પેસ્ટ કરો અને પોસ્ટ કરો!",
@@ -621,7 +860,10 @@
         skip: "છોડો",
         thanksTitle: "અમે તમારી પ્રામાણિકતાની પ્રશંસા કરીએ છીએ",
         thanksSub: "તમારો અનુભવ શેર કરવા માટે સમય કાઢવા બદલ આભાર.",
-        tosHeading: "સમીક્ષા અખંડિતતા નીતિ:",
+        thanksBtn: "પ્રતિસાદ સબમિટ કરો",
+        doneTitle: "પ્રતિસાદ સબમિટ થઈ ગયો!",
+        doneSub: "આભાર! તમારો પ્રતિસાદ મળી ગયો છે અને અમને વધુ સારી સેવા આપવામાં મદદ કરે છે.",
+        tosHeading: "સમીક્ષા અખંડિતતા નીતિ",
         tos1: "સૂચવેલ શબ્દસમૂહો માત્ર એક શરૂઆતના બિંદુ તરીકે આપવામાં આવ્યા છે — તે તમારા પોતાના શબ્દોનું સ્થાન લેતા નથી.",
         tos2: "પોસ્ટ કરતા પહેલા સમીક્ષામાં ફેરફાર કરવા માટે તમે મુક્ત છો.",
         tos3: "તમારે માત્ર તમારા પોતાના વાસ્તવિક અનુભવનું વર્ણન કરવું જોઈએ.",
@@ -630,9 +872,7 @@
       }
     };
 
-    // ─── Feature Flags ───────────────────────────────────────────────────────
-    // Multi-language support flag. Product ships English-only for initial release (false).
-    // Set to true to display language selector and enable dynamic translation rendering.
+    // Multi-language support flag
     const ENABLE_TRANSLATIONS = false;
 
     // ─── State ──────────────────────────────────────────────────────────────
@@ -645,8 +885,8 @@
       assignedPoolVersion: 'v1',
       lang: 'en',
       starRating: 0,
-      selectedCategories: new Set(),   // Category index or base name
-      phraseMap: {},                    // index/name → phrase string
+      selectedCategories: new Set(),
+      phraseMap: {},
       sessionToken: null,
       submitted: false,
     };
@@ -658,10 +898,7 @@
       error: $('screen-error'),
       unavailable: $('screen-unavailable'),
       done: $('screen-done'),
-      landing: $('screen-landing'),
-      'low-wa': $('screen-low-wa'),
-      'low-thanks': $('screen-low-thanks'),
-      high: $('screen-high'),
+      main: $('screen-main'),
       posted: $('screen-posted'),
     };
 
@@ -670,26 +907,25 @@
       $('screen-error').style.display = 'none';
       $('screen-unavailable').style.display = 'none';
       $('screen-done').style.display = 'none';
-
-      Object.entries(screens).forEach(([k, el]) => {
-        if (!el) return;
-        el.classList.remove('active');
-        if (!['loading', 'error', 'unavailable', 'done'].includes(k)) el.style.display = '';
-      });
+      $('screen-posted').style.display = 'none';
+      $('screen-main').classList.remove('active');
+      $('screen-main').style.display = 'none';
 
       const target = screens[name];
       if (!target) return;
 
-      if (['error', 'unavailable', 'done'].includes(name)) {
+      if (['error', 'unavailable', 'done', 'posted'].includes(name)) {
         target.style.display = 'flex';
         target.style.flexDirection = 'column';
-        target.style.alignItems = 'center';
-        target.style.paddingTop = '60px';
+        target.style.alignItems = 'stretch';
+        target.style.width = '100%';
+        target.style.paddingTop = '24px';
       } else {
+        target.style.display = 'flex';
         target.classList.add('active');
       }
 
-      const showHeader = ['landing', 'low-wa', 'low-thanks', 'high', 'posted'].includes(name);
+      const showHeader = ['main', 'posted', 'done'].includes(name);
       $('header-band').style.display = showHeader ? 'flex' : 'none';
       $('lang-bar').style.display = (showHeader && ENABLE_TRANSLATIONS) ? 'flex' : 'none';
     }
@@ -711,13 +947,14 @@
 
     function markSubmitted(branchId) {
       sessionStorage.setItem(`submitted_${branchId}`, '1');
+      state.submitted = true;
     }
 
-    // ─── Deterministic Pool Version Resolution ───────────────────────────────
+    // ─── Hash-based pool version resolution ──────────────────────────────────
     function resolvePoolVersion(branch, business) {
-      if (branch && branch.pool_version) return branch.pool_version;
-      if (business && business.pool_version) return business.pool_version;
-      // Hash fallback for duplicate content mitigation
+      const explicit = (branch && branch.pool_version) || (business && business.pool_version);
+      if (explicit && ['v1', 'v2', 'v3'].includes(explicit)) return explicit;
+
       const seed = (branch && branch.id) || (business && business.id) || 'default';
       let hash = 0;
       for (let i = 0; i < seed.length; i++) {
@@ -735,6 +972,7 @@
       const dict = UI_STRINGS[activeLang] || UI_STRINGS.en;
 
       $('lbl-lang-label').textContent = dict.langLabel;
+      $('lbl-landing-title').textContent = dict.landingTitle;
       $('lbl-landing-sub').textContent = dict.landingSub;
       $('lbl-what-loved').textContent = dict.whatLoved;
       $('lbl-your-review').textContent = dict.yourReview;
@@ -749,6 +987,9 @@
       $('btn-low-skip').textContent = dict.skip;
       $('lbl-thanks-title').textContent = dict.thanksTitle;
       $('lbl-thanks-sub').textContent = dict.thanksSub;
+      $('lbl-thanks-btn').textContent = dict.thanksBtn;
+      $('lbl-done-title').textContent = dict.doneTitle;
+      $('lbl-done-sub').textContent = dict.doneSub;
       $('lbl-tos-heading').textContent = dict.tosHeading;
       $('lbl-tos-1').textContent = dict.tos1;
       $('lbl-tos-2').textContent = dict.tos2;
@@ -760,10 +1001,12 @@
         btn.classList.toggle('active', btn.dataset.lang === activeLang);
       });
 
-      // If category chips are visible, re-render and re-assemble
+      if (state.starRating > 0) {
+        updateRatingBadge(state.starRating);
+      }
+
       if (state.template) {
         buildChips();
-        // Re-pick phrases for selected categories in new language
         state.selectedCategories.forEach(catIdx => {
           const cat = state.template.categories[catIdx];
           if (cat) {
@@ -785,22 +1028,19 @@
     // ─── Phrase Pool Resolution per Category / Lang / Version ─────────────────
     function getCategoryPhrasePool(cat) {
       const lang = ENABLE_TRANSLATIONS ? state.lang : 'en';
-      const ver  = state.assignedPoolVersion;
+      const ver = state.assignedPoolVersion;
 
       let poolSource = cat;
       if (lang !== 'en' && cat.translations && cat.translations[lang]) {
         poolSource = cat.translations[lang];
       }
 
-      // Check versioned pool
       if (poolSource.phrase_pool_versions && poolSource.phrase_pool_versions[ver] && poolSource.phrase_pool_versions[ver].length) {
         return poolSource.phrase_pool_versions[ver];
       }
-      // Check standard phrase pool
       if (poolSource.phrase_pool && poolSource.phrase_pool.length) {
         return poolSource.phrase_pool;
       }
-      // Fallback to English base version
       if (cat.phrase_pool_versions && cat.phrase_pool_versions[ver] && cat.phrase_pool_versions[ver].length) {
         return cat.phrase_pool_versions[ver];
       }
@@ -821,50 +1061,82 @@
       return pool[Math.floor(Math.random() * pool.length)];
     }
 
-    // ─── Star UI ──────────────────────────────────────────────────────────────
+    // ─── Interactive Star Rating UI (Single-Screen Reactive) ───────────────────
     function updateStars(rating) {
       document.querySelectorAll('.star-btn').forEach(btn => {
         btn.classList.toggle('lit', parseInt(btn.dataset.val) <= rating);
       });
     }
 
-    document.querySelectorAll('.star-btn').forEach(btn => {
+    function updateRatingBadge(rating) {
+      const dict = UI_STRINGS[state.lang] || UI_STRINGS.en;
+      const label = dict.ratingLabels ? dict.ratingLabels[rating - 1] : `${rating} Stars`;
+      $('rating-badge').textContent = label;
+      $('rating-badge-container').style.display = 'block';
+    }
+
+    document.querySelectorAll('.star-grid .star-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         if (state.submitted) return;
-        state.starRating = parseInt(btn.dataset.val);
-        updateStars(state.starRating);
-        setTimeout(() => handleStarChosen(), 350);
+        const rating = parseInt(btn.dataset.val);
+        state.starRating = rating;
+        updateStars(rating);
+        updateRatingBadge(rating);
+        renderDynamicSection(rating);
       });
     });
 
-    function handleStarChosen() {
-      const cfg = state.branch.star_routing_config || {};
-      const route = cfg[String(state.starRating)] || 'google';
+    function renderDynamicSection(rating) {
+      const cfg = (state.branch && state.branch.star_routing_config) || {};
+      // Default: 4-5 stars route to Google Maps, 1-3 stars route to WhatsApp
+      const route = cfg[String(rating)] || (rating >= 4 ? 'google' : 'whatsapp');
 
+      const dynamicContainer = $('dynamic-content');
+      const secHigh = $('section-high');
+      const secLowWa = $('section-low-wa');
+      const secLowThanks = $('section-low-thanks');
+
+      dynamicContainer.style.display = 'flex';
+
+      // Hide all sub-sections first & remove active class
+      [secHigh, secLowWa, secLowThanks].forEach(el => {
+        el.classList.remove('active');
+        el.style.display = 'none';
+      });
+
+      let targetSection;
       if (route === 'google') {
-        showScreen('high');
+        targetSection = secHigh;
         buildChips();
+        rebuildReviewText();
       } else if (route === 'whatsapp') {
-        showScreen('low-wa');
+        targetSection = secLowWa;
       } else {
-        showScreen('low-thanks');
+        targetSection = secLowThanks;
+      }
+
+      if (targetSection) {
+        targetSection.style.display = 'flex';
+        // Force reflow so the transition animation replays smoothly
+        void targetSection.offsetWidth;
+        targetSection.classList.add('active');
       }
     }
 
-    // ─── Category chips & Text Assembly ───────────────────────────────────────
+    // ─── Category chips & Text Assembly (Randomized Order) ───────────────────
     function buildChips() {
-      if (!state.template || !state.template.categories) return;
+      if (!state.template || !state.shuffledCategories) return;
       const grid = $('chip-grid');
       grid.innerHTML = '';
 
-      state.template.categories.forEach((cat, idx) => {
+      state.shuffledCategories.forEach(({ cat, originalIdx }) => {
         const btn = document.createElement('button');
         btn.className = 'chip';
         btn.textContent = getCategoryDisplayName(cat);
-        if (state.selectedCategories.has(idx)) {
+        if (state.selectedCategories.has(originalIdx)) {
           btn.classList.add('selected');
         }
-        btn.addEventListener('click', () => toggleChip(cat, idx, btn));
+        btn.addEventListener('click', () => toggleChip(cat, originalIdx, btn));
         grid.appendChild(btn);
       });
     }
@@ -885,84 +1157,130 @@
     function rebuildReviewText() {
       const ta = $('review-text');
       const card = $('review-card');
+      card.style.display = 'block';
+
       if (!state.selectedCategories.size) {
-        card.style.display = 'none';
+        if (state.wasAutoGenerated) {
+          ta.value = '';
+          state.wasAutoGenerated = false;
+        }
         return;
       }
-      card.style.display = '';
       const phrases = [];
-      state.template.categories.forEach((cat, idx) => {
-        if (state.selectedCategories.has(idx) && state.phraseMap[idx]) {
-          phrases.push(state.phraseMap[idx]);
+      state.shuffledCategories.forEach(({ originalIdx }) => {
+        if (state.selectedCategories.has(originalIdx) && state.phraseMap[originalIdx]) {
+          phrases.push(state.phraseMap[originalIdx]);
         }
       });
       ta.value = phrases.join(' ');
+      state.wasAutoGenerated = true;
     }
 
-    // ─── Log scan to Firestore ────────────────────────────────────────────────
+    $('review-text').addEventListener('input', () => {
+      state.wasAutoGenerated = false;
+    });
+
+    // ─── Log scan to Firestore (per-business subcollection + aggregate) ────────
     async function logScan({ actionTaken }) {
       try {
-        await addDoc(collection(db, 'scan_logs'), {
+        // 1. Write individual scan doc to businesses/{bizId}/scans/{auto-id}
+        await addDoc(collection(db, 'businesses', state.businessId, 'scans'), {
           branch_id: state.branchId,
-          business_id: state.businessId,
           star_rating: state.starRating,
           timestamp: serverTimestamp(),
           session_token: state.sessionToken,
           action_taken: actionTaken,
         });
+
+        // 2. Atomically increment aggregate counters on the branch doc
+        const branchRef = doc(db, 'businesses', state.businessId, 'branches', state.branchId);
+        const statsUpdates = {
+          'stats_summary.total_scans': increment(1),
+        };
+        if (actionTaken === 'google_maps') {
+          statsUpdates['stats_summary.total_reviews_redirected'] = increment(1);
+          statsUpdates['stats_summary.monthly_google_reviews'] = increment(1);
+        }
+        if (state.starRating >= 1 && state.starRating <= 5) {
+          statsUpdates[`stats_summary.star_counts.${state.starRating}`] = increment(1);
+        }
+        await updateDoc(branchRef, statsUpdates);
       } catch (e) {
-        console.warn('scan_logs write failed', e);
+        console.warn('scan write failed', e);
       }
     }
 
     // ─── WhatsApp button ─────────────────────────────────────────────────────
     $('btn-wa-send').addEventListener('click', async () => {
       const feedback = $('wa-text').value.trim();
-      const num = state.branch.whatsapp_number || '';
+      const num = (state.branch && state.branch.whatsapp_number) || '';
       const msg = encodeURIComponent(feedback || 'Feedback from a customer.');
       await logScan({ actionTaken: 'whatsapp' });
       markSubmitted(state.branchId);
-      window.open(`https://wa.me/${num.replace(/^\+/, '')}?text=${msg}`, '_blank', 'noopener');
-      showScreen('low-thanks');
+      if (num) {
+        window.open(`https://wa.me/${num.replace(/^\+/, '')}?text=${msg}`, '_blank', 'noopener');
+      }
+      showScreen('done');
     });
 
     $('btn-low-skip').addEventListener('click', async () => {
-      await logScan({ actionTaken: 'low_skip' });
+      const feedback = $('wa-text').value.trim();
+      await logScan({ actionTaken: feedback ? 'feedback_submitted' : 'low_skip' });
       markSubmitted(state.branchId);
-      showScreen('low-thanks');
+      showScreen('done');
+    });
+
+    $('btn-thanks-submit').addEventListener('click', async () => {
+      await logScan({ actionTaken: 'thankyou' });
+      markSubmitted(state.branchId);
+      showScreen('done');
     });
 
     // ─── Google Maps / Copy button ────────────────────────────────────────────
     $('btn-google-post').addEventListener('click', async () => {
       const reviewText = $('review-text').value.trim();
-      if (!reviewText) return;
 
-      try {
-        await navigator.clipboard.writeText(reviewText);
-      } catch {
-        const ta = $('review-text');
-        ta.select();
-        document.execCommand('copy');
+      if (reviewText) {
+        try {
+          await navigator.clipboard.writeText(reviewText);
+        } catch {
+          const ta = $('review-text');
+          ta.select();
+          document.execCommand('copy');
+        }
       }
 
       await logScan({ actionTaken: 'google_maps' });
       markSubmitted(state.branchId);
 
-      // BUG 3 FIX: Sanitize pipe '|' → 'I' in place_id.
-      // Google Place IDs never contain '|'. If present, it's a corruption of 'I'
-      // from copy-paste in certain fonts/terminals.
-      const rawPlaceId = state.branch.place_id || '';
+      const rawPlaceId = (state.branch && state.branch.place_id) || '';
       const placeId = rawPlaceId.replace(/\|/g, 'I');
-      if (rawPlaceId !== placeId) {
-        console.warn('⚠️ Place ID contained "|" (pipe), auto-corrected to "I":', rawPlaceId, '→', placeId);
-      }
+      
       const mobileUrl = `https://search.google.com/local/writereview/mobile?placeid=${placeId}`;
       const desktopUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
       const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-      window.open(isMobile ? mobileUrl : desktopUrl, '_blank', 'noopener');
+      
+      if (placeId) {
+        window.open(isMobile ? mobileUrl : desktopUrl, '_blank', 'noopener');
+      }
 
       showScreen('posted');
     });
+
+    // ─── Expandable Terms of Service / Integrity Policy Accordion ────────────
+    const tosCard = $('tos-card');
+    if (tosCard) {
+      tosCard.addEventListener('click', () => {
+        const isExpanded = tosCard.classList.toggle('expanded');
+        tosCard.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+      });
+      tosCard.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          tosCard.click();
+        }
+      });
+    }
 
     // ─── Load data on page init ───────────────────────────────────────────────
     async function init() {
@@ -1004,7 +1322,6 @@
             getDoc(doc(db, 'businesses', businessId, 'branches', branchId)),
           ]);
         } else {
-          // Collection group query if businessId is omitted
           branchSnap = await getDoc(doc(db, 'branches', branchId));
           if (branchSnap.exists()) {
             const bizRef = branchSnap.ref.parent.parent;
@@ -1029,35 +1346,76 @@
           return;
         }
 
-        // Pool version resolution (duplicate content mitigation)
         state.assignedPoolVersion = resolvePoolVersion(state.branch, state.business);
 
-        // Load category template from Firestore (cached in state.template for session)
+        // Load category template from Firestore
         const templateId = state.branch.category_override_id
           || state.business.default_category_template_id
           || 'ice_cream_v1';
         
         let tplSnap = await getDoc(doc(db, 'category_templates', templateId));
         if (!tplSnap.exists()) {
-          // Fallback to default ice_cream_v1 if templateId missing
           tplSnap = await getDoc(doc(db, 'category_templates', 'ice_cream_v1'));
+        }
+        if (!tplSnap.exists()) {
+          const allTpls = await getDocs(collection(db, 'category_templates'));
+          if (!allTpls.empty) {
+            tplSnap = allTpls.docs[0];
+          }
         }
 
         state.template = tplSnap.exists() ? tplSnap.data() : null;
-
-        // Populate header
-        $('biz-name').textContent = state.business.brand_name || 'Business';
-        $('biz-branch').textContent = state.branch.branch_name || '';
-        const logoUrl = state.business.logo_url;
-        if (logoUrl) {
-          const img = $('biz-logo');
-          img.src = logoUrl;
-          img.style.display = 'block';
-          $('biz-logo-placeholder').style.display = 'none';
+        if (state.template && Array.isArray(state.template.categories)) {
+          // Shuffle categories with Fisher-Yates algorithm so chip positions are randomized per visit
+          state.shuffledCategories = state.template.categories.map((cat, originalIdx) => ({
+            cat,
+            originalIdx
+          }));
+          for (let i = state.shuffledCategories.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [state.shuffledCategories[i], state.shuffledCategories[j]] = [state.shuffledCategories[j], state.shuffledCategories[i]];
+          }
+        } else {
+          state.shuffledCategories = [];
         }
 
+        // Populate header immediately
+        const brandName = state.business.brand_name || 'Business';
+        $('biz-name').textContent = brandName;
+        $('biz-branch').textContent = state.branch.branch_name || '';
+
+        const initial = brandName.trim().charAt(0).toUpperCase() || 'B';
+        const placeholderEl = $('biz-logo-placeholder');
+        const imgEl = $('biz-logo');
+        placeholderEl.textContent = initial;
+        placeholderEl.style.display = 'flex';
+        imgEl.style.display = 'none';
+
+        // Reveal the review page immediately with business initial
         applyLanguage('en');
-        showScreen('landing');
+        showScreen('main');
+
+        // Asynchronously preload and swap in the logo
+        const logoUrl = state.business.logo_url;
+        if (logoUrl && typeof logoUrl === 'string' && logoUrl.trim().length > 0) {
+          const preloader = new Image();
+          preloader.onload = () => {
+            imgEl.src = logoUrl;
+            imgEl.style.display = 'block';
+            placeholderEl.style.display = 'none';
+          };
+          preloader.onerror = () => {
+            imgEl.style.display = 'none';
+            placeholderEl.style.display = 'flex';
+          };
+          preloader.src = logoUrl;
+
+          if (preloader.complete && preloader.naturalWidth > 0) {
+            imgEl.src = logoUrl;
+            imgEl.style.display = 'block';
+            placeholderEl.style.display = 'none';
+          }
+        }
 
       } catch (err) {
         console.error('Load error:', err);

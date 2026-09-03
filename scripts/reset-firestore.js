@@ -64,6 +64,14 @@ async function deleteCollectionRecursively(collectionPath, batchSize = 100) {
         await branchBatch.commit();
         count += branchSnap.size;
       }
+      const scansRef = doc.ref.collection('scans');
+      const scansSnap = await scansRef.get();
+      if (!scansSnap.empty) {
+        const scanBatch = db.batch();
+        scansSnap.docs.forEach((s) => scanBatch.delete(s.ref));
+        await scanBatch.commit();
+        count += scansSnap.size;
+      }
     }
     await doc.ref.delete();
     count++;
@@ -80,7 +88,7 @@ const { getStorage } = require('firebase-admin/storage');
 async function deleteStorageFiles() {
   try {
     const bucket = getStorage().bucket();
-    const prefixes = ['logos/', 'qr_codes/', 'employee_docs/'];
+    const prefixes = ['logos/', 'qr_codes/', 'plain_qr_codes/', 'standees/'];
     for (const prefix of prefixes) {
       process.stdout.write(`  Deleting Storage path: ${prefix}... `);
       await bucket.deleteFiles({ prefix, force: true });
@@ -89,6 +97,22 @@ async function deleteStorageFiles() {
   } catch (e) {
     console.warn('  ⚠️ Could not delete storage files:', e.message);
   }
+}
+
+async function resetEmployeeCounters() {
+  const empSnap = await db.collection('employees').get();
+  if (empSnap.empty) return;
+  const batch = db.batch();
+  empSnap.docs.forEach(doc => {
+    batch.update(doc.ref, {
+      total_enrollments: 0,
+      this_month_enrollments: 0,
+      total_commissions_earned: 0,
+      managed_businesses_count: 0,
+    });
+  });
+  await batch.commit();
+  console.log(`  Reset performance counters to 0 for ${empSnap.size} employee(s).`);
 }
 
 async function ensureCategoryTemplates(forceReseed = false) {
@@ -139,6 +163,8 @@ async function main() {
     'notifications',
     'scan_logs',
     'subscription_override_logs',
+    'processed_payment_events',
+    'leads',
   ];
 
   if (includeEmployees) {
@@ -152,13 +178,16 @@ async function main() {
     console.log(`deleted ${deletedCount} doc(s)`);
   }
 
-  console.log('\n--- 2. Firebase Storage ---');
+  console.log('\n--- 2. Employee Performance Counters ---');
+  await resetEmployeeCounters();
+
+  console.log('\n--- 3. Firebase Storage (Logos & QR Codes) ---');
   await deleteStorageFiles();
 
-  console.log('\n--- 3. Category Templates ---');
+  console.log('\n--- 4. Category Templates ---');
   await ensureCategoryTemplates(forceReseedTemplates);
 
-  console.log('\n🎉 Full reset complete! Firestore & Storage are clean and ready for testing.\n');
+  console.log('\n🎉 Full reset complete! Firestore & Storage are clean and ready for your first live enrollment.\n');
 }
 
 main().catch((err) => {

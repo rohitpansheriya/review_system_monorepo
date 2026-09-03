@@ -33,6 +33,7 @@ class AppConstants {
   static const String fnSendCashPaymentVerification  = 'sendCashPaymentVerification'; // LEGACY
   static const String fnConfirmCashPaymentAdmin      = 'confirmCashPaymentAdmin';
   static const String fnMarkCommissionsPaidBulk      = 'markCommissionsPaidBulk';
+  static const String fnDeleteBusinessAdmin          = 'deleteBusinessAdmin';
 
   // ── Star routing option values ──────────────────────────────────────────────
   static const String routingThankyou = 'thankyou';

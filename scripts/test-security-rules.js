@@ -205,10 +205,48 @@ async function main() {
     false
   );
 
+  // T8 — CANNOT update business enrolled by someone else
+  const OTHER_EMP_BIZ = 'sec-test-other-emp';
+  await adminDb.doc(`businesses/${OTHER_EMP_BIZ}`).set({
+    brand_name: 'Other Emp Biz',
+    enrolled_by: 'someone_else_999',
+    subscription_status: 'active',
+    created_at: Timestamp.now(),
+  });
+
+  await expect(
+    'T8: employee CANNOT update business enrolled by another employee (enrolled_by isolation)',
+    () => restRequest('PATCH',
+      `businesses/${OTHER_EMP_BIZ}?updateMask.fieldPaths=brand_name`,
+      buildPatchBody({ brand_name: 'Hacked Brand' }), token),
+    false
+  );
+
+  // T9 — Deactivated employee is DENIED access to their own enrolled business
+  await adminDb.doc(`employees/${empUid}`).update({
+    status: 'inactive',
+    active: false,
+  });
+
+  await expect(
+    'T9: deactivated employee is DENIED update to their own enrolled business',
+    () => restRequest('PATCH',
+      `businesses/${ACTIVE_ID}?updateMask.fieldPaths=brand_name`,
+      buildPatchBody({ brand_name: 'Deactivated Emp Edit' }), token),
+    false
+  );
+
+  // Restore employee active state for other test suites
+  await adminDb.doc(`employees/${empUid}`).update({
+    status: 'active',
+    active: true,
+  });
+
   // ── Cleanup ───────────────────────────────────────────────────────────────
   await adminDb.doc(`businesses/${PENDING_ID}`).delete().catch(() => {});
   await adminDb.doc(`businesses/${ACTIVE_ID}/branches/test-branch`).delete().catch(() => {});
   await adminDb.doc(`businesses/${ACTIVE_ID}`).delete().catch(() => {});
+  await adminDb.doc(`businesses/${OTHER_EMP_BIZ}`).delete().catch(() => {});
 
   console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`Results: ${passed} passed, ${failed} failed`);

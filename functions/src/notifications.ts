@@ -40,7 +40,17 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {getFirestore, Timestamp} from "firebase-admin/firestore";
 import {getMessaging} from "firebase-admin/messaging";
-import {brevoApiKey, brevoSenderEmail, adminEmail} from "./secrets.js";
+import {getAuth} from "firebase-admin/auth";
+import {
+  brevoApiKey,
+  brevoSenderEmail,
+  adminEmail,
+  razorpayKeyId,
+  razorpayKeySecret,
+  reviewDomain,
+} from "./secrets.js";
+import {generateInvoicePdf} from "./invoiceGenerator.js";
+import Razorpay from "razorpay";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,6 +62,7 @@ interface SendBrevoOpts {
   subject: string;
   html: string;
   text: string;
+  attachments?: Array<{ name: string; content: string }>;
 }
 
 interface NotifRecipient {
@@ -68,6 +79,7 @@ interface SendNotificationOpts {
   text: string;
   type: string;
   businessId: string | null;
+  attachments?: Array<{ name: string; content: string }>;
 }
 
 interface WriteNotificationData {
@@ -101,20 +113,29 @@ interface SendPaymentLinkEmailOpts {
  */
 async function sendBrevoEmail(opts: SendBrevoOpts): Promise<void> {
   const apiKey = brevoApiKey.value();
-  const sender = brevoSenderEmail.value();
+  const sender = (brevoSenderEmail.value() || process.env.BREVO_SENDER_EMAIL || "noreply@appnexa.co.in").trim();
   if (!apiKey || !sender) {
+    logger.error("sendBrevoEmail: Missing BREVO_API_KEY or BREVO_SENDER_EMAIL", {
+      hasApiKey: !!apiKey,
+      sender,
+    });
     throw new Error(
       "Missing BREVO_API_KEY or BREVO_SENDER_EMAIL — " +
       "ensure both are configured before sending email."
     );
   }
-  const body = JSON.stringify({
-    sender: {name: "Review System", email: sender},
+  const payload: Record<string, unknown> = {
+    sender: {name: "AppNexa Technologies", email: sender},
+    replyTo: {name: "AppNexa Support", email: "support@appnexa.co.in"},
     to: [{email: opts.to, name: opts.toName}],
     subject: opts.subject,
     htmlContent: opts.html,
     textContent: opts.text,
-  });
+  };
+  if (opts.attachments && opts.attachments.length > 0) {
+    payload.attachment = opts.attachments;
+  }
+  const body = JSON.stringify(payload);
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
@@ -126,6 +147,12 @@ async function sendBrevoEmail(opts: SendBrevoOpts): Promise<void> {
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => "(unreadable)");
+    logger.error("sendBrevoEmail: Brevo API rejected email send", {
+      status: res.status,
+      error: errText,
+      recipient: opts.to,
+      subject: opts.subject,
+    });
     throw new Error(`Brevo API ${res.status}: ${errText.slice(0, 200)}`);
   }
 }
@@ -201,6 +228,7 @@ async function sendNotification(opts: SendNotificationOpts): Promise<void> {
       subject,
       html,
       text,
+      attachments: opts.attachments,
     });
     logger.info("sendNotification: email sent", {role: to.role, type});
   } catch (err) {
@@ -268,25 +296,133 @@ async function isAlreadyNotified(
 // Internal: Email HTML templates
 // ---------------------------------------------------------------------------
 
-function ownerReminderHtml(brandName: string, daysDiff: number): string {
-  const colour = daysDiff <= 7 ? "#f87171" : "#7c6cfc";
+function ownerGracePeriodReminderHtml(
+  brandName: string,
+  daysPassed: number,
+  remainingDays: number,
+  renewalDateStr: string,
+  paymentLinkUrl: string
+): string {
+  const isFinalDay = remainingDays <= 1;
+  const badgeColor = isFinalDay ? "#dc2626" : "#d97706";
+  const badgeBg = isFinalDay ? "#fef2f2" : "#fffbeb";
+  const badgeBorder = isFinalDay ? "#fecaca" : "#fef3c7";
+  const countdownTitle = isFinalDay ? "⚡ FINAL DAY TO RENEW" : `⏳ ${remainingDays} Days Remaining in Grace Period`;
+
+  return [
+    "<div style=\"background-color:#f8fafc;padding:30px 15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1e293b;line-height:1.6;\">",
+    "  <div style=\"max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);border:1px solid #e2e8f0;\">",
+    "    <!-- Brand Header -->",
+    "    <div style=\"background:linear-gradient(135deg, #1b3a8c, #2f6bff);padding:24px 28px;text-align:center;\">",
+    "      <h1 style=\"color:#ffffff;margin:0;font-size:22px;font-weight:800;letter-spacing:-0.5px;\">AppNexa Technologies</h1>",
+    "      <p style=\"color:#cbd5e1;margin:4px 0 0;font-size:13px;font-weight:500;\">Google Review Growth &amp; Counter Standee System</p>",
+    "    </div>",
+    "    <!-- Alert Banner -->",
+    "    <div style=\"background:" + badgeBg + ";border-bottom:1px solid " + badgeBorder + ";padding:14px 28px;display:flex;align-items:center;gap:12px;\">",
+    "      <div style=\"font-size:20px;line-height:1;\">⚠️</div>",
+    "      <div>",
+    "        <div style=\"color:" + badgeColor + ";font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;\">",
+    "          Subscription In Grace Period — Day " + daysPassed + " of 30",
+    "        </div>",
+    "        <p style=\"font-size:15px;margin-top:0;\">Dear <strong>" + brandName + "</strong> Owner,</p>",
+    "        <p style=\"font-size:14px;color:#334155;\">",
+    "          Your annual subscription for your <strong>AppNexa Google Review Standees &amp; Dashboard</strong> expired on <strong>" + renewalDateStr + "</strong> and is currently in its <strong>30-Day Grace Period</strong>.",
+    "        </p>",
+    "        <!-- Countdown Box -->",
+    "        <div style=\"background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:12px;padding:18px;margin:20px 0;text-align:center;\">",
+    "          <div style=\"font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:1px;\">Grace Period Status</div>",
+    "          <div style=\"font-size:24px;font-weight:800;color:" + badgeColor + ";margin:6px 0;\">",
+    "            " + countdownTitle,
+    "          </div>",
+    "          <div style=\"font-size:13px;color:#475569;\">",
+    "            Renew now for <strong>₹999 / year</strong> to keep your review page &amp; standees fully active.",
+    "          </div>",
+    "        </div>",
+    "        <!-- Penalty Notice Box -->",
+    "        <div style=\"background:#fef2f2;border-left:4px solid #ef4444;padding:16px;border-radius:0 8px 8px 0;margin:20px 0;\">",
+    "          <div style=\"font-weight:800;color:#991b1b;font-size:13px;margin-bottom:4px;\">",
+    "            ⚠️ Critical Notice &amp; Re-Enrollment Penalty Policy:",
+    "          </div>",
+    "          <div style=\"font-size:13px;color:#7f1d1d;line-height:1.5;\">",
+    "            If your subscription is not renewed within the remaining <strong>" + remainingDays + " days</strong> of the grace period, your business review page and standees will be <strong>permanently deactivated and suspended</strong>.",
+    "            <br/><br/>",
+    "            Once deactivated, you will lose your discounted annual renewal rate (₹999) and <strong>must re-enroll as a new business at the full initial enrollment fee of ₹1,999</strong>.",
+    "          </div>",
+    "        </div>",
+    "        <!-- Direct 1-Click Payment Action Button -->",
+    "        <div style=\"text-align:center;margin:30px 0 20px;\">",
+    "          <a href=\"" + paymentLinkUrl + "\" style=\"background:linear-gradient(135deg, #10b981, #059669);color:#ffffff;text-decoration:none;padding:15px 36px;font-size:16px;font-weight:800;border-radius:10px;display:inline-block;box-shadow:0 4px 14px rgba(16,185,129,0.4);letter-spacing:0.3px;\">",
+    "            💳 Pay ₹999 &amp; Activate Business Now &rarr;",
+    "          </a>",
+    "          <div style=\"font-size:12px;color:#64748b;margin-top:8px;\">Instant Activation &bull; UPI (GPay, PhonePe, Paytm) / Cards / NetBanking</div>",
+    "        </div>",
+    "        <hr style=\"border:none;border-top:1px solid #e2e8f0;margin:24px 0;\" />",
+    "        <!-- Support Footer -->",
+    "        <div style=\"font-size:12px;color:#64748b;line-height:1.6;\">",
+    "          <strong>Need help or paying via cash / bank transfer?</strong><br/>",
+    "          Call/WhatsApp our support desk at <a href=\"tel:+918866390389\" style=\"color:#1b3a8c;font-weight:bold;text-decoration:none;\">+91 8866390389</a> or email <a href=\"mailto:support@appnexa.co.in\" style=\"color:#1b3a8c;text-decoration:none;\">support@appnexa.co.in</a>.",
+    "        </div>",
+    "      </div>",
+    "    </div>",
+    "    <div style=\"background:#f1f5f9;padding:14px 28px;text-align:center;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;\">",
+    "      AppNexa Technologies &bull; Surat, Gujarat &bull; Automated Grace Period Alert",
+    "    </div>",
+    "  </div>",
+    "</div>",
+  ].join("\n");
+}
+
+function employeeGracePeriodReminderHtml(
+  brandName: string,
+  daysPassed: number,
+  remainingDays: number
+): string {
+  const isFinalDay = remainingDays <= 1;
+  const badgeColor = isFinalDay ? "#dc2626" : "#d97706";
+
+  return [
+    "<div style=\"font-family:sans-serif;max-width:500px;margin:0 auto;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;padding:24px;\">",
+    "  <h2 style=\"color:" + badgeColor + ";margin-top:0;\">⚠️ Urgent Follow-up: Grace Period Day " + daysPassed + "/30</h2>",
+    "  <p><strong>" + brandName + "</strong> has been in grace period for <strong>" + daysPassed + " days</strong>.</p>",
+    "  <p style=\"background:#fef2f2;padding:12px;border-radius:8px;color:#991b1b;font-size:13px;\">",
+    "    <strong>" + remainingDays + " days remaining</strong> before the account is permanently deactivated and suspended (requiring full ₹1,999 re-enrollment).",
+    "  </p>",
+    "  <p>Please contact the client immediately to collect renewal payment (₹999) or assist with their online renewal.</p>",
+    "  <hr style=\"border:none;border-top:1px solid #e2e8f0;margin:16px 0;\" />",
+    "  <p style=\"color:#888;font-size:12px;margin-bottom:0;\">AppNexa Technologies — Employee Automated Alert</p>",
+    "</div>",
+  ].join("\n");
+}
+
+function ownerReminderHtml(brandName: string, daysDiff: number, paymentLinkUrl: string): string {
+  const colour = daysDiff <= 7 ? "#f87171" : "#1b3a8c";
   const daysLabel = daysDiff === 1 ? "1 day" : `${daysDiff} days`;
   return [
-    "<div style=\"font-family:sans-serif;",
-    "max-width:480px;margin:0 auto;\">",
-    `<h2 style="color:${colour};">`,
-    `  Subscription expires in ${daysLabel}`,
-    "</h2>",
-    "<p>Dear " + brandName + " owner,</p>",
-    "<p>Your review page subscription is due for renewal in ",
-    `<strong>${daysLabel}</strong>. `,
-    "Pay <strong>₹999</strong> to keep your review page ",
-    "active and continue collecting customer reviews.</p>",
-    "<p>Log in to your dashboard to renew now.</p>",
-    "<hr/>",
-    "<p style=\"color:#888;font-size:12px;\">",
-    "  Review System — automated renewal notice",
-    "</p>",
+    "<div style=\"background-color:#f8fafc;padding:30px 15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1e293b;line-height:1.6;\">",
+    "  <div style=\"max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);border:1px solid #e2e8f0;\">",
+    "    <div style=\"background:linear-gradient(135deg, #1b3a8c, #2f6bff);padding:24px 28px;text-align:center;\">",
+    "      <h1 style=\"color:#ffffff;margin:0;font-size:22px;font-weight:800;letter-spacing:-0.5px;\">AppNexa Technologies</h1>",
+    "      <p style=\"color:#cbd5e1;margin:4px 0 0;font-size:13px;font-weight:500;\">Subscription Renewal Notice</p>",
+    "    </div>",
+    "    <div style=\"padding:28px;\">",
+    `      <h2 style="color:${colour};margin-top:0;font-size:18px;">Subscription Expires in ${daysLabel}</h2>`,
+    `      <p style="font-size:15px;">Dear <strong>${brandName}</strong> Owner,</p>`,
+    `      <p style="font-size:14px;color:#334155;">Your review page and counter standee subscription is due for renewal in <strong>${daysLabel}</strong>. Pay <strong>₹999</strong> to keep your review page active and continue boosting 5-star customer reviews.</p>`,
+    "      <div style=\"text-align:center;margin:28px 0 20px;\">",
+    `        <a href="${paymentLinkUrl}" style="background:linear-gradient(135deg, #10b981, #059669);color:#ffffff;text-decoration:none;padding:14px 32px;font-size:15px;font-weight:bold;border-radius:10px;display:inline-block;box-shadow:0 4px 14px rgba(16,185,129,0.35);">`,
+    "          💳 Pay ₹999 &amp; Renew Subscription &rarr;",
+    "        </a>",
+    "        <div style=\"font-size:12px;color:#64748b;margin-top:8px;\">Instant Activation &bull; UPI (GPay, PhonePe, Paytm) / Cards / NetBanking</div>",
+    "      </div>",
+    "      <hr style=\"border:none;border-top:1px solid #e2e8f0;margin:24px 0;\" />",
+    "      <div style=\"font-size:12px;color:#64748b;line-height:1.6;\">",
+    "        Need help or prefer paying via bank transfer? Call/WhatsApp: <a href=\"tel:+918866390389\" style=\"color:#1b3a8c;font-weight:bold;text-decoration:none;\">+91 8866390389</a>.",
+    "      </div>",
+    "    </div>",
+    "    <div style=\"background:#f1f5f9;padding:14px 28px;text-align:center;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;\">",
+    "      AppNexa Technologies &bull; Surat, Gujarat &bull; Automated Renewal Notice",
+    "    </div>",
+    "  </div>",
     "</div>",
   ].join("\n");
 }
@@ -303,7 +439,7 @@ function employeeReminderHtml(brandName: string, daysDiff: number): string {
     "renew before the subscription lapses.</p>",
     "<hr/>",
     "<p style=\"color:#888;font-size:12px;\">",
-    "  Review System — automated employee notice",
+    "  AppNexa Technologies — automated employee notice",
     "</p>",
     "</div>",
   ].join("\n");
@@ -337,7 +473,7 @@ function adminDigestHtml(
     "</table>",
     "<hr/>",
     "<p style=\"color:#888;font-size:12px;\">",
-    "  Review System — weekly admin digest",
+    "  AppNexa Technologies — weekly admin digest",
     "</p>",
     "</div>",
   ].join("\n");
@@ -349,30 +485,27 @@ function adminDigestHtml(
 
 /**
  * Daily scheduled function.
- * At the 30 / 15 / 7 / 1-day windows before each business's renewal_date:
- *   - Emails the business owner (if owner_email is set on the business doc).
- *   - Emails the enrolling/managing employee (if employees/{id}.contact
- *     contains an email address).
+ * 1. At the 30 / 15 / 7 / 1-day windows before each business's renewal_date:
+ *    - Sends upcoming renewal reminder to owner with direct Razorpay payment link.
+ * 2. At 1 / 7 / 15 / 30-day windows after expiry while in GRACE PERIOD:
+ *    - Sends professional grace period reminder with direct Razorpay activation link & penalty warning.
+ *
  * Writes one notifications/{id} doc per email sent.
  * Idempotent: skips if already notified within the last 20 hours.
- *
- * RULE 2: Queries with .where("subscription_status", "in", ["active", "grace_period"]).
- * pending_payment drafts have no renewal_date and are NEVER returned by this query.
- *
- * Requires BREVO_API_KEY (secret) and BREVO_SENDER_EMAIL (param).
  */
 export const sendRenewalReminders = onSchedule(
   {
     schedule: "every 24 hours",
     timeZone: "Asia/Kolkata",
-    secrets: [brevoApiKey],
+    secrets: [brevoApiKey, razorpayKeyId, razorpayKeySecret],
     maxInstances: 1,
     region: "asia-south1",
   },
   async () => {
     const db = getFirestore();
     const now = new Date();
-    const WINDOWS = [30, 15, 7, 1];
+    const PRE_WINDOWS = [30, 15, 7, 1];
+    const GRACE_WINDOWS = [1, 7, 15, 30];
     const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
     // RULE 2: query-level filter — pending_payment docs never returned.
@@ -399,13 +532,111 @@ export const sendRenewalReminders = onSchedule(
         continue;
       }
 
-      const daysDiff = Math.round(
-        (renewalTs.toDate().getTime() - now.getTime()) / MS_PER_DAY
-      );
-      if (!WINDOWS.includes(daysDiff)) continue;
-
-      const notifType = `renewal_reminder_${daysDiff}`;
+      const renewalDate = renewalTs.toDate();
       const brandName = biz.brand_name || bizDoc.id;
+      const subStatus = biz.subscription_status ?? "active";
+      const daysDiff = Math.round(
+        (renewalDate.getTime() - now.getTime()) / MS_PER_DAY
+      );
+
+      let notifType = "";
+      let subject = "";
+      let ownerHtml = "";
+      let plainText = "";
+      let empSubject = "";
+      let empHtml = "";
+      let empText = "";
+
+      const isPreExpiry = subStatus === "active" && daysDiff > 0 && PRE_WINDOWS.includes(daysDiff);
+      const daysPassed = Math.abs(daysDiff);
+      const isGrace = (subStatus === "grace_period" || (daysDiff <= 0 && biz.has_grace_branches)) && GRACE_WINDOWS.includes(daysPassed);
+
+      if (!isPreExpiry && !isGrace) continue;
+
+      // ── Create or retrieve Razorpay Payment Link for Renewal ──────────────
+      let paymentLinkUrl = `https://${reviewDomain.value() || "appnexa.co.in"}/app/#/renew/${bizDoc.id}`;
+      try {
+        const razorpay = new Razorpay({
+          key_id: razorpayKeyId.value(),
+          key_secret: razorpayKeySecret.value(),
+        });
+        const plink = await (razorpay as unknown as {
+          paymentLink: {
+            create: (opts: Record<string, unknown>) => Promise<{id: string; short_url: string}>;
+          };
+        }).paymentLink.create({
+          amount: 99900,
+          currency: "INR",
+          description: `Annual Renewal (₹999) — ${brandName}`,
+          notes: {
+            businessId: bizDoc.id,
+            type: "annual_renewal",
+          },
+          notify: {sms: false, email: false},
+          callback_url: `https://${reviewDomain.value() || "appnexa.co.in"}/app/#/owner`,
+          callback_method: "get",
+        });
+        if (plink?.short_url) {
+          paymentLinkUrl = plink.short_url;
+        }
+      } catch (plinkErr) {
+        logger.warn("sendRenewalReminders: payment link creation failed, falling back", {
+          err: plinkErr,
+          businessId: bizDoc.id,
+        });
+      }
+
+      if (isPreExpiry) {
+        // ── Case A: Pre-Expiry Reminders (30, 15, 7, 1 days before expiry) ──
+        notifType = `renewal_reminder_${daysDiff}`;
+        const daysLabel = daysDiff === 1 ? "1 day" : `${daysDiff} days`;
+        subject = daysDiff === 1 ?
+          `⚠️ Review page expires tomorrow — ${brandName}` :
+          `Renewal in ${daysLabel} — ${brandName}`;
+        plainText =
+          `Your review page subscription expires in ${daysLabel}. ` +
+          `Pay ₹999 to keep your review page active: ${paymentLinkUrl}`;
+        ownerHtml = ownerReminderHtml(brandName, daysDiff, paymentLinkUrl);
+
+        empSubject = `Follow-up: ${brandName} renewal in ${daysLabel}`;
+        empHtml = employeeReminderHtml(brandName, daysDiff);
+        empText = `${brandName} subscription expires in ${daysLabel}. Payment link: ${paymentLinkUrl}`;
+      } else if (isGrace) {
+        // ── Case B: Grace Period Reminders (Day 1, 7, 15, 30 of Grace Period) ──
+        notifType = `grace_period_reminder_${daysPassed}`;
+        const remainingDays = Math.max(0, 30 - daysPassed);
+        const renewalDateStr = renewalDate.toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
+
+        subject = daysPassed === 30 || remainingDays <= 1 ?
+          `🚨 FINAL DAY: Grace period expiring — ${brandName} will be deactivated` :
+          `⚠️ Grace Period Day ${daysPassed}/30: Renew ${brandName} to avoid ₹1,999 penalty`;
+
+        plainText =
+          `Your subscription is on Day ${daysPassed} of its 30-Day Grace Period (${remainingDays} days left). ` +
+          `Pay ₹999 to reactivate your business immediately: ${paymentLinkUrl}. If not renewed, re-enrollment will cost ₹1,999.`;
+
+        ownerHtml = ownerGracePeriodReminderHtml(
+          brandName,
+          daysPassed,
+          remainingDays,
+          renewalDateStr,
+          paymentLinkUrl
+        );
+
+        empSubject = `URGENT: ${brandName} in Grace Period (Day ${daysPassed}/30 - ${remainingDays} days left)`;
+        empHtml = employeeGracePeriodReminderHtml(
+          brandName,
+          daysPassed,
+          remainingDays
+        );
+        empText =
+          `URGENT: ${brandName} is on Day ${daysPassed} of Grace Period (${remainingDays} days left). ` +
+          `Client payment link: ${paymentLinkUrl}.`;
+      }
 
       // ── Idempotency ───────────────────────────────────────────────
       const alreadySent = await isAlreadyNotified(bizDoc.id, notifType);
@@ -416,17 +647,9 @@ export const sendRenewalReminders = onSchedule(
         continue;
       }
 
-      const daysLabel = daysDiff === 1 ? "1 day" : `${daysDiff} days`;
-
       // ── Owner notification ────────────────────────────────────────
       const ownerEmail = biz.owner_email;
       if (ownerEmail) {
-        const subject = daysDiff === 1 ?
-          `⚠️ Review page expires tomorrow — ${brandName}` :
-          `Renewal in ${daysLabel} — ${brandName}`;
-        const plainText =
-          `Your review page subscription expires in ${daysLabel}. ` +
-          "Pay ₹999 to keep your review page active.";
         await sendNotification({
           to: {
             email: ownerEmail,
@@ -435,7 +658,7 @@ export const sendRenewalReminders = onSchedule(
             fcmToken: biz.owner_fcm_token ?? null,
           },
           subject,
-          html: ownerReminderHtml(brandName, daysDiff),
+          html: ownerHtml,
           text: plainText,
           type: notifType,
           businessId: bizDoc.id,
@@ -446,14 +669,14 @@ export const sendRenewalReminders = onSchedule(
         });
       }
 
-      // ── Employee notification ─────────────────────────────────────
-      const empId = biz.currently_managed_by || biz.enrolled_by;
+      // ── Employee notification (sent to enroller if active) ─────────
+      const empId = biz.enrolled_by;
       if (!empId || empId === "admin") continue;
 
       try {
         const empSnap = await db.collection("employees").doc(empId).get();
-        if (!empSnap.exists) {
-          logger.warn("sendRenewalReminders: employee doc missing", {empId});
+        if (!empSnap.exists || empSnap.data()?.status === "inactive" || empSnap.data()?.active === false) {
+          // Employee is deactivated / offboarded: admin handles business renewals directly
           continue;
         }
         const emp = empSnap.data() as Record<string, unknown>;
@@ -473,11 +696,9 @@ export const sendRenewalReminders = onSchedule(
             role: "employee",
             fcmToken: (emp.fcm_token as string | null) ?? null,
           },
-          subject: `Follow-up: ${brandName} renewal in ${daysLabel}`,
-          html: employeeReminderHtml(brandName, daysDiff),
-          text:
-            `${brandName} subscription expires in ${daysLabel}. ` +
-            "Please follow up with the business owner.",
+          subject: empSubject,
+          html: empHtml,
+          text: empText,
           type: notifType,
           businessId: bizDoc.id,
         });
@@ -742,19 +963,236 @@ export const sendCashPaymentVerification = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// sendOwnerWelcomeEmail — exported helper (Owner Activation & Password Setup)
+// ---------------------------------------------------------------------------
+
+export interface SendOwnerWelcomeEmailOpts {
+  ownerEmail: string;
+  ownerName: string;
+  brandName: string;
+  setupPasswordLink: string;
+  businessId: string;
+  businessCode?: string;
+  amount?: number;
+  paymentMode?: "online" | "cash";
+  paymentReference?: string;
+}
+
+/**
+ * Sends a welcome & account activation email to the business owner with
+ * their magic password setup link, PDF invoice/receipt attachment, and dashboard details.
+ *
+ * @param {SendOwnerWelcomeEmailOpts} opts - Welcome email options.
+ * @return {Promise<void>}
+ */
+export async function sendOwnerWelcomeEmail(
+  opts: SendOwnerWelcomeEmailOpts
+): Promise<void> {
+  const {ownerEmail, ownerName, brandName, setupPasswordLink, businessId, businessCode} = opts;
+  const amount = opts.amount || 1999;
+  const paymentMode = opts.paymentMode || "online";
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const invoiceNumber = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}-${businessCode ? businessCode.replace(/[^A-Za-z0-9]/g, "") : businessId.slice(-4).toUpperCase()}`;
+
+  let pdfBase64: string | undefined;
+  try {
+    const pdfBuffer = await generateInvoicePdf({
+      invoiceNumber,
+      businessCode,
+      dateStr,
+      ownerName,
+      brandName,
+      ownerEmail,
+      amount,
+      paymentMode,
+      paymentReference: opts.paymentReference,
+    });
+    pdfBase64 = pdfBuffer.toString("base64");
+  } catch (pdfErr) {
+    logger.error("sendOwnerWelcomeEmail: PDF invoice generation failed", {pdfErr, businessId});
+  }
+
+  const attachments = pdfBase64 ?
+    [
+      {
+        name: `AppNexa_Invoice_${invoiceNumber}.pdf`,
+        content: pdfBase64,
+      },
+    ] :
+    undefined;
+
+  const subject = `🎉 Welcome to AppNexa! Your Smart Standee is Activated — ${brandName}`;
+  const plainText =
+    `Hello ${ownerName},\n\n` +
+    `Congratulations! Your business "${brandName}" is now active on AppNexa.\n` +
+    (businessCode ? `Client ID: ${businessCode}\n` : "") +
+    "Your automated review collection system is live, and your custom Smart Standee is in production.\n\n" +
+    `Payment Receipt: ₹${amount.toLocaleString("en-IN")} (${paymentMode === "cash" ? "Cash Collection" : "Online Razorpay"})\n` +
+    `Invoice No: ${invoiceNumber}\n` +
+    "Tax Status: GST Exemption (Turnover under limit as per Sec 22 of CGST Act)\n\n" +
+    "Set up your Owner password & access your live dashboard here:\n" +
+    `${setupPasswordLink}\n\n` +
+    `Owner Portal: https://appnexa.co.in/app (Login with: ${ownerEmail})\n\n` +
+    "Need help? Contact support on WhatsApp: +91 8866390389 or email support@appnexa.co.in\n\n" +
+    "AppNexa Technologies";
+
+  const html = [
+    "<!DOCTYPE html>",
+    "<html>",
+    "<head>",
+    "  <meta charset=\"utf-8\">",
+    "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
+    `  <title>${subject}</title>`,
+    "</head>",
+    "<body style=\"margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1E293B;\">",
+    "  <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"table-layout: fixed;\">",
+    "    <tr>",
+    "      <td align=\"center\" style=\"padding: 32px 16px;\">",
+    "        <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"max-width: 580px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #E2E8F0;\">",
+    "          <!-- Gradient Header -->",
+    "          <tr>",
+    "            <td style=\"background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); padding: 36px 32px; text-align: center;\">",
+    "              <h1 style=\"margin: 0; color: #FFFFFF; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;\">AppNexa</h1>",
+    "              <p style=\"margin: 8px 0 0 0; color: #E0E7FF; font-size: 14px; font-weight: 500;\">Smart NFC & QR Review Management</p>",
+    "            </td>",
+    "          </tr>",
+    "          <!-- Main Content -->",
+    "          <tr>",
+    "            <td style=\"padding: 36px 32px 28px 32px;\">",
+    "              <div style=\"background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 12px 16px; margin-bottom: 24px; text-align: center;\">",
+    "                <span style=\"font-size: 16px;\">🚀</span>",
+    "                <strong style=\"color: #15803D; font-size: 14px; margin-left: 6px;\">Business Activated & Payment Confirmed!</strong>",
+    "              </div>",
+    `              <h2 style="margin: 0 0 16px 0; color: #0F172A; font-size: 20px; font-weight: 700;">Hello ${ownerName},</h2>`,
+    "              <p style=\"margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #334155;\">",
+    `                Congratulations! Your business <strong>${brandName}</strong> is now officially active on <strong>AppNexa</strong>.`,
+    "              </p>",
+    "              <p style=\"margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #334155;\">",
+    "                Your automated Google Review system is live, and your custom acrylic Smart Standee with NFC + QR code is moving to physical production.",
+    "              </p>",
+    "              <!-- Account Details Box -->",
+    "              <div style=\"background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 24px;\">",
+    "                <div style=\"font-size: 12px; text-transform: uppercase; font-weight: 700; color: #64748B; letter-spacing: 0.5px; margin-bottom: 12px;\">Your Account Credentials</div>",
+    (businessCode ? [
+      "                <div style=\"margin-bottom: 8px; font-size: 14px; color: #1E293B;\">",
+      `                  <strong style="color: #475569;">Client ID:</strong> <span style="font-weight: 700; color: #1B3A8C;">${businessCode}</span>`,
+      "                </div>",
+    ].join("\n") : ""),
+    "                <div style=\"margin-bottom: 8px; font-size: 14px; color: #1E293B;\">",
+    `                  <strong style="color: #475569;">Registered Email:</strong> ${ownerEmail}`,
+    "                </div>",
+    "                <div style=\"margin-bottom: 8px; font-size: 14px; color: #1E293B;\">",
+    `                  <strong style="color: #475569;">Business Name:</strong> ${brandName}`,
+    "                </div>",
+    "                <div style=\"font-size: 14px; color: #1E293B;\">",
+    "                  <strong style=\"color: #475569;\">Web Portal:</strong> <a href=\"https://appnexa.co.in/app\" style=\"color: #4F46E5; text-decoration: none; font-weight: 600;\">appnexa.co.in/app</a>",
+    "                </div>",
+    "              </div>",
+    "              <!-- CTA Button -->",
+    "              <div style=\"text-align: center; margin: 28px 0;\">",
+    `                <a href="${setupPasswordLink}" style="display: inline-block; background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: #FFFFFF; padding: 15px 36px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);">`,
+    "                  Set Up Your Password & Log In →",
+    "                </a>",
+    "              </div>",
+    "              <p style=\"text-align: center; margin: 0 0 24px 0; font-size: 12px; color: #64748B;\">",
+    "                Button not clickable? Copy and paste this link into your browser:<br/>",
+    `                <a href="${setupPasswordLink}" style="color: #4F46E5; word-break: break-all; font-size: 11px;">${setupPasswordLink}</a>`,
+    "              </p>",
+    "              <!-- Payment Receipt & Invoice Box -->",
+    "              <div style=\"background-color: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 12px; padding: 20px; margin-bottom: 28px;\">",
+    "                <div style=\"margin-bottom: 12px;\">",
+    "                  <span style=\"font-size: 12px; text-transform: uppercase; font-weight: 700; color: #475569; letter-spacing: 0.5px;\">📄 Payment Receipt & Tax Invoice</span>",
+    "                </div>",
+    "                <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"font-size: 13px; color: #334155; line-height: 1.6;\">",
+    "                  <tr>",
+    "                    <td style=\"padding: 4px 0;\"><strong>Invoice No:</strong></td>",
+    `                    <td align="right" style="padding: 4px 0;">${invoiceNumber}</td>`,
+    "                  </tr>",
+    "                  <tr>",
+    "                    <td style=\"padding: 4px 0;\"><strong>Date:</strong></td>",
+    `                    <td align="right" style="padding: 4px 0;">${dateStr}</td>`,
+    "                  </tr>",
+    "                  <tr>",
+    "                    <td style=\"padding: 4px 0;\"><strong>Plan:</strong></td>",
+    "                    <td align=\"right\" style=\"padding: 4px 0;\">1-Year AppNexa Pro + Smart Standee</td>",
+    "                  </tr>",
+    "                  <tr>",
+    "                    <td style=\"padding: 4px 0;\"><strong>Payment Mode:</strong></td>",
+    `                    <td align="right" style="padding: 4px 0;">${paymentMode === "cash" ? "Cash Collection" : "Online (Razorpay)"}</td>`,
+    "                  </tr>",
+    "                  <tr>",
+    "                    <td style=\"padding: 8px 0 4px 0; border-top: 1px dashed #CBD5E1;\"><strong>Total Paid:</strong></td>",
+    `                    <td align="right" style="padding: 8px 0 4px 0; border-top: 1px dashed #CBD5E1; font-weight: 700; color: #059669; font-size: 15px;">₹${amount.toLocaleString("en-IN")} (PAID)</td>`,
+    "                  </tr>",
+    "                </table>",
+    "                <div style=\"margin-top: 12px; background-color: #FEF3C7; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px; font-size: 11px; color: #92400E; line-height: 1.4;\">",
+    "                  <strong>Tax Note:</strong> Billed under GST Turnover Exemption limit as per Section 22 of CGST Act, 2017 (No GST collected). Your official PDF invoice is attached to this email.",
+    "                </div>",
+    "              </div>",
+    "              <hr style=\"border: none; border-top: 1px solid #E2E8F0; margin: 28px 0;\" />",
+    "              <!-- Features highlight -->",
+    "              <h3 style=\"margin: 0 0 14px 0; font-size: 15px; color: #0F172A; font-weight: 700;\">What you can do in your Owner Portal:</h3>",
+    "              <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"font-size: 14px; line-height: 1.6; color: #334155;\">",
+    "                <tr>",
+    "                  <td style=\"padding: 6px 0; vertical-align: top; width: 24px;\">📊</td>",
+    "                  <td style=\"padding: 6px 0;\"><strong>Live Customer Scan Tracker:</strong> See every customer scan and rating in real time.</td>",
+    "                </tr>",
+    "                <tr>",
+    "                  <td style=\"padding: 6px 0; vertical-align: top; width: 24px;\">⭐</td>",
+    "                  <td style=\"padding: 6px 0;\"><strong>Negative Feedback Shield:</strong> Capture customer concerns on WhatsApp privately before they post public negative reviews.</td>",
+    "                </tr>",
+    "                <tr>",
+    "                  <td style=\"padding: 6px 0; vertical-align: top; width: 24px;\">📦</td>",
+    "                  <td style=\"padding: 6px 0;\"><strong>Standee Tracking:</strong> Track physical standee printing and shipment status.</td>",
+    "                </tr>",
+    "              </table>",
+    "            </td>",
+    "          </tr>",
+    "          <!-- Footer -->",
+    "          <tr>",
+    "            <td style=\"background-color: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 24px 32px; text-align: center; font-size: 12px; color: #64748B;\">",
+    "              <p style=\"margin: 0 0 8px 0; font-weight: 600; color: #475569;\">AppNexa Technologies</p>",
+    "              <p style=\"margin: 0 0 12px 0;\">Need assistance? Chat with us on WhatsApp (+91 99797 99797) or email support@appnexa.co.in.</p>",
+    `              <p style="margin: 0; color: #94A3B8; font-size: 11px;">This email was sent to ${ownerEmail} because your business enrolled in AppNexa.</p>`,
+    "            </td>",
+    "          </tr>",
+    "        </table>",
+    "      </td>",
+    "    </tr>",
+    "  </table>",
+    "</body>",
+    "</html>",
+  ].join("\n");
+
+  await sendNotification({
+    to: {
+      email: ownerEmail,
+      name: ownerName,
+      role: "owner",
+      fcmToken: null,
+    },
+    subject,
+    html,
+    text: plainText,
+    type: "owner_welcome_activation",
+    businessId,
+    attachments,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // sendPaymentLinkEmail — exported helper (Change 3)
 // ---------------------------------------------------------------------------
 
 /**
  * Sends a payment link to the business owner by email and writes a Firestore
  * notification document.
- *
- * Called by razorpay.ts:resendPaymentLink after creating the Razorpay Payment
- * Link. Reuses the same Brevo email + sendNotification infrastructure — no
- * new delivery channel is introduced.
- *
- * Exported so razorpay.ts can import it. Not registered as a Cloud Function
- * itself (it is a plain async helper).
  *
  * @param {SendPaymentLinkEmailOpts} opts - Payment link email options.
  * @return {Promise<void>}
@@ -766,31 +1204,79 @@ export async function sendPaymentLinkEmail(
 
   const subject = `Complete your enrollment payment — ${brandName}`;
   const plainText =
-    `Your enrollment for ${brandName} is almost complete. ` +
-    "Please pay the ₹1999 setup fee to activate your review page: " +
-    `${paymentLinkUrl}`;
+    `Hello ${ownerName},\n\n` +
+    `Your enrollment for ${brandName} is pending payment.\n` +
+    "Please pay the ₹1999 setup fee to activate your review page and Smart Standee:\n" +
+    `${paymentLinkUrl}\n\n` +
+    "⏳ Please note: This payment link is valid for 47 hours.\n\n" +
+    "AppNexa Support";
 
   const html = [
-    "<div style=\"font-family:sans-serif;max-width:480px;margin:0 auto;\">",
-    "<h2 style=\"color:#6C63FF;\">Complete Your Enrollment</h2>",
-    `<p>Dear ${ownerName},</p>`,
-    `<p>Your enrollment for <strong>${brandName}</strong> is pending payment.`,
-    " Pay the <strong>₹1999 one-time setup fee</strong> to activate your",
-    " review page and start collecting customer feedback.</p>",
-    "<p>",
-    `  <a href="${paymentLinkUrl}"`,
-    "     style=\"display:inline-block;background:#6C63FF;color:white;",
-    "            padding:12px 24px;border-radius:8px;text-decoration:none;",
-    "            font-weight:bold;\">",
-    "    Pay Now →",
-    "  </a>",
-    "</p>",
-    `<p style="font-size:12px;color:#666;">Or copy this link: ${paymentLinkUrl}</p>`,
-    "<hr/>",
-    "<p style=\"color:#888;font-size:12px;\">",
-    "  Review System — enrollment payment reminder",
-    "</p>",
-    "</div>",
+    "<!DOCTYPE html>",
+    "<html>",
+    "<head>",
+    "  <meta charset=\"utf-8\">",
+    "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
+    `  <title>${subject}</title>`,
+    "</head>",
+    "<body style=\"margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1E293B;\">",
+    "  <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"table-layout: fixed;\">",
+    "    <tr>",
+    "      <td align=\"center\" style=\"padding: 32px 16px;\">",
+    "        <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"max-width: 580px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #E2E8F0;\">",
+    "          <!-- Gradient Header -->",
+    "          <tr>",
+    "            <td style=\"background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); padding: 32px; text-align: center;\">",
+    "              <h1 style=\"margin: 0; color: #FFFFFF; font-size: 24px; font-weight: 800;\">AppNexa</h1>",
+    "              <p style=\"margin: 6px 0 0 0; color: #E0E7FF; font-size: 13px;\">Complete Your Business Enrollment</p>",
+    "            </td>",
+    "          </tr>",
+    "          <!-- Main Content -->",
+    "          <tr>",
+    "            <td style=\"padding: 32px;\">",
+    `              <h2 style="margin: 0 0 14px 0; color: #0F172A; font-size: 18px; font-weight: 700;">Hello ${ownerName},</h2>`,
+    "              <p style=\"margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;\">",
+    `                Your enrollment for <strong>${brandName}</strong> is ready. To activate your automated review collection page and initiate your custom NFC Smart Standee printing, please complete the secure online payment.`,
+    "              </p>",
+    "              <div style=\"background-color: #F1F5F9; border-radius: 12px; padding: 18px; margin-bottom: 24px;\">",
+    "                <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"font-size: 14px; color: #334155;\">",
+    "                  <tr>",
+    "                    <td><strong>Plan:</strong></td>",
+    "                    <td align=\"right\">1-Year AppNexa Pro + Smart Standee</td>",
+    "                  </tr>",
+    "                  <tr>",
+    "                    <td style=\"padding-top: 8px;\"><strong>Setup Fee:</strong></td>",
+    "                    <td align=\"right\" style=\"padding-top: 8px; font-weight: 700; color: #059669; font-size: 16px;\">₹1,999</td>",
+    "                  </tr>",
+    "                  <tr>",
+    "                    <td style=\"padding-top: 8px; font-size: 12px; color: #B45309;\"><strong>Link Validity:</strong></td>",
+    "                    <td align=\"right\" style=\"padding-top: 8px; font-size: 12px; font-weight: 600; color: #B45309;\">⏳ Valid for 47 hours</td>",
+    "                  </tr>",
+    "                </table>",
+    "              </div>",
+    "              <!-- CTA Button -->",
+    "              <div style=\"text-align: center; margin: 28px 0;\">",
+    `                <a href="${paymentLinkUrl}" style="display: inline-block; background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: #FFFFFF; padding: 14px 32px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">`,
+    "                  Complete Payment (₹1,999) →",
+    "                </a>",
+    "              </div>",
+    "              <p style=\"text-align: center; margin: 0; font-size: 12px; color: #64748B;\">",
+    `                Direct link: <a href="${paymentLinkUrl}" style="color: #4F46E5; word-break: break-all;">${paymentLinkUrl}</a>`,
+    "              </p>",
+    "            </td>",
+    "          </tr>",
+    "          <!-- Footer -->",
+    "          <tr>",
+    "            <td style=\"background-color: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 20px; text-align: center; font-size: 12px; color: #64748B;\">",
+    "              <p style=\"margin: 0;\">AppNexa Technologies · Smart Review Management System</p>",
+    "            </td>",
+    "          </tr>",
+    "        </table>",
+    "      </td>",
+    "    </tr>",
+    "  </table>",
+    "</body>",
+    "</html>",
   ].join("\n");
 
   await sendNotification({
@@ -807,4 +1293,278 @@ export async function sendPaymentLinkEmail(
     businessId,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Password Reset Email Template (Universal AppNexa Theme)
+// ---------------------------------------------------------------------------
+
+function getPasswordResetEmailHtml(email: string, resetLink: string): string {
+  return [
+    "<!DOCTYPE html>",
+    "<html>",
+    "<head>",
+    "  <meta charset=\"utf-8\">",
+    "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
+    "  <title>Reset Your AppNexa Password</title>",
+    "</head>",
+    "<body style=\"margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1E293B;\">",
+    "  <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"table-layout: fixed;\">",
+    "    <tr>",
+    "      <td align=\"center\" style=\"padding: 36px 16px;\">",
+    "        <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"max-width: 560px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #E2E8F0;\">",
+    "          <!-- Brand Header -->",
+    "          <tr>",
+    "            <td style=\"background: linear-gradient(135deg, #1B3A8C 0%, #2F6BFF 100%); padding: 32px; text-align: center;\">",
+    "              <h1 style=\"margin: 0; color: #FFFFFF; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;\">AppNexa Technologies</h1>",
+    "              <p style=\"margin: 6px 0 0 0; color: #E0E7FF; font-size: 13px; font-weight: 500;\">Google Review Growth &amp; Counter Standee System</p>",
+    "            </td>",
+    "          </tr>",
+    "          <!-- Alert Header Banner -->",
+    "          <tr>",
+    "            <td style=\"background: #EEF2FF; border-bottom: 1px solid #E0E7FF; padding: 14px 28px; text-align: center;\">",
+    "              <span style=\"font-size: 16px;\">🔒</span>",
+    "              <strong style=\"color: #1E40AF; font-size: 14px; margin-left: 6px;\">Password Reset Request</strong>",
+    "            </td>",
+    "          </tr>",
+    "          <!-- Main Body -->",
+    "          <tr>",
+    "            <td style=\"padding: 32px 28px 28px 28px;\">",
+    "              <h2 style=\"margin: 0 0 14px 0; color: #0F172A; font-size: 18px; font-weight: 700;\">Hello,</h2>",
+    "              <p style=\"margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;\">",
+    "                We received a request to reset the password for your AppNexa account registered under <strong>" + email + "</strong>.",
+    "              </p>",
+    "              <p style=\"margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #334155;\">",
+    "                Click the button below to securely set a new password for your account:",
+    "              </p>",
+    "              <!-- Reset CTA Button -->",
+    "              <div style=\"text-align: center; margin: 30px 0 24px;\">",
+    "                <a href=\"" + resetLink + "\" style=\"display: inline-block; background: linear-gradient(135deg, #1B3A8C 0%, #2F6BFF 100%); color: #FFFFFF; padding: 15px 36px; border-radius: 10px; font-size: 15px; font-weight: 800; text-decoration: none; box-shadow: 0 4px 14px rgba(27,58,140,0.35); letter-spacing: 0.3px;\">",
+    "                  🔐 Reset My Password &rarr;",
+    "                </a>",
+    "              </div>",
+    "              <!-- Direct Link Fallback -->",
+    "              <div style=\"background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; margin-bottom: 24px; font-size: 12px; color: #64748B;\">",
+    "                <div style=\"margin-bottom: 4px; font-weight: 600; color: #475569;\">If the button above does not work, copy and paste this link into your browser:</div>",
+    "                <a href=\"" + resetLink + "\" style=\"color: #2F6BFF; word-break: break-all; text-decoration: none;\">" + resetLink + "</a>",
+    "              </div>",
+    "              <!-- Security Advisory Notice -->",
+    "              <div style=\"background-color: #FFFBEB; border-left: 4px solid #F59E0B; padding: 14px 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px;\">",
+    "                <div style=\"font-weight: 700; color: #92400E; font-size: 13px; margin-bottom: 4px;\">⚠️ Important Security Information:</div>",
+    "                <div style=\"font-size: 12px; color: #78350F; line-height: 1.6;\">",
+    "                  &bull; This password reset link is valid for <strong>1 hour</strong>.<br/>",
+    "                  &bull; If you did not request this change, you can safely ignore this email. Your password will remain unchanged.<br/>",
+    "                  &bull; AppNexa team members will never ask you for your account password or OTP.",
+    "                </div>",
+    "              </div>",
+    "              <hr style=\"border: none; border-top: 1px solid #E2E8F0; margin: 24px 0 20px;\" />",
+    "              <!-- Support Footer -->",
+    "              <div style=\"font-size: 12px; color: #64748B; line-height: 1.6;\">",
+    "                <strong>Need assistance?</strong><br/>",
+    "                Call or WhatsApp our support team at <a href=\"tel:+918866390389\" style=\"color: #1B3A8C; font-weight: bold; text-decoration: none;\">+91 8866390389</a> or email <a href=\"mailto:support@appnexa.co.in\" style=\"color: #1B3A8C; text-decoration: none;\">support@appnexa.co.in</a>.",
+    "              </div>",
+    "            </td>",
+    "          </tr>",
+    "          <!-- Footer Bar -->",
+    "          <tr>",
+    "            <td style=\"background-color: #F1F5F9; border-top: 1px solid #E2E8F0; padding: 16px 28px; text-align: center; font-size: 11px; color: #94A3B8;\">",
+    "              AppNexa Technologies &bull; Surat, Gujarat &bull; Automated Account Security Notification",
+    "            </td>",
+    "          </tr>",
+    "        </table>",
+    "      </td>",
+    "    </tr>",
+    "  </table>",
+    "</body>",
+    "</html>",
+  ].join("\n");
+}
+
+/**
+ * Callable Function: sendCustomPasswordResetEmail
+ * Generates an official Firebase password reset link and dispatches an
+ * email using the AppNexa Universal Theme via Brevo Transactional Email.
+ */
+export const sendCustomPasswordResetEmail = onCall(
+  {
+    secrets: [brevoApiKey],
+    region: "asia-south1",
+    maxInstances: 10,
+  },
+  async (request) => {
+    const {email} = request.data as {email?: string};
+    if (!email || typeof email !== "string" || !email.includes("@")) {
+      throw new HttpsError("invalid-argument", "A valid email address is required.");
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const actionCodeSettings = {
+      url: `https://${reviewDomain.value() || "appnexa.co.in"}/app/login`,
+      handleCodeInApp: false,
+    };
+
+    let resetLink: string;
+    try {
+      const auth = getAuth();
+      resetLink = await auth.generatePasswordResetLink(cleanEmail, actionCodeSettings);
+    } catch (authErr: unknown) {
+      const err = authErr as {code?: string; message?: string};
+      logger.warn("sendCustomPasswordResetEmail: generatePasswordResetLink error", {
+        cleanEmail,
+        code: err?.code,
+        message: err?.message,
+      });
+
+      if (err?.code === "auth/user-not-found") {
+        throw new HttpsError(
+          "not-found",
+          "This email is not registered in our system. Please check the email or contact admin."
+        );
+      }
+      throw new HttpsError(
+        "internal",
+        "Failed to generate password reset link. Please try again later."
+      );
+    }
+
+    const subject = "🔐 Reset Your AppNexa Account Password";
+    const html = getPasswordResetEmailHtml(cleanEmail, resetLink);
+    const text = [
+      "Hello,",
+      "",
+      `We received a request to reset the password for your AppNexa account (${cleanEmail}).`,
+      "",
+      "Reset your password by opening the link below:",
+      resetLink,
+      "",
+      "This link is valid for 1 hour.",
+      "If you did not request a password reset, you can safely ignore this email.",
+      "",
+      "AppNexa Technologies — Support Desk",
+    ].join("\n");
+
+    try {
+      await sendBrevoEmail({
+        to: cleanEmail,
+        toName: cleanEmail.split("@")[0],
+        subject,
+        html,
+        text,
+      });
+      logger.info("sendCustomPasswordResetEmail: reset email sent successfully", {
+        cleanEmail,
+      });
+      return {success: true};
+    } catch (emailErr) {
+      logger.error("sendCustomPasswordResetEmail: failed to send email via Brevo", {
+        cleanEmail,
+        err: emailErr,
+      });
+      throw new HttpsError(
+        "internal",
+        "Failed to send password reset email. Please try again later."
+      );
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// sendOrphanPaymentAdminAlert
+// ---------------------------------------------------------------------------
+
+export interface SendOrphanPaymentAdminAlertOpts {
+  adminEmail: string;
+  paymentId: string;
+  orderId: string | null;
+  businessId: string;
+  amountRupees: number;
+  customerEmail: string | null;
+  customerContact: string | null;
+  notes: Record<string, unknown>;
+}
+
+/**
+ * Dispatches an immediate high-priority alert to the Platform Admin when a payment
+ * is captured on Razorpay for a business document that does not exist in Firestore.
+ */
+export async function sendOrphanPaymentAdminAlert(
+  opts: SendOrphanPaymentAdminAlertOpts
+): Promise<void> {
+  const {
+    adminEmail,
+    paymentId,
+    orderId,
+    businessId,
+    amountRupees,
+    customerEmail,
+    customerContact,
+    notes,
+  } = opts;
+
+  const subject = `🚨 [URGENT ACTION] Orphan Payment Captured: ₹${amountRupees} for Deleted Business (${businessId})`;
+  const text = [
+    "URGENT ATTENTION REQUIRED: Orphan Payment Captured",
+    "",
+    `A customer payment of ₹${amountRupees} was successfully captured on Razorpay, but the business document ("${businessId}") no longer exists in Firestore (likely an abandoned draft that was purged).`,
+    "",
+    "Payment Details:",
+    `• Payment ID: ${paymentId}`,
+    `• Order ID: ${orderId || "N/A"}`,
+    `• Amount: ₹${amountRupees}`,
+    `• Customer Email: ${customerEmail || "N/A"}`,
+    `• Customer Contact: ${customerContact || "N/A"}`,
+    `• Notes: ${JSON.stringify(notes)}`,
+    "",
+    "Action Required:",
+    `1. Review payment in Razorpay Dashboard: https://dashboard.razorpay.com/app/payments/${paymentId}`,
+    "2. Issue a full refund to the customer OR manually recreate the business account in the Admin Panel.",
+    "",
+    "Never retain customer funds without active service fulfillment.",
+    "",
+    "AppNexa Technologies — Automated Sentinel",
+  ].join("\n");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#F8FAFC; padding:24px; color:#1E293B;">
+      <div style="max-width:600px; margin:0 auto; background:#FFFFFF; border-radius:12px; border:1px solid #E2E8F0; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+        <div style="background:#EF4444; padding:20px 24px; color:#FFFFFF;">
+          <h2 style="margin:0; font-size:18px;">🚨 [URGENT ACTION] Orphan Payment Captured</h2>
+          <p style="margin:4px 0 0; font-size:13px; opacity:0.9;">Business "${businessId}" does not exist in Firestore</p>
+        </div>
+        <div style="padding:24px;">
+          <p style="margin:0 0 16px; font-size:14px; line-height:1.6;">
+            A customer payment of <strong>₹${amountRupees}</strong> was captured on Razorpay, but the business document was not found in the database.
+          </p>
+          <div style="background:#F1F5F9; border-radius:8px; padding:16px; margin-bottom:20px; font-size:13px;">
+            <p style="margin:4px 0;"><strong>Payment ID:</strong> <code>${paymentId}</code></p>
+            <p style="margin:4px 0;"><strong>Order ID:</strong> <code>${orderId || "N/A"}</code></p>
+            <p style="margin:4px 0;"><strong>Customer Email:</strong> ${customerEmail || "N/A"}</p>
+            <p style="margin:4px 0;"><strong>Customer Phone:</strong> ${customerContact || "N/A"}</p>
+            <p style="margin:4px 0;"><strong>Amount:</strong> ₹${amountRupees}</p>
+          </div>
+          <div style="text-align:center; margin:24px 0;">
+            <a href="https://dashboard.razorpay.com/app/payments/${paymentId}" style="display:inline-block; background:#2563EB; color:#FFFFFF; padding:12px 24px; border-radius:8px; font-weight:700; text-decoration:none;">
+              Open in Razorpay Dashboard →
+            </a>
+          </div>
+          <p style="margin:0; font-size:12px; color:#64748B; line-height:1.5;">
+            <strong>Required Action:</strong> Open Razorpay to issue a prompt refund to the customer, OR recreate the business document manually in the Admin Panel using the business ID.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendBrevoEmail({
+    to: adminEmail,
+    toName: "Platform Super Admin",
+    subject,
+    html,
+    text,
+  });
+}
+
 

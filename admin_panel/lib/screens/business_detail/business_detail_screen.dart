@@ -24,14 +24,18 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../core/app_config.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 import '../../models/branch_model.dart';
 import '../../models/business_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/admin_dashboard_provider.dart';
+import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/share_business_qr.dart';
+import '../../widgets/app_animated_loader.dart';
 import '../enroll/branch_form_widget.dart';
 
 class BusinessDetailScreen extends StatefulWidget {
@@ -228,52 +232,121 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
     );
   }
 
-  Future<void> _showRevertBusinessDialog(BuildContext context) async {
+
+
+  Future<void> _showDeleteBusinessDialog(BuildContext context) async {
+    final svc = context.read<FirestoreService>();
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final errorColor = Theme.of(context).colorScheme.error;
-    final svc = context.read<FirestoreService>();
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Revert Business Activation?'),
-        content: const Text(
-          'This will revert this business and ALL its branches back to "Payment Pending". '
-          'Any pending employee commission records for this business will also be cancelled.\n\n'
-          'Are you sure you want to proceed?',
+        title: Row(
+          children: [
+            Icon(Icons.delete_forever, color: errorColor, size: 28),
+            const SizedBox(width: 10),
+            const Text('Delete Business?'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to permanently delete "${_business.brandName}"?',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'This will cascade and permanently remove:',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            Text('• All ${_branches.length} branch location(s) and review configs', style: const TextStyle(fontSize: 12)),
+            const Text('• All generated Standee & Plain QR codes from Cloud Storage', style: const TextStyle(fontSize: 12)),
+            const Text('• Scan history and analytics logs', style: const TextStyle(fontSize: 12)),
+            if ((_business.ownerEmail ?? '').isNotEmpty)
+              Text('• Owner Auth user account (${_business.ownerEmail}) so the email can be reused', style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: errorColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: errorColor.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                '⚠️ This action cannot be undone.',
+                style: TextStyle(color: errorColor, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          FilledButton.icon(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
-            child: const Text('Revert to Pending'),
+            style: FilledButton.styleFrom(backgroundColor: errorColor),
+            icon: const Icon(Icons.delete_forever, size: 18),
+            label: const Text('Delete Everything'),
           ),
         ],
       ),
     );
 
     if (confirmed == true && mounted) {
+      // Show progress indicator
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              SizedBox(width: 12),
+              Text('Deleting business & associated assets...'),
+            ],
+          ),
+          duration: Duration(seconds: 4),
+        ),
+      );
+
       try {
-        await svc.adminRevertBusinessActivation(businessId: _business.id);
+        final bizId = _business.id;
+        await svc.deleteBusinessAdmin(bizId);
         if (mounted) {
           scaffoldMessenger.showSnackBar(
-            const SnackBar(
-              content: Text('✅ Business activation reverted to Payment Pending.'),
-              backgroundColor: Colors.orange,
+            SnackBar(
+              content: Text('✅ "${_business.brandName}" and all related data deleted.'),
+              backgroundColor: Colors.green,
             ),
           );
-          _refreshBusiness();
-          _loadBranches();
+          final isAdmin = context.read<AppAuthProvider>().isAdmin;
+          if (isAdmin) {
+            try {
+              final adminProvider = context.read<AdminDashboardProvider>();
+              adminProvider.removeBusinessLocally(bizId);
+              adminProvider.loadAdminData();
+            } catch (_) {}
+            context.go('/admin?tab=directory');
+          } else {
+            try {
+              context.read<MyBusinessesProvider>().refresh();
+            } catch (_) {}
+            context.go('/businesses');
+          }
         }
       } catch (e) {
         if (mounted) {
           scaffoldMessenger.showSnackBar(
             SnackBar(
-              content: Text('Failed to revert business: $e'),
+              content: Text('Failed to delete business: $e'),
               backgroundColor: errorColor,
             ),
           );
@@ -297,16 +370,28 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
     final isPendingPayment = status == AppConstants.statusPendingPayment;
     final isAdmin = context.watch<AppAuthProvider>().isAdmin;
 
+    final graceBranchCount = _branches.where((b) => b.subscriptionStatus == AppConstants.statusGracePeriod).length;
+    final inactiveBranchCount = _branches.where((b) => b.subscriptionStatus != AppConstants.statusActive && b.subscriptionStatus != AppConstants.statusGracePeriod).length;
+
     return Scaffold(
       appBar: AppBar(
         title:       Text(biz.brandName),
         centerTitle: false,
+        leading: BackButton(
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(isAdmin ? '/admin' : '/businesses');
+            }
+          },
+        ),
         actions: [
-          if (isAdmin && !isPendingPayment)
+          if (isAdmin)
             TextButton.icon(
-              onPressed: () => _showRevertBusinessDialog(context),
-              icon: const Icon(Icons.undo, size: 16, color: Colors.orange),
-              label: const Text('Revert Activation', style: TextStyle(color: Colors.orange)),
+              onPressed: () => _showDeleteBusinessDialog(context),
+              icon: Icon(Icons.delete_outline, size: 16, color: scheme.error),
+              label: Text('Delete Business', style: TextStyle(color: scheme.error)),
             ),
         ],
       ),
@@ -362,7 +447,83 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 4),
-                          _StatusBadge(status: displayStatus),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if (biz.businessCode != null || biz.isTestAccount)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: biz.isTestAccount ? AppColors.warning.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                                    border: Border.all(
+                                      color: biz.isTestAccount ? AppColors.warning : AppColors.primary.withValues(alpha: 0.3),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'ID: ${biz.displayCode}',
+                                    style: TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: biz.isTestAccount ? AppColors.warning : AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              _StatusBadge(status: displayStatus),
+                              if (graceBranchCount > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.graceBg,
+                                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                                    border: Border.all(color: AppColors.graceFg.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.warning_amber_rounded, size: 13, color: AppColors.graceFg),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$graceBranchCount ${_branches.length > 1 ? "of ${_branches.length} branches" : "branch"} in Grace Period',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.graceFg,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else if (inactiveBranchCount > 0 && status == AppConstants.statusActive)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.pendingBg,
+                                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                                    border: Border.all(color: AppColors.pendingFg.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.info_outline, size: 13, color: AppColors.pendingFg),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$inactiveBranchCount ${_branches.length > 1 ? "of ${_branches.length} branches" : "branch"} Inactive',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.pendingFg,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -382,11 +543,6 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                   value: _enrolledByName ?? (biz.enrolledBy == 'admin' ? 'Admin' : (biz.enrolledBy.isEmpty ? '—' : 'Loading…')),
                 ),
                 _InfoRow(label: 'Business ID',  value: biz.id, mono: true),
-                if (biz.isReassigned)
-                  const Padding(
-                    padding: EdgeInsets.only(top: AppSpacing.sm),
-                    child: _ReassignedBanner(),
-                  ),
               ],
             ),
           ),
@@ -415,9 +571,8 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
 
           if (_loading)
             const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
+              child: AppAnimatedLoader.card(
+                message: 'Loading branches…',
               ),
             )
           else if (_error != null)
@@ -498,7 +653,7 @@ class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
         throw Exception('Only admins can activate businesses with cash.');
       }
       final svc = context.read<FirestoreService>();
-      await svc.adminCashActivate(
+      await svc.confirmCashAndActivate(
         businessId: widget.business.id,
         adminUid: auth.uid ?? 'admin',
       );
@@ -1164,14 +1319,16 @@ class _BranchPaymentPanelState extends State<_BranchPaymentPanel> {
       });
 
       final options = js.JsObject.jsify({
-        'key': 'rzp_test_PLACEHOLDER',
+        'key': AppConfig.razorpayKeyId,
         'amount': 199900,
         'currency': 'INR',
-        'name': 'Review System',
+        'name': 'Appnexa Technologies',
         'description': 'Branch setup fee — ${widget.branch.branchName}',
         'notes': {
           'business_id': widget.businessId,
+          'businessId': widget.businessId,
           'branch_id': widget.branch.id,
+          'branchId': widget.branch.id,
           'type': 'branch_setup_fee',
           'enrolled_by': empId,
         },
@@ -1641,32 +1798,4 @@ class _StatusBadge extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ReassignedBanner extends StatelessWidget {
-  const _ReassignedBanner();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color:        AppColors.dueSoonBg,
-          borderRadius: BorderRadius.circular(AppRadius.sm + 2),
-          border:       Border.all(
-            color: AppColors.dueSoonFg.withValues(alpha: 0.4),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.info_outline, size: 16, color: AppColors.dueSoonFg),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                'This business has been reassigned to admin management.',
-                style: TextStyle(fontSize: 12, color: AppColors.dueSoonFg),
-              ),
-            ),
-          ],
-        ),
-      );
 }

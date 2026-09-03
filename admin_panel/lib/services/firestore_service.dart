@@ -12,6 +12,7 @@ import '../models/business_model.dart';
 import '../models/employee_commission_model.dart';
 import '../models/employee_model.dart';
 import '../models/employee_profile_model.dart';
+import '../core/string_utils.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db;
@@ -123,12 +124,19 @@ class FirestoreService {
     final clean = email.trim().toLowerCase();
     if (clean.isEmpty) return false;
     try {
-      final snap = await _db
+      final snapLower = await _db
           .collection(AppConstants.colBusinesses)
           .where('owner_email', isEqualTo: clean)
           .limit(1)
           .get();
-      return snap.docs.isNotEmpty;
+      if (snapLower.docs.isNotEmpty) return true;
+
+      final snapOrig = await _db
+          .collection(AppConstants.colBusinesses)
+          .where('owner_email', isEqualTo: email.trim())
+          .limit(1)
+          .get();
+      return snapOrig.docs.isNotEmpty;
     } catch (e) {
       // ignore: avoid_print
       print('ownerEmailExists: query error: $e');
@@ -140,12 +148,17 @@ class FirestoreService {
     final clean = email.trim().toLowerCase();
     if (clean.isEmpty) return false;
     try {
-      final snap = await _db
+      final snapLower = await _db
           .collection(AppConstants.colBusinesses)
           .where('owner_email', isEqualTo: clean)
-          .limit(2)
           .get();
-      return snap.docs.any((d) => d.id != currentBusinessId);
+      if (snapLower.docs.any((d) => d.id != currentBusinessId)) return true;
+
+      final snapOrig = await _db
+          .collection(AppConstants.colBusinesses)
+          .where('owner_email', isEqualTo: email.trim())
+          .get();
+      return snapOrig.docs.any((d) => d.id != currentBusinessId);
     } catch (e) {
       // ignore: avoid_print
       print('ownerEmailExistsForEdit: query error: $e');
@@ -178,6 +191,7 @@ class FirestoreService {
     required String ownerEmail,
     required String ownerName,
     required String ownerPhone,
+    bool isTestAccount = false,
     required List<BranchDraft> branches,
   }) async {
     assert(branches.isNotEmpty, 'Must enroll at least one branch');
@@ -186,29 +200,35 @@ class FirestoreService {
 
     final batch = _db.batch();
 
+    final cleanBrandName = StringUtils.toTitleCase(brandName);
+    final cleanOwnerName = StringUtils.toTitleCase(ownerName);
+
     // 1 — Business document (draft — status = pending_payment, NO renewal clock)
     batch.set(bizRef, {
-      'brand_name':                   brandName,
+      'brand_name':                   cleanBrandName,
       'logo_url':                     logoUrl,
       'category_type':                categoryType,
       'default_category_template_id': templateId,
       'enrolled_by':                  employeeId,
       'enrolled_by_original':         employeeId,
       'currently_managed_by':         employeeId,
+      'is_test_account':              isTestAccount,
       // PENDING_PAYMENT: invisible to all production lifecycle jobs.
       'subscription_status':          AppConstants.statusPendingPayment,
       // renewal_date OMITTED: clock starts only in the payment webhook.
       // grace_period_ends OMITTED: security rules require this key to be absent.
       'owner_auth_uid':               null,  // STUB: set by doc-02 owner provisioning
-      'owner_email':                  ownerEmail,
-      'owner_name':                   ownerName,
-      'owner_phone':                  ownerPhone,
+      'owner_email':                  ownerEmail.trim().toLowerCase(),
+      'owner_name':                   cleanOwnerName,
+      'owner_phone':                  ownerPhone.trim(),
       'created_at':                   FieldValue.serverTimestamp(),
     });
 
     // 2 — Branch subdocs (all in same batch — atomic, no orphan business)
     final branchIds = <String>[];
     for (final draft in branches) {
+      draft.name = StringUtils.toTitleCase(draft.name);
+      draft.whatsappMonitoredBy = StringUtils.toTitleCase(draft.whatsappMonitoredBy);
       final branchRef = bizRef.collection(AppConstants.colBranches).doc();
       batch.set(branchRef, draft.toFirestore());
       branchIds.add(branchRef.id);
@@ -351,14 +371,23 @@ class FirestoreService {
     required String ownerEmail,
     required String ownerPhone,
   }) async {
+    final cleanEmail = ownerEmail.trim().toLowerCase();
+    final isDup = await ownerEmailExistsForEdit(cleanEmail, businessId);
+    if (isDup) {
+      throw Exception('Owner email "$cleanEmail" is already registered to another business.');
+    }
+
+    final cleanBrandName = StringUtils.toTitleCase(brandName);
+    final cleanOwnerName = StringUtils.toTitleCase(ownerName);
+
     await _db.collection(AppConstants.colBusinesses).doc(businessId).update({
-      'brand_name':                   brandName,
+      'brand_name':                   cleanBrandName,
       'logo_url':                     logoUrl,
       'category_type':                categoryType,
       'default_category_template_id': templateId,
-      'owner_name':                   ownerName,
-      'owner_email':                  ownerEmail,
-      'owner_phone':                  ownerPhone,
+      'owner_name':                   cleanOwnerName,
+      'owner_email':                  cleanEmail,
+      'owner_phone':                  ownerPhone.trim(),
       // Payment/lifecycle fields intentionally omitted:
       // subscription_status, renewal_date, grace_period_ends,
       // enrolled_by, enrolled_by_original, owner_auth_uid — never touched here.
@@ -376,20 +405,25 @@ class FirestoreService {
     required String whatsappMonitoredBy,
     String? placeId,
     String? googleReviewLink,
-    required Map<String, String> starRoutingConfig,
+    Map<String, String>? starRoutingConfig,
     String? categoryOverrideId,
     String? standeeStatus,
   }) async {
+    final cleanBranchName = StringUtils.toTitleCase(branchName);
+    final cleanMonitor = StringUtils.toTitleCase(whatsappMonitoredBy);
+
     final data = <String, dynamic>{
-      'branch_name':           branchName,
-      'address':               address,
-      'whatsapp_number':       whatsappNumber,
-      'whatsapp_monitored_by': whatsappMonitoredBy,
+      'branch_name':           cleanBranchName,
+      'address':               address.trim(),
+      'whatsapp_number':       whatsappNumber.trim(),
+      'whatsapp_monitored_by': cleanMonitor,
       'place_id':              placeId,
       'google_review_link':    googleReviewLink,
-      'star_routing_config':   starRoutingConfig,
       'category_override_id':  categoryOverrideId,
     };
+    if (starRoutingConfig != null) {
+      data['star_routing_config'] = starRoutingConfig;
+    }
     if (standeeStatus != null &&
         AppConstants.standeeStatuses.contains(standeeStatus)) {
       data['standee_status']            = standeeStatus;
@@ -599,6 +633,15 @@ class FirestoreService {
     return Map<String, dynamic>.from(result.data as Map);
   }
 
+  /// Calls the deleteBusinessAdmin Cloud Function to completely cascade-delete
+  /// a business, all branches, scan logs, storage assets, and owner auth account.
+  Future<void> deleteBusinessAdmin(String businessId, {bool deleteOwnerAuth = true}) async {
+    final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+    await fn
+        .httpsCallable(AppConstants.fnDeleteBusinessAdmin)
+        .call({'businessId': businessId, 'deleteOwnerAuth': deleteOwnerAuth});
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // BUILD A — PAYMENT / CASH-PENDING VIEW
   // "Pending cash payments" is a VIEW on businesses, not a separate collection.
@@ -641,7 +684,8 @@ class FirestoreService {
         throw Exception('Business is not pending_payment (current: $currentStatus)');
       }
 
-      await bizRef.update({
+      final batch = _db.batch();
+      batch.update(bizRef, {
         'subscription_status': AppConstants.statusActive,
         'renewal_date': Timestamp.fromDate(
           DateTime.now().add(const Duration(days: AppConstants.renewalDays)),
@@ -650,6 +694,19 @@ class FirestoreService {
         'cash_payment_confirmed_at': FieldValue.serverTimestamp(),
         'cash_confirmed_by_admin': adminUid,
       });
+
+      final branchesSnap = await bizRef.collection('branches').get();
+      for (final bDoc in branchesSnap.docs) {
+        batch.update(bDoc.reference, {
+          'subscription_status': AppConstants.statusActive,
+          'payment_mode': 'cash',
+          'cash_payment_confirmed_at': FieldValue.serverTimestamp(),
+          'cash_confirmed_by_admin': adminUid,
+          'activated_at': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
 
       // Create commission entry if employee-enrolled (fallback mirrors the CF trigger)
       final enrolledBy = bizData['enrolled_by'] as String?;

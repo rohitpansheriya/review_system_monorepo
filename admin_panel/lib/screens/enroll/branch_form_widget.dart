@@ -23,6 +23,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/phone_field.dart';
+import '../../core/string_utils.dart';
 import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 import '../../providers/enroll_provider.dart';
@@ -64,6 +65,18 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
   late final FocusNode _nameFocus;
   late final FocusNode _addressFocus;
   late final FocusNode _whatsappMonitoredByFocus; // Change 5
+  late final FocusNode _placeIdFocus;
+  late final FocusNode _searchNameFocus;
+  late final FocusNode _searchCityFocus;
+
+  String? _searchNameError;
+  String? _searchCityError;
+
+  bool get _hasInvalidPlaceIdFormat {
+    final pid = widget.draft.placeId;
+    if (pid == null || pid.trim().isEmpty) return false;
+    return !StringUtils.isValidPlaceIdFormat(pid);
+  }
 
   @override
   void initState() {
@@ -78,6 +91,55 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
     _nameFocus                = FocusNode();
     _addressFocus             = FocusNode();
     _whatsappMonitoredByFocus = FocusNode();
+    _placeIdFocus             = FocusNode();
+    _searchNameFocus          = FocusNode();
+    _searchCityFocus          = FocusNode();
+
+    // ── Live blur listeners for text normalization ─────────────────────────
+    _nameFocus.addListener(() {
+      if (!_nameFocus.hasFocus) {
+        final clean = StringUtils.collapseWhitespace(_nameCtrl.text);
+        if (_nameCtrl.text != clean) {
+          _nameCtrl.text = clean;
+        }
+        widget.draft.name = clean;
+        widget.onChanged();
+      }
+    });
+
+    _whatsappMonitoredByFocus.addListener(() {
+      if (!_whatsappMonitoredByFocus.hasFocus) {
+        final clean = StringUtils.collapseWhitespace(_whatsappMonitoredByCtrl.text);
+        if (_whatsappMonitoredByCtrl.text != clean) {
+          _whatsappMonitoredByCtrl.text = clean;
+        }
+        widget.draft.whatsappMonitoredBy = clean;
+        widget.onChanged();
+      }
+    });
+
+    _addressFocus.addListener(() {
+      if (!_addressFocus.hasFocus) {
+        final clean = StringUtils.collapseWhitespace(_addressCtrl.text);
+        if (_addressCtrl.text != clean) {
+          _addressCtrl.text = clean;
+        }
+        widget.draft.address = clean;
+        widget.onChanged();
+      }
+    });
+
+    _placeIdFocus.addListener(() {
+      if (!_placeIdFocus.hasFocus) {
+        final clean = StringUtils.sanitizePlaceId(_placeIdCtrl.text);
+        if (_placeIdCtrl.text != clean) {
+          _placeIdCtrl.text = clean;
+        }
+        widget.draft.setPlaceId(clean);
+        widget.onChanged();
+        if (mounted) setState(() {});
+      }
+    });
   }
 
   @override
@@ -113,21 +175,32 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
     _nameFocus.dispose();
     _addressFocus.dispose();
     _whatsappMonitoredByFocus.dispose();
+    _placeIdFocus.dispose();
+    _searchNameFocus.dispose();
+    _searchCityFocus.dispose();
     super.dispose();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   Future<void> _search() async {
+    setState(() {
+      _searchNameError = null;
+      _searchCityError = null;
+    });
+
     final bizName = _searchNameCtrl.text.trim();
     final city    = _searchCityCtrl.text.trim();
-    if (bizName.isEmpty || city.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter both business name and city to search.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+
+    if (bizName.isEmpty) {
+      setState(() => _searchNameError = 'Enter business name');
+      _searchNameFocus.requestFocus();
+      return;
+    }
+
+    if (city.isEmpty) {
+      setState(() => _searchCityError = 'Enter city');
+      _searchCityFocus.requestFocus();
       return;
     }
 
@@ -224,6 +297,7 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
             TextFormField(
               controller: _nameCtrl,
               focusNode:  _nameFocus,
+              textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
                 labelText: 'Branch name *',
                 hintText: 'e.g. Andheri Branch',
@@ -280,6 +354,7 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
           TextFormField(
             controller: _whatsappMonitoredByCtrl,
             focusNode:  _whatsappMonitoredByFocus,
+            textCapitalization: TextCapitalization.words,
             decoration: InputDecoration(
               labelText: 'WhatsApp monitored by *',
               hintText: 'e.g. Owner / Manager Ravi / Front Desk',
@@ -304,16 +379,25 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 flex: 3,
                 child: TextField(
                   controller: _searchNameCtrl,
-                  decoration: const InputDecoration(
+                  focusNode:  _searchNameFocus,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
                     hintText: 'Business name (e.g. Brew Bar)',
-                    prefixIcon: Icon(Icons.store_outlined),
+                    prefixIcon: const Icon(Icons.store_outlined),
+                    errorText: _searchNameError,
                     isDense: true,
                   ),
+                  onChanged: (_) {
+                    if (_searchNameError != null) {
+                      setState(() => _searchNameError = null);
+                    }
+                  },
                   onSubmitted: (_) => _search(),
                 ),
               ),
@@ -322,11 +406,19 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
                 flex: 2,
                 child: TextField(
                   controller: _searchCityCtrl,
-                  decoration: const InputDecoration(
+                  focusNode:  _searchCityFocus,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
                     hintText: 'City (e.g. Mumbai)',
-                    prefixIcon: Icon(Icons.location_city_outlined),
+                    prefixIcon: const Icon(Icons.location_city_outlined),
+                    errorText: _searchCityError,
                     isDense: true,
                   ),
+                  onChanged: (_) {
+                    if (_searchCityError != null) {
+                      setState(() => _searchCityError = null);
+                    }
+                  },
                   onSubmitted: (_) => _search(),
                 ),
               ),
@@ -425,18 +517,35 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
           ),
           const SizedBox(height: 12),
 
-          // ── Place ID (always visible, always optional) ──────────────────
+          // ── Place ID (required for Google review redirection) ──────────────────
           TextFormField(
             controller: _placeIdCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Google Place ID (optional)',
+            focusNode:  _placeIdFocus,
+            decoration: InputDecoration(
+              labelText: 'Google Place ID *',
               hintText: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
-              helperText:
-                  'Needed for Google review link. Find: Google Maps → Share → Copy place ID',
+              helperText: _hasInvalidPlaceIdFormat
+                  ? "⚠️ This doesn't look like a valid Place ID"
+                  : 'Required for 5-star review redirection. Auto-filled from Maps search above.',
+              helperStyle: _hasInvalidPlaceIdFormat
+                  ? TextStyle(color: scheme.error, fontWeight: FontWeight.w500)
+                  : null,
+              errorText: widget.showError &&
+                      (draft.placeId == null || draft.placeId!.trim().isEmpty)
+                  ? 'Google Place ID is required for 5-star review routing'
+                  : null,
             ),
             onChanged: (v) {
-              draft.setPlaceId(v);
+              final clean = StringUtils.sanitizePlaceId(v);
+              if (v != clean) {
+                _placeIdCtrl.value = TextEditingValue(
+                  text: clean,
+                  selection: TextSelection.collapsed(offset: clean.length),
+                );
+              }
+              draft.setPlaceId(clean);
               widget.onChanged();
+              setState(() {});
             },
           ),
 

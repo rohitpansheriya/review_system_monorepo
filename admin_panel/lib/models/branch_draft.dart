@@ -3,6 +3,7 @@
 // This is NOT a Firestore model — it is mutable UI state held by EnrollProvider.
 // BranchFormWidget reads and writes this object directly via the provider.
 
+import '../core/string_utils.dart';
 import '../services/places_service.dart';
 
 class BranchDraft {
@@ -37,6 +38,8 @@ class BranchDraft {
     '1': null, '2': null, '3': null, '4': null, '5': null,
   };
 
+  static final RegExp _validIndianPhone = RegExp(r'^\+91[6-9]\d{9}$');
+
   // ── Computed ───────────────────────────────────────────────────────────────
   bool get starRoutingComplete =>
       starRouting.values.every((v) => v != null && v.isNotEmpty);
@@ -45,9 +48,10 @@ class BranchDraft {
   /// [requireBranchName] = true in multi-branch mode.
   bool isComplete({required bool requireBranchName}) =>
       (!requireBranchName || name.trim().isNotEmpty) &&
-      whatsappNumber.trim().isNotEmpty &&
+      _validIndianPhone.hasMatch(whatsappNumber.trim()) &&
       whatsappMonitoredBy.trim().isNotEmpty &&   // Change 5: required field
       address.trim().isNotEmpty &&
+      (placeId != null && placeId!.trim().isNotEmpty) &&
       starRoutingComplete;
 
   // ── Mutations ─────────────────────────────────────────────────────────────
@@ -59,33 +63,25 @@ class BranchDraft {
   /// Called when user confirms a candidate from Place auto-search.
   /// Pre-fills address and placeId; both remain editable by the user.
   void confirmCandidate(PlaceCandidate candidate) {
-    placeId          = candidate.placeId.isEmpty ? null : candidate.placeId;
+    placeId          = candidate.placeId.isEmpty ? null : StringUtils.sanitizePlaceId(candidate.placeId);
     address          = candidate.address;
     googleReviewLink = candidate.placeId.isNotEmpty
-        ? 'https://search.google.com/local/writereview?placeid=${candidate.placeId}'
+        ? 'https://search.google.com/local/writereview?placeid=${StringUtils.sanitizePlaceId(candidate.placeId)}'
         : null;
     placePrefilled = true;
     candidates     = [];
     searchError    = null;
   }
 
-  /// Sets a manual Place ID (optional field).
-  /// BUG 3 FIX: Sanitizes pipe '|' → 'I' — Google Place IDs never contain
-  /// pipe characters. This corruption happens from copy-paste in certain fonts
-  /// where capital 'I' renders identically to '|'.
+  /// Sets a Place ID.
+  /// Strips leading, trailing, and internal whitespace and newlines.
+  /// Does NOT substitute or re-encode characters — stores byte-for-byte as entered after trimming/stripping.
   void setPlaceId(String value) {
-    var cleaned = value.trim();
+    final cleaned = StringUtils.sanitizePlaceId(value);
     if (cleaned.isEmpty) {
       placeId = null;
       googleReviewLink = null;
       return;
-    }
-
-    // Sanitize: | → I (pipe is never valid in a Google Place ID)
-    if (cleaned.contains('|')) {
-      // ignore: avoid_print
-      print('⚠️ Place ID contained "|" (pipe) — auto-corrected to "I": $cleaned');
-      cleaned = cleaned.replaceAll('|', 'I');
     }
 
     placeId = cleaned;
@@ -133,15 +129,17 @@ class BranchDraft {
     'nfc_url':              null,
     // Change 1: plain printable QR path — set by activation webhook.
     'plain_qr_storage_path': null,
-    // Change 2: standee fulfillment state — set to not_ordered on activation.
-    // Not written at draft time; activation batch sets it.
+    // Lifecycle and payment status at draft time: strictly pending_payment
+    'subscription_status':  'pending_payment',
+    'payment_mode':         'pending',
+    // Change 2: standee fulfillment state — set to not_ordered at draft time.
+    'standee_status':       'not_ordered',
     // stats_summary: initialized to zeros at draft time (complete per 00 schema).
     'stats_summary': {
       'total_scans':             0,
       'total_reviews_redirected': 0,
       // star_counts: one key per star (1–5), init to 0
       'star_counts': {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0},
-      'monthly_google_reviews':  0,
       'last_updated':            null,
     },
   };

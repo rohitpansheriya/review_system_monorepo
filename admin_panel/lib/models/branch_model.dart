@@ -24,11 +24,14 @@ class BranchModel {
   final String? enrolledBy;
   final DateTime? cashConfirmedAt;
   final String? cashConfirmedByAdmin;
+  final double? amountPaid;
+  final double? setupFeePaid;
 
   // ── Pre-aggregated Stats Summary ───────────────────────────────────────────
   final int totalScans;
   final int googleReviewsOpened;
   final Map<String, int> starDistribution;
+  final Map<String, Map<String, dynamic>> monthlyStats;
 
   const BranchModel({
     required this.id,
@@ -45,14 +48,17 @@ class BranchModel {
     this.standeeStatus = AppConstants.standeeNotOrdered,
     this.standeeStatusUpdatedAt,
     this.whatsappMonitoredBy = '',
-    this.subscriptionStatus = AppConstants.statusActive,
+    this.subscriptionStatus = AppConstants.statusPendingPayment,
     this.paymentMode = 'pending',
     this.enrolledBy,
     this.cashConfirmedAt,
     this.cashConfirmedByAdmin,
+    this.amountPaid,
+    this.setupFeePaid,
     this.totalScans = 0,
     this.googleReviewsOpened = 0,
     this.starDistribution = const {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0},
+    this.monthlyStats = const {},
   });
 
   bool get isPendingPayment => subscriptionStatus == AppConstants.statusPendingPayment;
@@ -72,6 +78,28 @@ class BranchModel {
       '5': (rawStars['5'] as num? ?? 0).toInt(),
     };
 
+    final rawMonthly = d['monthly_stats'] as Map<String, dynamic>? ?? {};
+    final parsedMonthly = <String, Map<String, dynamic>>{};
+    rawMonthly.forEach((mKey, val) {
+      if (val is Map<String, dynamic>) {
+        final mStars = val['star_counts'] as Map<String, dynamic>? ??
+            val['star_distribution'] as Map<String, dynamic>? ?? {};
+        parsedMonthly[mKey] = {
+          'total_scans': (val['total_scans'] as num? ?? 0).toInt(),
+          'google_reviews_opened': (val['google_reviews_opened'] as num? ??
+              val['total_reviews_redirected'] as num? ?? 0).toInt(),
+          'private_issues': (val['private_issues'] as num? ?? 0).toInt(),
+          'star_distribution': {
+            '1': (mStars['1'] as num? ?? 0).toInt(),
+            '2': (mStars['2'] as num? ?? 0).toInt(),
+            '3': (mStars['3'] as num? ?? 0).toInt(),
+            '4': (mStars['4'] as num? ?? 0).toInt(),
+            '5': (mStars['5'] as num? ?? 0).toInt(),
+          },
+        };
+      }
+    });
+
     return BranchModel(
       id:               doc.id,
       businessId:       businessId,
@@ -88,14 +116,17 @@ class BranchModel {
                                   ?? AppConstants.standeeNotOrdered,
       standeeStatusUpdatedAt: (d['standee_status_updated_at'] as Timestamp?)?.toDate(),
       whatsappMonitoredBy:    d['whatsapp_monitored_by'] as String? ?? '',
-      subscriptionStatus:     d['subscription_status'] as String? ?? AppConstants.statusActive,
+      subscriptionStatus:     d['subscription_status'] as String? ?? AppConstants.statusPendingPayment,
       paymentMode:            d['payment_mode'] as String? ?? 'pending',
       enrolledBy:             d['enrolled_by'] as String?,
       cashConfirmedAt:        (d['cash_payment_confirmed_at'] as Timestamp?)?.toDate(),
       cashConfirmedByAdmin:   d['cash_confirmed_by_admin'] as String?,
+      amountPaid:             (d['amount_paid'] as num?)?.toDouble(),
+      setupFeePaid:           (d['setup_fee_paid'] as num?)?.toDouble(),
       totalScans:             (stats['total_scans'] as num? ?? 0).toInt(),
-      googleReviewsOpened:    (stats['monthly_google_reviews'] as num? ?? stats['total_reviews_redirected'] as num? ?? 0).toInt(),
+      googleReviewsOpened:    (stats['total_reviews_redirected'] as num? ?? stats['monthly_google_reviews'] as num? ?? 0).toInt(),
       starDistribution:       starsMap,
+      monthlyStats:           parsedMonthly,
     );
   }
 

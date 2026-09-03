@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../models/business_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
@@ -129,24 +130,126 @@ class AdminPlatformStatsTab extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Icon(Icons.account_balance_wallet_outlined, color: colorScheme.primary),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Payment Collections & Revenue',
-                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                Row(
+                                  children: [
+                                    Icon(Icons.account_balance_wallet_outlined, color: colorScheme.primary),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Revenue & Collections',
+                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                                // ── Month Selector Dropdown ──
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String?>(
+                                      value: provider.selectedRevenueMonth,
+                                      isDense: true,
+                                      icon: Icon(Icons.calendar_month_outlined, size: 16, color: colorScheme.primary),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                      items: [
+                                        const DropdownMenuItem<String?>(
+                                          value: null,
+                                          child: Text('All Time'),
+                                        ),
+                                        ...provider.availableRevenueMonths.map((m) {
+                                          String label = m;
+                                          try {
+                                            label = DateFormat('MMMM yyyy').format(DateTime.parse('$m-01'));
+                                          } catch (_) {}
+                                          return DropdownMenuItem<String?>(
+                                            value: m,
+                                            child: Text(label),
+                                          );
+                                        }),
+                                      ],
+                                      onChanged: (val) {
+                                        provider.setSelectedRevenueMonth(val);
+                                      },
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
                             const Divider(height: 20),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  '₹${provider.revenueSnapshot.toStringAsFixed(0)}',
+                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  provider.selectedRevenueMonth != null
+                                      ? '(${DateFormat('MMMM yyyy').format(DateTime.parse('${provider.selectedRevenueMonth}-01'))})'
+                                      : '(All-Time Total)',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+
+                            // ── Revenue Streams (New Enrollments vs Annual Renewals) ──
                             Text(
-                              '₹${provider.revenueSnapshot.toStringAsFixed(0)}',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.primary,
+                              'REVENUE STREAMS',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: colorScheme.onSurfaceVariant,
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
+                            _buildPaymentMethodRow(
+                              context,
+                              label: 'New Client Enrollments (₹1,999)',
+                              amount: provider.newEnrollmentsRevenue,
+                              count: provider.newEnrollmentsCount,
+                              icon: Icons.person_add_alt_1_outlined,
+                              color: const Color(0xFF16A34A),
+                            ),
+                            const SizedBox(height: 6),
+                            _buildPaymentMethodRow(
+                              context,
+                              label: 'Annual Subscriptions (₹999)',
+                              amount: provider.renewalsRevenue,
+                              count: provider.renewalsCount,
+                              icon: Icons.autorenew_rounded,
+                              color: const Color(0xFF2563EB),
+                            ),
+
+                            const Divider(height: 20),
+
+                            // ── Payment Methods (Online vs Cash) ──
+                            Text(
+                              'PAYMENT CHANNELS',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                             _buildPaymentMethodRow(
                               context,
                               label: 'Online (Razorpay)',
@@ -155,7 +258,7 @@ class AdminPlatformStatsTab extends StatelessWidget {
                               icon: Icons.credit_card,
                               color: Colors.blue,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             _buildPaymentMethodRow(
                               context,
                               label: 'Cash (Admin Verified)',
@@ -639,23 +742,23 @@ class _AllBusinessesTableSectionState extends State<_AllBusinessesTableSection> 
                         DataCell(
                           stats == null
                               ? const Text('1 Location')
-                              : (hasPending
+                              : (stats.grace > 0 || status == 'grace_period'
                                   ? InkWell(
                                       onTap: () => context.push('/business/${b.id}', extra: b),
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Colors.amber.withValues(alpha: 0.15),
+                                          color: Colors.orange.withValues(alpha: 0.15),
                                           borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: Colors.amber.withValues(alpha: 0.6)),
+                                          border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.orange),
+                                            const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.deepOrange),
                                             const SizedBox(width: 4),
                                             Text(
-                                              '${stats.active} Active, ${stats.pending} Pending',
+                                              '${stats.grace > 0 ? stats.grace : stats.total} in Grace Period',
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 12,
@@ -666,21 +769,50 @@ class _AllBusinessesTableSectionState extends State<_AllBusinessesTableSection> 
                                         ),
                                       ),
                                     )
-                                  : Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        '${stats.active} Active ${stats.active == 1 ? "Location" : "Locations"}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                          color: Colors.green,
-                                        ),
-                                      ),
-                                    )),
+                                  : (hasPending
+                                      ? InkWell(
+                                          onTap: () => context.push('/business/${b.id}', extra: b),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.amber.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.amber.withValues(alpha: 0.6)),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.hourglass_top_rounded, size: 14, color: Colors.orange),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  stats.active > 0
+                                                      ? '${stats.active} Active, ${stats.pending} Pending'
+                                                      : '${stats.pending} Pending ${stats.pending == 1 ? "Location" : "Locations"}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                    color: stats.active > 0 ? Colors.deepOrange : Colors.amber.shade900,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                      : Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '${stats.active} Active ${stats.active == 1 ? "Location" : "Locations"}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              color: Colors.green,
+                                            ),
+                                          ),
+                                        ))),
                         ),
                         DataCell(Text(provider.resolveEmployeeName(b.currentlyManagedBy))),
                         DataCell(

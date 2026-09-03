@@ -64,6 +64,7 @@ class AppColors {
   static const Color primary   = Color(0xFF00458B); // navy
   static const Color secondary = Color(0xFF2575FC); // bright blue
   static const Color star      = Color(0xFFFFC107); // amber star
+  static const Color warning   = Color(0xFFD97706); // amber/warning
 
   // ── Subscription status backgrounds ─────────────────────────────────────────
   static const Color activeBg         = Color(0xFFDCFCE7); // green-100

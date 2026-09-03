@@ -13,27 +13,68 @@
 // - pending_payment: shows pending enrollment notice
 // - grace_period: full dashboard usable, category editing read-only
 
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/owner_dashboard_provider.dart';
+import '../../widgets/app_animated_loader.dart';
 import '../../core/logout_helper.dart';
 import 'owner_home_tab.dart';
 import 'owner_categories_tab.dart';
 import 'owner_star_routing_tab.dart';
 import 'owner_renewal_tab.dart';
+import 'package:go_router/go_router.dart';
 import 'google_reply_stub_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
-  const OwnerDashboardScreen({super.key});
+  final String? initialTab;
+  const OwnerDashboardScreen({super.key, this.initialTab});
 
   @override
   State<OwnerDashboardScreen> createState() => _OwnerDashboardScreenState();
 }
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
-  int _selectedTabIndex = 0;
+  static const _tabKeys = [
+    'home',
+    'categories',
+    'routing',
+    'renewal',
+    'reply',
+  ];
+
   bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyTabKey(widget.initialTab);
+    });
+  }
+
+  @override
+  void didUpdateWidget(OwnerDashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != oldWidget.initialTab) {
+      _applyTabKey(widget.initialTab);
+    }
+  }
+
+  void _applyTabKey(String? key) {
+    if (key == null || key.trim().isEmpty) return;
+    final idx = _tabKeys.indexOf(key.trim().toLowerCase());
+    if (idx != -1 && mounted) {
+      context.read<OwnerDashboardProvider>().setTabIndex(idx);
+    }
+  }
+
+  void _onTabSelected(int idx) {
+    if (idx < 0 || idx >= _tabKeys.length) return;
+    context.read<OwnerDashboardProvider>().setTabIndex(idx);
+    context.go('/owner?tab=${_tabKeys[idx]}');
+  }
 
   @override
   void didChangeDependencies() {
@@ -56,7 +97,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     if (provider.loading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: AppAnimatedLoader.fullScreen(
+          message: 'Loading Owner Dashboard…',
+        ),
       );
     }
 
@@ -190,10 +233,33 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     final isDesktop = MediaQuery.of(context).size.width > 800;
 
+    // Determine if renewal badge should show (≤30 days to renewal or in grace)
+    final bool showRenewalBadge = _shouldShowRenewalBadge(provider);
+
+    final currentTab = provider.selectedTabIndex;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(provider.business?.brandName ?? 'Owner Dashboard'),
-        actions: [_buildLogoutButton(context)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'WhatsApp Support',
+            onPressed: () => _openWhatsAppSupport(provider),
+          ),
+          _buildLogoutButton(context),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openWhatsAppSupport(provider),
+        backgroundColor: const Color(0xFF25D366),
+        foregroundColor: Colors.white,
+        elevation: 4,
+        icon: const Icon(Icons.chat_rounded, size: 20),
+        label: const Text(
+          'WhatsApp Support',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
       ),
       body: Column(
         children: [
@@ -203,31 +269,43 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 ? Row(
                     children: [
                       NavigationRail(
-                        selectedIndex: _selectedTabIndex,
-                        onDestinationSelected: (idx) => setState(() => _selectedTabIndex = idx),
+                        selectedIndex: currentTab,
+                        onDestinationSelected: _onTabSelected,
                         labelType: NavigationRailLabelType.all,
-                        destinations: const [
-                          NavigationRailDestination(
+                        destinations: [
+                          const NavigationRailDestination(
                             icon: Icon(Icons.dashboard_outlined),
                             selectedIcon: Icon(Icons.dashboard),
                             label: Text('Dashboard'),
                           ),
-                          NavigationRailDestination(
+                          const NavigationRailDestination(
                             icon: Icon(Icons.category_outlined),
                             selectedIcon: Icon(Icons.category),
                             label: Text('Categories'),
                           ),
-                          NavigationRailDestination(
+                          const NavigationRailDestination(
                             icon: Icon(Icons.star_outline),
                             selectedIcon: Icon(Icons.star),
                             label: Text('Star Routing'),
                           ),
                           NavigationRailDestination(
-                            icon: Icon(Icons.payment_outlined),
-                            selectedIcon: Icon(Icons.payment),
-                            label: Text('Renewal'),
+                            icon: showRenewalBadge
+                                ? Badge(
+                                    smallSize: 10,
+                                    backgroundColor: const Color(0xFFE11D48),
+                                    child: const Icon(Icons.payment_outlined),
+                                  )
+                                : const Icon(Icons.payment_outlined),
+                            selectedIcon: showRenewalBadge
+                                ? Badge(
+                                    smallSize: 10,
+                                    backgroundColor: const Color(0xFFE11D48),
+                                    child: const Icon(Icons.payment),
+                                  )
+                                : const Icon(Icons.payment),
+                            label: const Text('Renewal'),
                           ),
-                          NavigationRailDestination(
+                          const NavigationRailDestination(
                             icon: Icon(Icons.rate_review_outlined),
                             selectedIcon: Icon(Icons.rate_review),
                             label: Text('Google Reply'),
@@ -235,45 +313,75 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         ],
                       ),
                       const VerticalDivider(thickness: 1, width: 1),
-                      Expanded(child: tabs[_selectedTabIndex]),
+                      Expanded(child: tabs[currentTab]),
                     ],
                   )
-                : tabs[_selectedTabIndex],
+                : tabs[currentTab],
           ),
         ],
       ),
       bottomNavigationBar: isDesktop
           ? null
           : BottomNavigationBar(
-              currentIndex: _selectedTabIndex,
-              onTap: (idx) => setState(() => _selectedTabIndex = idx),
+              currentIndex: currentTab,
+              onTap: _onTabSelected,
               type: BottomNavigationBarType.fixed,
               selectedItemColor: colorScheme.primary,
               unselectedItemColor: colorScheme.onSurfaceVariant,
-              items: const [
-                BottomNavigationBarItem(
+              items: [
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.dashboard_outlined),
                   label: 'Home',
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.category_outlined),
                   label: 'Categories',
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.star_outline),
                   label: 'Routing',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.payment_outlined),
+                  icon: showRenewalBadge
+                      ? Badge(
+                          smallSize: 10,
+                          backgroundColor: const Color(0xFFE11D48),
+                          child: const Icon(Icons.payment_outlined),
+                        )
+                      : const Icon(Icons.payment_outlined),
                   label: 'Renewal',
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.rate_review_outlined),
                   label: 'Reply',
                 ),
               ],
             ),
     );
+  }
+
+  bool _shouldShowRenewalBadge(OwnerDashboardProvider provider) {
+    final biz = provider.business;
+    if (biz == null) return false;
+
+    // Always show badge during grace period
+    if (provider.isGracePeriod) return true;
+
+    // Show badge when renewal is within 30 days
+    final renewalDate = biz.renewalDate;
+    if (renewalDate == null) return false;
+
+    final daysUntilRenewal = renewalDate.difference(DateTime.now()).inDays;
+    return daysUntilRenewal <= 30;
+  }
+
+  void _openWhatsAppSupport(OwnerDashboardProvider provider) {
+    final bizName = provider.business?.brandName ?? 'My Business';
+    final msg = Uri.encodeComponent(
+      'Hello AppNexa Support Team,\nI am the business owner of "$bizName". I need assistance with my smart review standee dashboard.',
+    );
+    final url = 'https://wa.me/918866390389?text=$msg';
+    html.window.open(url, '_blank');
   }
 
   Widget _buildLogoutButton(BuildContext context) {

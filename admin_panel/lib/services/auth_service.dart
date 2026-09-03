@@ -3,6 +3,7 @@
 // Role enforcement happens here — NOT just in UI.
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../core/constants.dart';
 
 class AuthResult {
@@ -20,7 +21,7 @@ class AuthService {
   FirebaseAuth get instance => _auth;
 
   /// Signs in with email and password, then verifies custom claim role.
-  /// Returns the role string ('admin' | 'employee') or an error.
+  /// Returns the role string ('admin' | 'employee' | 'owner') or an error.
   Future<AuthResult> signIn(String email, String password) async {
     try {
       final cred = await _auth.signInWithEmailAndPassword(
@@ -42,7 +43,6 @@ class AuthService {
           role == AppConstants.roleOwner) {
         return AuthResult(success: true, role: role);
       } else {
-        // Reject at the app level — sign out immediately.
         await _auth.signOut();
         return const AuthResult(
           success: false,
@@ -56,15 +56,40 @@ class AuthService {
     }
   }
 
-  /// Sends a password reset email to set or reset account password.
+  /// Sends a custom branded password reset email using AppNexa Universal Theme via Brevo.
   Future<String?> sendPasswordResetEmail(String email) async {
+    final cleanEmail = email.trim();
+    if (cleanEmail.isEmpty || !cleanEmail.contains('@')) {
+      return 'Please enter a valid email address.';
+    }
+
     try {
-      await _auth.sendPasswordResetEmail(email: email.trim());
+      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1')
+          .httpsCallable('sendCustomPasswordResetEmail');
+      await fn.call({'email': cleanEmail});
       return null; // success
-    } on FirebaseAuthException catch (e) {
-      return _friendlyError(e);
+    } on FirebaseFunctionsException catch (e) {
+      if (e.code == 'not-found') {
+        return 'This email is not registered in our system. Please check the email or contact admin.';
+      }
+      // Fallback to client-side FirebaseAuth in case of temporary function outage
+      try {
+        await _auth.sendPasswordResetEmail(email: cleanEmail);
+        return null;
+      } on FirebaseAuthException catch (authErr) {
+        return _friendlyError(authErr);
+      } catch (_) {
+        return e.message ?? 'Failed to send password reset email.';
+      }
     } catch (e) {
-      return 'Unexpected error: $e';
+      try {
+        await _auth.sendPasswordResetEmail(email: cleanEmail);
+        return null;
+      } on FirebaseAuthException catch (authErr) {
+        return _friendlyError(authErr);
+      } catch (_) {
+        return 'Unexpected error: $e';
+      }
     }
   }
 

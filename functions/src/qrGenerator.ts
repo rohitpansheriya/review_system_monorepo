@@ -490,9 +490,24 @@ export const generateBranchQr = onCall(
       );
     }
 
-    // DRAFT GUARD: refuse QR generation for unpaid (pending_payment) businesses.
+    // DRAFT GUARD & AUTHORIZATION: refuse QR generation for unauthorized callers or unpaid businesses.
     const bizSnap = await db.doc(`businesses/${businessId}`).get();
-    const bizStatus = bizSnap.data()?.subscription_status as string | undefined;
+    const bizData = bizSnap.data();
+    const bizStatus = bizData?.subscription_status as string | undefined;
+
+    const callerRole = request.auth?.token?.role;
+    const callerUid = request.auth?.uid;
+    const isAuthorized = callerRole === "admin" ||
+      bizData?.enrolled_by === callerUid ||
+      bizData?.owner_auth_uid === callerUid;
+
+    if (!isAuthorized) {
+      throw new HttpsError(
+        "permission-denied",
+        "You do not have permission to generate QR codes for this business."
+      );
+    }
+
     if (bizStatus === "pending_payment") {
       throw new HttpsError(
         "failed-precondition",

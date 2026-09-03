@@ -126,13 +126,13 @@ async function main() {
 
   // ── Shared test employee (Employee 1) ─────────────────────────────
   await upsert(db.collection('employees').doc('tst-emp-001'), {
-    name: 'Test Employee 1', contact: 'rohitpansheriya100@gmail.com',
+    name: 'Test Employee 1', contact: 'support@appnexa.co.in',
     role: 'employee', active: true,
   });
 
   // ── Employee 2 — for T13 (reassignment) ───────────────────────────
   await upsert(db.collection('employees').doc('tst-emp-002'), {
-    name: 'Test Employee 2', contact: 'rohitpansheriya100@gmail.com',
+    name: 'Test Employee 2', contact: 'support@appnexa.co.in',
     role: 'employee', active: true,
   });
 
@@ -166,7 +166,7 @@ async function main() {
       enrolled_by:          enrolledBy,
       enrolled_by_original: 'tst-emp-001',
       currently_managed_by: currentlyManagedBy,
-      owner_email:          'rohitpansheriya100@gmail.com',
+      owner_email:          'support@appnexa.co.in',
       owner_auth_uid:       null,
       // FCM token: null for most; garbage string for T9 channel-isolation test.
       // Real tokens populated by Flutter panel at login (doc 02/03).

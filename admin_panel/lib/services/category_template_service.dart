@@ -89,20 +89,129 @@ class CategoryTemplateService {
     required String templateId,
     required String businessType,
     required String categoryName,
-    required String initialPhrase,
+    required List<String> phrases,
   }) async {
+    final cleanList = phrases.map((p) => p.trim()).where((p) => p.isNotEmpty).toSet().toList();
     await _db.collection('category_templates').doc(templateId).set({
       'business_type': businessType,
       'categories': [
         {
           'name': categoryName,
-          'phrase_pool': [initialPhrase],
+          'phrase_pool': cleanList,
           'phrase_pool_versions': {
-            'v1': [initialPhrase],
+            'v1': cleanList,
           },
         }
       ],
       'created_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Add New Category with Phrases to Existing Template ─────────────────────
+  Future<void> addCategory({
+    required String templateId,
+    required String categoryName,
+    required List<String> phrases,
+  }) async {
+    final ref = _db.collection('category_templates').doc(templateId);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+
+      final data = snap.data() ?? {};
+      final categories = List<Map<String, dynamic>>.from(data['categories'] ?? []);
+      final cleanList = phrases.map((p) => p.trim()).where((p) => p.isNotEmpty).toSet().toList();
+
+      final existingIndex = categories.indexWhere((c) => c['name'] == categoryName);
+      if (existingIndex >= 0) {
+        final existingCat = categories[existingIndex];
+        final versions = Map<String, dynamic>.from(existingCat['phrase_pool_versions'] ?? {});
+        final list = List<String>.from(versions['v1'] ?? []);
+        for (final p in cleanList) {
+          if (!list.contains(p)) list.add(p);
+        }
+        versions['v1'] = list;
+        existingCat['phrase_pool_versions'] = versions;
+        existingCat['phrase_pool'] = list;
+      } else {
+        categories.add({
+          'name': categoryName,
+          'phrase_pool': cleanList,
+          'phrase_pool_versions': {
+            'v1': cleanList,
+          },
+        });
+      }
+
+      tx.update(ref, {'categories': categories});
+    });
+  }
+
+  // ── Delete Category from Template ──────────────────────────────────────────
+  Future<void> deleteCategory({
+    required String templateId,
+    required String categoryName,
+  }) async {
+    final ref = _db.collection('category_templates').doc(templateId);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+
+      final data = snap.data() ?? {};
+      final categories = List<Map<String, dynamic>>.from(data['categories'] ?? []);
+      categories.removeWhere((c) => c['name'] == categoryName);
+
+      tx.update(ref, {'categories': categories});
+    });
+  }
+
+  // ── Add Bulk Phrase Variants to a Category Pool ────────────────────────────
+  Future<void> addPhrasesBulk({
+    required String templateId,
+    required String categoryName,
+    required List<String> phrases,
+    String poolVersion = 'v1',
+    String language = 'en',
+  }) async {
+    final ref = _db.collection('category_templates').doc(templateId);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+
+      final data = snap.data() ?? {};
+      final categories = List<Map<String, dynamic>>.from(data['categories'] ?? []);
+      final cleanList = phrases.map((p) => p.trim()).where((p) => p.isNotEmpty).toSet().toList();
+
+      for (final cat in categories) {
+        if (cat['name'] == categoryName) {
+          if (language == 'en') {
+            final versions = Map<String, dynamic>.from(cat['phrase_pool_versions'] ?? {});
+            final list = List<String>.from(versions[poolVersion] ?? []);
+            for (final p in cleanList) {
+              if (!list.contains(p)) list.add(p);
+            }
+            versions[poolVersion] = list;
+            cat['phrase_pool_versions'] = versions;
+            cat['phrase_pool'] = list;
+          } else {
+            final translations = Map<String, dynamic>.from(cat['translations'] ?? {});
+            final langData = Map<String, dynamic>.from(translations[language] ?? {});
+            final versions = Map<String, dynamic>.from(langData['phrase_pool_versions'] ?? {});
+            final list = List<String>.from(versions[poolVersion] ?? []);
+            for (final p in cleanList) {
+              if (!list.contains(p)) list.add(p);
+            }
+            versions[poolVersion] = list;
+            langData['phrase_pool_versions'] = versions;
+            langData['phrase_pool'] = list;
+            translations[language] = langData;
+            cat['translations'] = translations;
+          }
+          break;
+        }
+      }
+
+      tx.update(ref, {'categories': categories});
     });
   }
 
@@ -114,43 +223,13 @@ class CategoryTemplateService {
     required String language,    // "en", "hi", "gu"
     required String phrase,
   }) async {
-    // STUB: Admin UI will call this to append a phrase to a category pool.
-    // Pure data update in Firestore — no code deployment needed.
-    final ref = _db.collection('category_templates').doc(templateId);
-    await _db.runTransaction((tx) async {
-      final snap = await tx.get(ref);
-      if (!snap.exists) return;
-
-      final data       = snap.data() ?? {};
-      final categories = List<Map<String, dynamic>>.from(data['categories'] ?? []);
-
-      for (final cat in categories) {
-        if (cat['name'] == categoryName) {
-          if (language == 'en') {
-            final versions = Map<String, dynamic>.from(cat['phrase_pool_versions'] ?? {});
-            final list     = List<String>.from(versions[poolVersion] ?? []);
-            list.add(phrase);
-            versions[poolVersion] = list;
-            cat['phrase_pool_versions'] = versions;
-            cat['phrase_pool']          = list;
-          } else {
-            final translations = Map<String, dynamic>.from(cat['translations'] ?? {});
-            final langData     = Map<String, dynamic>.from(translations[language] ?? {});
-            final versions     = Map<String, dynamic>.from(langData['phrase_pool_versions'] ?? {});
-            final list         = List<String>.from(versions[poolVersion] ?? []);
-            list.add(phrase);
-            versions[poolVersion] = list;
-            langData['phrase_pool_versions'] = versions;
-            langData['phrase_pool']          = list;
-            translations[language]         = langData;
-            cat['translations']             = translations;
-          }
-          break;
-        }
-      }
-
-      tx.update(ref, {'categories': categories});
-    });
+    return addPhrasesBulk(
+      templateId: templateId,
+      categoryName: categoryName,
+      phrases: [phrase],
+      poolVersion: poolVersion,
+      language: language,
+    );
   }
 
   // ── [STUB: Doc 04] Retire / Remove phrase variant ─────────────────────────

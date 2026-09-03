@@ -392,8 +392,9 @@ async function main() {
           status:      'captured',
           description: null,   // businessId comes from notes in this test
           notes: {
-            businessId: TEST_BIZ_ID,
-            type:       'setup_fee',
+            business_id: TEST_BIZ_ID,
+            businessId:  TEST_BIZ_ID,
+            type:        'setup_fee',
           },
           created_at:  Math.floor(Date.now() / 1000),
         },

@@ -24,119 +24,158 @@ class AdminEmployeesTab extends StatelessWidget {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Create New Employee Account'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
+      builder: (ctx) {
+        String? nameError;
+        String? emailError;
+        bool isSubmitting = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add New Employee'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.info_outline, size: 18, color: Colors.blue),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'A password-setup email will be sent automatically so the employee sets their own secure password.',
-                        style: TextStyle(fontSize: 12, color: Colors.blue),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 18, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'A password-setup email will be sent automatically so the employee sets their own secure password.',
+                              style: TextStyle(fontSize: 12, color: Colors.blue),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Full Name *',
+                        errorText: nameError,
+                      ),
+                      onChanged: (_) {
+                        if (nameError != null) setDialogState(() => nameError = null);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Email Address *',
+                        errorText: emailError,
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (_) {
+                        if (emailError != null) setDialogState(() => emailError = null);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneCtrl,
+                      decoration: const InputDecoration(labelText: 'Phone Number (+91)'),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: addressCtrl,
+                      decoration: const InputDecoration(labelText: 'Address'),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Full Name *'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: emailCtrl,
-                decoration: const InputDecoration(labelText: 'Email Address *'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneCtrl,
-                decoration: const InputDecoration(labelText: 'Phone Number (+91)'),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: addressCtrl,
-                decoration: const InputDecoration(labelText: 'Address'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.send, size: 16),
-            onPressed: () async {
-              if (emailCtrl.text.isEmpty || nameCtrl.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please fill all required fields (Name and Email).')),
-                );
-                return;
-              }
-              final email = emailCtrl.text.trim();
-              final name = nameCtrl.text.trim();
-              Navigator.of(ctx).pop();
-              try {
-                await provider.createEmployee(
-                  email: email,
-                  displayName: name,
-                  phone: phoneCtrl.text.trim(),
-                  address: addressCtrl.text.trim(),
-                );
-                if (context.mounted) {
-                  showDialog(
-                    context: context,
-                    builder: (successCtx) => AlertDialog(
-                      title: const Row(
-                        children: [
-                          Icon(Icons.mark_email_read, color: Colors.green),
-                          SizedBox(width: 8),
-                          Text('Employee Created'),
-                        ],
-                      ),
-                      content: Text(
-                        'Employee account for "$name" was created successfully!\n\n'
-                        'A password-setup email has been sent to:\n$email\n\n'
-                        'The employee can click the link in the email to set their password and log in.',
-                      ),
-                      actions: [
-                        ElevatedButton(
-                          onPressed: () => Navigator.of(successCtx).pop(),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
-            label: const Text('Create & Send Setup Email'),
-          ),
-        ],
-      ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  icon: isSubmitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send, size: 16),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final name = nameCtrl.text.trim();
+                          final email = emailCtrl.text.trim();
+
+                          setDialogState(() {
+                            nameError = name.isEmpty ? 'Full Name is required.' : null;
+                            emailError = email.isEmpty
+                                ? 'Email Address is required.'
+                                : (!email.contains('@') ? 'Enter a valid email address.' : null);
+                          });
+
+                          if (nameError != null || emailError != null) {
+                            return;
+                          }
+
+                          setDialogState(() => isSubmitting = true);
+                          try {
+                            await provider.createEmployee(
+                              email: email,
+                              displayName: name,
+                              phone: phoneCtrl.text.trim(),
+                              address: addressCtrl.text.trim(),
+                            );
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+                            if (context.mounted) {
+                              showDialog(
+                                context: context,
+                                builder: (successCtx) => AlertDialog(
+                                  title: const Row(
+                                    children: [
+                                      Icon(Icons.mark_email_read, color: Colors.green),
+                                      SizedBox(width: 8),
+                                      Text('Employee Created'),
+                                    ],
+                                  ),
+                                  content: Text(
+                                    'Employee account for "$name" was created successfully!\n\n'
+                                    'A password-setup email has been sent to:\n$email\n\n'
+                                    'The employee can click the link in the email to set their password and log in.',
+                                  ),
+                                  actions: [
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.of(successCtx).pop(),
+                                      child: const Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            final errStr = e.toString();
+                            setDialogState(() {
+                              isSubmitting = false;
+                              if (errStr.toLowerCase().contains('email')) {
+                                emailError = errStr.replaceAll('Exception:', '').trim();
+                              } else {
+                                emailError = errStr.replaceAll('Exception:', '').trim();
+                              }
+                            });
+                          }
+                        },
+                  label: Text(isSubmitting ? 'Creating…' : 'Create & Send Setup Email'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -379,9 +418,9 @@ class AdminEmployeesTab extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Offboard ${emp.name}?'),
+        title: Text('Deactivate ${emp.name}?'),
         content: Text(
-          'Deactivating ${emp.name} will bulk-update all their managed businesses to currently_managed_by="admin".\n\nOriginal enrollment records (enrolled_by_original) are preserved per system rules. No other employee will inherit their accounts.',
+          'Deactivating ${emp.name} will disable their login and mark their profile inactive.\n\nAll their enrolled businesses remain intact and fully managed by Admin. Historical enrollment and commission records are preserved for payroll and audit.',
         ),
         actions: [
           TextButton(
@@ -395,11 +434,11 @@ class AdminEmployeesTab extends StatelessWidget {
               await provider.deactivateEmployee(emp.uid);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${emp.name} offboarded. Managed businesses reassigned to Admin.')),
+                  SnackBar(content: Text('${emp.name} deactivated. Enrolled businesses remain managed by Admin.')),
                 );
               }
             },
-            child: const Text('Confirm Offboard'),
+            child: const Text('Confirm Deactivation'),
           ),
         ],
       ),

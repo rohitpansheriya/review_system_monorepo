@@ -51,7 +51,7 @@
     html,
     body {
       min-height: 100%;
-      background: var(--c-bg);
+      background: radial-gradient(circle at 50% 0%, #eff6ff 0%, #f8fafc 45%, #f1f5f9 100%);
       color: var(--c-text);
       font-family: var(--font);
       -webkit-font-smoothing: antialiased;
@@ -99,6 +99,90 @@
       border-radius: var(--radius-lg);
       padding: 22px 20px;
       box-shadow: 0 1px 3px rgba(60, 64, 67, 0.08), 0 1px 2px rgba(60, 64, 67, 0.12);
+    }
+
+    /* ─── Deep Royal Navy Rating Hero Card ─────────────────────────────── */
+    .rating-hero-card {
+      background: linear-gradient(145deg, #0b1528 0%, #1e3a8a 55%, #1d4ed8 100%) !important;
+      border: 1px solid rgba(147, 197, 253, 0.25) !important;
+      border-top: 1.5px solid rgba(191, 219, 254, 0.45) !important;
+      border-radius: var(--radius-lg);
+      padding: 28px 20px 24px;
+      box-shadow: 0 16px 36px -6px rgba(11, 21, 40, 0.3),
+                  0 6px 16px rgba(30, 58, 138, 0.25),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      position: relative;
+      overflow: hidden;
+      color: #ffffff;
+    }
+
+    .rating-hero-card::before {
+      content: '';
+      position: absolute;
+      top: -40%;
+      right: -20%;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(96, 165, 250, 0.25) 0%, rgba(30, 58, 138, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .rating-hero-card::after {
+      content: '';
+      position: absolute;
+      bottom: -40%;
+      left: -15%;
+      width: 180px;
+      height: 180px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(30, 58, 138, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .rating-hero-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .rating-hero-card .screen-title {
+      color: #ffffff !important;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    .rating-hero-card .screen-sub {
+      color: #bfdbfe !important;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .rating-hero-card .star-btn {
+      color: rgba(255, 255, 255, 0.28);
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease, filter 0.18s ease;
+    }
+
+    .rating-hero-card .star-btn:hover {
+      color: rgba(255, 255, 255, 0.55);
+      transform: scale(1.18);
+    }
+
+    .rating-hero-card .star-btn.lit {
+      color: #fbbf24 !important;
+      text-shadow: 0 0 14px rgba(251, 191, 36, 0.8), 0 2px 6px rgba(0, 0, 0, 0.4);
+      filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.5));
+    }
+
+    .rating-hero-card .rating-badge {
+      background: rgba(255, 255, 255, 0.15) !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(255, 255, 255, 0.25) !important;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      font-weight: 700;
     }
 
     .thank-you-card {
@@ -343,7 +427,173 @@
       }
     }
 
-    /* ─── Category Chips (Google Maps Filter Style) ───────────────────── */
+    /* ─── Phrase Selection & AI Generator (Dual Options Style) ───────── */
+    .phrase-main-question {
+      font-size: 14.5px;
+      font-weight: 800;
+      color: #0f172a;
+      background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #2563eb;
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      line-height: 1.45;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .phrase-main-question .question-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .btn-ai-generate {
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      gap: 6.5px;
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #1d4ed8 100%);
+      color: #ffffff;
+      padding: 7px 16px;
+      border-radius: 9999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      font-family: inherit;
+      border: 1px solid #60a5fa;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+      cursor: pointer;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-ai-generate::after {
+      content: '';
+      position: absolute;
+      top: -60%;
+      left: -120%;
+      width: 60%;
+      height: 220%;
+      background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.45) 50%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      transform: rotate(25deg);
+      animation: btnShimmerSweep 2.6s infinite ease-in-out;
+      pointer-events: none;
+    }
+
+    @keyframes btnShimmerSweep {
+      0% {
+        left: -120%;
+      }
+      38% {
+        left: 210%;
+      }
+      100% {
+        left: 210%;
+      }
+    }
+
+    .btn-ai-generate:hover {
+      transform: translateY(-1.5px);
+      background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+      border-color: #93c5fd;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    }
+
+    .btn-ai-generate:active {
+      transform: scale(0.97);
+    }
+
+    .btn-ai-generate.active {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+      border-color: #bfdbfe;
+      box-shadow: 0 0 0 2.5px rgba(59, 130, 246, 0.4), 0 4px 14px rgba(30, 58, 138, 0.35);
+      font-weight: 700;
+    }
+
+    .btn-ai-generate.pulse-active {
+      animation: aiPulse 0.35s ease;
+    }
+
+    @keyframes aiPulse {
+      0% { transform: scale(0.97); }
+      50% { transform: scale(1.03); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.45), 0 8px 20px rgba(37, 99, 235, 0.4); }
+      100% { transform: scale(1); }
+    }
+
+    .btn-ai-generate .ai-sparkle {
+      font-size: 13.5px;
+      line-height: 1;
+      display: inline-block;
+      animation: sparkleSpin 3s infinite ease-in-out;
+    }
+
+    @keyframes sparkleSpin {
+      0%, 100% {
+        transform: scale(1) rotate(0deg);
+      }
+      50% {
+        transform: scale(1.28) rotate(16deg);
+      }
+    }
+
+    .topic-divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin: 26px 0 20px;
+      text-transform: uppercase;
+    }
+
+    .topic-divider::before,
+    .topic-divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1.5px solid #e2e8f0;
+    }
+
+    .topic-divider::before {
+      margin-right: 14px;
+    }
+
+    .topic-divider::after {
+      margin-left: 14px;
+    }
+
+    .topic-prompt-question {
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f172a;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0fdfa 100%);
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #10b981;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin: 20px 0 18px;
+      line-height: 1.45;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      box-shadow: 0 2px 10px rgba(16, 185, 129, 0.08);
+    }
+
+    .topic-prompt-question .topic-prompt-icon {
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+
     #chip-grid {
       display: flex;
       flex-wrap: wrap;
@@ -351,25 +601,28 @@
     }
 
     .chip {
-      background: #ffffff;
-      border: 1px solid var(--c-border);
-      color: #3c4043;
-      padding: 8px 14px;
-      border-radius: 18px;
-      font-size: 13px;
-      font-weight: 500;
-      font-family: var(--font);
+      background: #f0f7ff;
+      border: 1.5px solid #bfdbfe;
+      color: #1e293b;
+      padding: 6.5px 14px;
+      border-radius: 9999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
-      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
 
     .chip:hover {
-      background: #f1f3f4;
-      border-color: #bdc1c6;
-      color: #202124;
-      transform: translateY(-1px);
+      background: #e0f2fe;
+      border-color: #93c5fd;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
     }
 
     .chip:active {
@@ -377,10 +630,16 @@
     }
 
     .chip.selected {
-      background: #e8f0fe;
-      border-color: #1a73e8;
-      color: #1a73e8;
-      font-weight: 600;
+      background: #eff6ff;
+      border-color: #2563eb;
+      color: #1d4ed8;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+      font-weight: 700;
+    }
+
+    .chip-emoji {
+      font-size: 13.5px;
+      line-height: 1;
     }
 
     /* ─── Textarea & Buttons ─────────────────────────────────────────── */
@@ -572,17 +831,149 @@
       margin-bottom: 14px;
     }
 
-    .divider {
+    /* ─── Micro-Interactions, Live Stats, Empathy Tags & Confetti ───────── */
+    #confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 999999;
+    }
+
+    .review-stats-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding: 0 4px;
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .review-stats-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f1f5f9;
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .review-stats-badge.pulse {
+      background: #dbeafe;
+      color: #1d4ed8;
+      border-color: #93c5fd;
+      transform: scale(1.06);
+    }
+
+    .empathy-tag-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0 12px;
+    }
+
+    .empathy-chip {
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      color: #334155;
+      padding: 6.5px 13px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .empathy-chip:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+      transform: translateY(-1px);
+    }
+
+    .empathy-chip:active {
+      transform: scale(0.96);
+    }
+
+    .empathy-chip.selected {
+      background: #fef2f2;
+      border-color: #ef4444;
+      color: #b91c1c;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+    }
+
+    .btn-google.copying {
+      background: linear-gradient(135deg, #15803d 0%, #16a34a 100%) !important;
+      box-shadow: 0 4px 18px rgba(22, 163, 74, 0.4) !important;
+      pointer-events: none;
+      animation: copyPulse 0.3s ease;
+    }
+
+    @keyframes copyPulse {
+      0% { transform: scale(0.96); }
+      50% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+
+    .copy-countdown-bar {
       width: 100%;
-      height: 1px;
-      background: var(--c-border);
-      margin: 18px 0;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.35);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .copy-countdown-fill {
+      height: 100%;
+      width: 0%;
+      background: #ffffff;
+      border-radius: 2px;
+      animation: countdownFill 1.3s linear forwards;
+    }
+
+    @keyframes countdownFill {
+      0% { width: 0%; }
+      100% { width: 100%; }
+    }
+
+    @keyframes textGlow {
+      0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.25); border-color: #2563eb; }
+      100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    }
+
+    .glow-highlight {
+      animation: textGlow 0.65s ease;
+    }
+
+    @keyframes starPop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.35) rotate(8deg); }
+      100% { transform: scale(1); }
+    }
+
+    .star-pop-anim {
+      animation: starPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
   </style>
 </head>
 
 <body>
   <div id="app">
+    <canvas id="confetti-canvas" style="display:none;"></canvas>
+
     <!-- Header band (Logo + Business Name) -->
     <div class="header-band" id="header-band" style="display:none;">
       <div class="biz-logo-container">
@@ -643,7 +1034,7 @@
     <div id="screen-main" class="screen">
       
       <!-- Primary Rating Card (Stars always visible & editable) -->
-      <div class="card" style="text-align:center;">
+      <div class="card rating-hero-card" style="text-align:center;">
         <div class="screen-title" id="lbl-landing-title">Thank you for visiting!</div>
         <p class="screen-sub" id="lbl-landing-sub">How was your experience today?</p>
         
@@ -666,14 +1057,42 @@
         <!-- Section A: Google Maps Path (High Rating) -->
         <div id="section-high" class="dynamic-section">
           
-          <div class="card">
-            <div class="section-title" id="lbl-what-loved">What did you love? (select all that apply)</div>
+          <div class="card" id="phrase-selection-card">
+            <!-- Highlighted Question inspiring 1-Tap AI Review -->
+            <div class="phrase-main-question" id="lbl-main-question">
+              <span class="question-icon">⚡</span>
+              <span id="lbl-main-question-text">Want a quick 5-star review in 1 tap?</span>
+            </div>
+
+            <!-- Option 1: AI Generated Review Button (compact chip size) -->
+            <div style="margin-bottom: 2px;">
+              <button type="button" class="btn-ai-generate" id="btn-ai-generate">
+                <span class="ai-sparkle">✨</span> <span id="lbl-ai-btn">AI Generated Review</span>
+              </button>
+            </div>
+
+            <!-- Divider -->
+            <div class="topic-divider">
+              <span id="lbl-pick-topic">OR PICK TOPICS MANUALLY</span>
+            </div>
+
+            <!-- Question inspiring customers to tap topic chips -->
+            <div class="topic-prompt-question">
+              <span class="topic-prompt-icon">💬</span>
+              <span id="lbl-topic-question">What made your experience special today?</span>
+            </div>
+
+            <!-- Option 2: Category Chips Grid -->
             <div id="chip-grid"></div>
           </div>
 
           <div class="card" id="review-card">
             <div class="section-title" id="lbl-your-review">Your review (feel free to edit)</div>
             <textarea id="review-text" rows="5" placeholder="Write your review here, or select categories above for quick suggestions…"></textarea>
+            <div class="review-stats-bar">
+              <span class="review-stats-badge" id="word-count-badge">📝 0 words</span>
+              <span class="review-stats-badge" id="char-count-badge">0 characters</span>
+            </div>
           </div>
 
           <!-- Expandable Review Integrity Policy -->
@@ -705,12 +1124,27 @@
           </button>
         </div>
 
-        <!-- Section B: Direct Feedback / WhatsApp Path (Low Rating) -->
+        <!-- Section B: Direct Feedback / Empathy Management Path (Low Rating) -->
         <div id="section-low-wa" class="dynamic-section">
-          <div class="card">
-            <div class="screen-title" id="lbl-wa-title">Sorry to hear that</div>
-            <p class="screen-sub" id="lbl-wa-sub">Please tell us what went wrong so we can make it right.</p>
-            <textarea id="wa-text" rows="4" placeholder="Describe your experience…" style="margin-top:14px;"></textarea>
+          <div class="card" style="border-top: 3px solid #ef4444;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:20px;">🙏</span>
+              <div class="screen-title" id="lbl-wa-title" style="margin-bottom:0;">We value your honest feedback</div>
+            </div>
+            <p class="screen-sub" id="lbl-wa-sub" style="margin-top:6px;">Our management wants to make this right immediately. What went wrong?</p>
+            
+            <!-- Quick Issue Tags -->
+            <div class="empathy-tag-grid" id="empathy-tag-grid">
+              <button type="button" class="empathy-chip" data-tag="Long Wait Time">⏳ Long wait time</button>
+              <button type="button" class="empathy-chip" data-tag="Food / Quality Issue">🍽️ Food / taste issue</button>
+              <button type="button" class="empathy-chip" data-tag="Cleanliness Issue">🧹 Cleanliness & hygiene</button>
+              <button type="button" class="empathy-chip" data-tag="Staff / Service Issue">👥 Staff behavior</button>
+              <button type="button" class="empathy-chip" data-tag="Pricing / Billing Issue">💰 Pricing / billing</button>
+              <button type="button" class="empathy-chip" data-tag="Order Mistake">📦 Wrong item / order</button>
+            </div>
+
+            <textarea id="wa-text" rows="3" placeholder="Add any specific details (optional)…"></textarea>
+            
             <button class="btn btn-whatsapp" id="btn-wa-send" style="margin-top:14px;">
               <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                 <path
@@ -718,9 +1152,9 @@
                 <path
                   d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.531 5.848L0 24l6.335-1.509A11.932 11.932 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.798 9.798 0 0 1-5.031-1.388l-.361-.214-3.741.981.999-3.647-.236-.374A9.774 9.774 0 0 1 2.182 12c0-5.413 4.405-9.818 9.818-9.818 5.413 0 9.818 4.405 9.818 9.818 0 5.413-4.405 9.818-9.818 9.818z" />
               </svg>
-              <span id="lbl-wa-send">Send via WhatsApp</span>
+              <span id="lbl-wa-send">Send Privately to Management on WhatsApp</span>
             </button>
-            <button class="btn btn-outline" id="btn-low-skip" style="margin-top:10px;">Skip / Submit</button>
+            <button class="btn btn-outline" id="btn-low-skip" style="margin-top:10px;">Skip & Submit Privately</button>
           </div>
         </div>
 
@@ -762,20 +1196,13 @@
     import { getFirestore, doc, getDoc, getDocs, addDoc, updateDoc, collection, increment, serverTimestamp, connectFirestoreEmulator }
       from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-    // ─── Firebase config ────────────────────────────────────────────────────
-    const defaultFirebaseConfig = {
-      apiKey: "AIzaSyCzP1jhiOrhBJ8A2y5fxs2ducbxT9UqT90",
-      authDomain: "review-system-prod-49b7a.firebaseapp.com",
-      projectId: "review-system-prod-49b7a",
-      storageBucket: "review-system-prod-49b7a.firebasestorage.app",
-      messagingSenderId: "1091002138393",
-      appId: "1:1091002138393:web:841d4de99d22f6817f0f88",
-      measurementId: "G-HY60V126M4",
-    };
+    // ─── Firebase config (injected via firebase-config.js) ───────────────────
+    const firebaseConfig = window.__FIREBASE_CONFIG__;
+    if (!firebaseConfig) {
+      console.error('Firebase configuration not found. Ensure firebase-config.js is loaded.');
+    }
 
-    const firebaseConfig = window.__FIREBASE_CONFIG__ || defaultFirebaseConfig;
-
-    const fbApp = initializeApp(firebaseConfig);
+    const fbApp = initializeApp(firebaseConfig || {});
     const db = getFirestore(fbApp);
 
     // ─── Local dev emulator connection ─────────────────────────────────────
@@ -791,6 +1218,10 @@
         landingTitle: "Thank you for visiting!",
         landingSub: "How was your experience today?",
         ratingLabels: ["1 Star • Disappointed", "2 Stars • Could be better", "3 Stars • Good", "4 Stars • Great!", "5 Stars • Excellent!"],
+        mainQuestion: "Want a quick 5-star review in 1 tap?",
+        aiReviewBtn: "AI Generated Review",
+        pickTopic: "OR PICK TOPICS MANUALLY",
+        topicQuestion: "What made your experience special today?",
         whatLoved: "What did you love? (select all that apply)",
         yourReview: "Your review (feel free to edit)",
         reviewPlaceholder: "Write your review here, or tap categories above for suggestions…",
@@ -819,6 +1250,10 @@
         landingTitle: "आने के लिए धन्यवाद!",
         landingSub: "आज आपका अनुभव कैसा रहा?",
         ratingLabels: ["1 स्टार • असंतोषजनक", "2 स्टार • बेहतर हो सकता है", "3 स्टार • अच्छा", "4 स्टार • बहुत अच्छा!", "5 स्टार • उत्कृष्ट!"],
+        mainQuestion: "क्या आप 1 टैप में तुरंत 5-स्टार समीक्षा चाहते हैं?",
+        aiReviewBtn: "AI जनरेटेड समीक्षा",
+        pickTopic: "या विषय स्वयं चुनें",
+        topicQuestion: "आज आपके अनुभव को क्या खास बनाया?",
         whatLoved: "आपको क्या पसंद आया? (सभी उपयुक्त चुनें)",
         yourReview: "आपकी समीक्षा (आप संपादन कर सकते हैं)",
         reviewPlaceholder: "अपनी समीक्षा यहां लिखें, या सुझावों के लिए ऊपर श्रेणियां चुनें…",
@@ -847,6 +1282,10 @@
         landingTitle: "મુલાકાત માટે આભાર!",
         landingSub: "આજે તમારો અનુભવ કેવો રહ્યો?",
         ratingLabels: ["1 સ્ટાર • અસંતોષકારક", "2 સ્ટાર • સુધારી શકાય", "3 સ્ટાર • સારું", "4 સ્ટાર • ખૂબ સરસ!", "5 સ્ટાર • ઉત્તમ!"],
+        mainQuestion: "શું તમે 1 ટૅપમાં ઝડપી 5-સ્ટાર સમીક્ષા મેળવવા માંગો છો?",
+        aiReviewBtn: "AI જનરેટેડ સમીક્ષા",
+        pickTopic: "અથવા વિષય જાતે પસંદ કરો",
+        topicQuestion: "આજે તમારો અનુભવ શેના કારણે ખાસ રહ્યો?",
         whatLoved: "તમને શું પસંદ આવ્યું? (લાગુ પડતા તમામ પસંદ કરો)",
         yourReview: "તમારી સમીક્ષા (તમે ફેરફાર કરી શકો છો)",
         reviewPlaceholder: "તમારી સમીક્ષા અહીં લખો, અથવા સૂચનો માટે ઉપરના કેટેગરીઝ પસંદ કરો…",
@@ -930,23 +1369,39 @@
       $('lang-bar').style.display = (showHeader && ENABLE_TRANSLATIONS) ? 'flex' : 'none';
     }
 
-    // ─── Session token & submission guard ─────────────────────────────────────
+    // ─── Session token & submission guard (Local + Session persistent) ─────────
     function getOrCreateSessionToken(branchId) {
       const key = `session_token_${branchId}`;
-      let token = sessionStorage.getItem(key);
+      let token = null;
+      try { token = localStorage.getItem(key) || sessionStorage.getItem(key); } catch (_) {}
       if (!token) {
         token = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-        sessionStorage.setItem(key, token);
+        try { localStorage.setItem(key, token); } catch (_) {}
+        try { sessionStorage.setItem(key, token); } catch (_) {}
       }
       return token;
     }
 
     function isAlreadySubmitted(branchId) {
-      return sessionStorage.getItem(`submitted_${branchId}`) === '1';
+      const key = `submitted_${branchId}`;
+      try {
+        if (sessionStorage.getItem(key) === '1') return true;
+        const localVal = localStorage.getItem(key);
+        if (localVal) {
+          const submittedAt = parseInt(localVal, 10);
+          // 24-hour submission cooldown per device/branch
+          if (!isNaN(submittedAt) && Date.now() - submittedAt < 24 * 60 * 60 * 1000) {
+            return true;
+          }
+        }
+      } catch (_) {}
+      return false;
     }
 
     function markSubmitted(branchId) {
-      sessionStorage.setItem(`submitted_${branchId}`, '1');
+      const key = `submitted_${branchId}`;
+      try { sessionStorage.setItem(key, '1'); } catch (_) {}
+      try { localStorage.setItem(key, Date.now().toString()); } catch (_) {}
       state.submitted = true;
     }
 
@@ -974,7 +1429,11 @@
       $('lbl-lang-label').textContent = dict.langLabel;
       $('lbl-landing-title').textContent = dict.landingTitle;
       $('lbl-landing-sub').textContent = dict.landingSub;
-      $('lbl-what-loved').textContent = dict.whatLoved;
+      if ($('lbl-main-question-text')) $('lbl-main-question-text').textContent = dict.mainQuestion || "Want a quick 5-star review in 1 tap?";
+      if ($('lbl-ai-btn')) $('lbl-ai-btn').textContent = dict.aiReviewBtn || "AI Generated Review";
+      if ($('lbl-pick-topic')) $('lbl-pick-topic').textContent = dict.pickTopic || "OR PICK TOPICS MANUALLY";
+      if ($('lbl-topic-question')) $('lbl-topic-question').textContent = dict.topicQuestion || "What made your experience special today?";
+      if ($('lbl-what-loved')) $('lbl-what-loved').textContent = dict.whatLoved;
       $('lbl-your-review').textContent = dict.yourReview;
       $('review-text').placeholder = dict.reviewPlaceholder;
       $('lbl-google-post').textContent = dict.googlePost;
@@ -1055,10 +1514,191 @@
       return cat.name;
     }
 
+    function getCategoryEmoji(name) {
+      if (!name) return '⭐';
+      const emojiRegex = /(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u;
+      if (emojiRegex.test(name)) return '';
+
+      const lower = name.toLowerCase();
+      if (lower.includes('ice cream') || lower.includes('icecream') || lower.includes('dessert') || lower.includes('shake')) return '🍦';
+      if (lower.includes('taste') || lower.includes('food') || lower.includes('dining') || lower.includes('menu') || lower.includes('dish') || lower.includes('flavor')) return '🍽️';
+      if (lower.includes('quality') || lower.includes('standard') || lower.includes('fresh')) return '⭐';
+      if (lower.includes('service') || lower.includes('hospitality') || lower.includes('staff') || lower.includes('polite') || lower.includes('care') || lower.includes('welcome')) return '😊';
+      if (lower.includes('doctor') || lower.includes('clinic') || lower.includes('treatment') || lower.includes('health') || lower.includes('dental') || lower.includes('nurse')) return '👨‍⚕️';
+      if (lower.includes('speed') || lower.includes('fast') || lower.includes('quick') || lower.includes('delivery') || lower.includes('prompt')) return '⚡';
+      if (lower.includes('clean') || lower.includes('hygiene') || lower.includes('sanitization') || lower.includes('tidy')) return '🧼';
+      if (lower.includes('atmosphere') || lower.includes('ambiance') || lower.includes('vibe') || lower.includes('environment') || lower.includes('place') || lower.includes('decor')) return '🏪';
+      if (lower.includes('value') || lower.includes('price') || lower.includes('money') || lower.includes('cost') || lower.includes('affordable') || lower.includes('pocket')) return '💰';
+      if (lower.includes('hair') || lower.includes('salon') || lower.includes('style') || lower.includes('beauty') || lower.includes('spa')) return '✂️';
+      if (lower.includes('product') || lower.includes('collection') || lower.includes('retail') || lower.includes('shop') || lower.includes('variety')) return '🛍️';
+      return '⭐';
+    }
+
     function pickPhraseForCategory(cat) {
       const pool = getCategoryPhrasePool(cat);
       if (!pool.length) return '';
       return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    // ─── Micro-Interactions: Haptics & Confetti Engine ───────────────────────
+    function triggerHaptic(type = 'light') {
+      try {
+        const v = navigator.vibrate || navigator.webkitVibrate || navigator.mozVibrate || navigator.msVibrate;
+        if (v) {
+          if (type === 'light') {
+            navigator.vibrate(45); // 45ms is the optimal threshold for smartphone LRA/ERM vibration motors
+          } else if (type === 'medium') {
+            navigator.vibrate([45, 35, 45]);
+          } else if (type === 'success') {
+            navigator.vibrate([50, 40, 70]);
+          }
+        }
+      } catch (_) {}
+    }
+
+    function launchConfetti() {
+      const canvas = $('confetti-canvas');
+      if (!canvas) return;
+      canvas.style.display = 'block';
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const ctx = canvas.getContext('2d');
+      const colors = ['#1a73e8', '#ea4335', '#fbbc04', '#34a853', '#9333ea', '#ec4899', '#3b82f6'];
+      const particles = [];
+      const particleCount = 110;
+
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: canvas.width * 0.5 + (Math.random() - 0.5) * 80,
+          y: canvas.height * 0.4 + (Math.random() - 0.5) * 40,
+          vx: (Math.random() - 0.5) * 18,
+          vy: (Math.random() - 0.75) * 20,
+          size: Math.random() * 8 + 5,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          rotation: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 12,
+          opacity: 1,
+          shape: Math.random() > 0.35 ? 'rect' : 'circle',
+        });
+      }
+
+      let animationFrame;
+      const startTime = Date.now();
+
+      function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const elapsed = Date.now() - startTime;
+        let alive = false;
+
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.48; // gravity
+          p.vx *= 0.98; // air resistance
+          p.rotation += p.rotSpeed;
+          if (elapsed > 1100) {
+            p.opacity = Math.max(0, p.opacity - 0.035);
+          }
+
+          if (p.opacity > 0 && p.y < canvas.height + 50) {
+            alive = true;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate((p.rotation * Math.PI) / 180);
+            ctx.globalAlpha = p.opacity;
+            ctx.fillStyle = p.color;
+            if (p.shape === 'rect') {
+              ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+            } else {
+              ctx.beginPath();
+              ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.restore();
+          }
+        });
+
+        if (alive && elapsed < 2500) {
+          animationFrame = requestAnimationFrame(render);
+        } else {
+          cancelAnimationFrame(animationFrame);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          canvas.style.display = 'none';
+        }
+      }
+
+      render();
+    }
+
+    // ─── Live Word & Character Counter ───────────────────────────────────────
+    function updateReviewStats() {
+      const ta = $('review-text');
+      const wordBadge = $('word-count-badge');
+      const charBadge = $('char-count-badge');
+      if (!ta || !wordBadge || !charBadge) return;
+
+      const text = ta.value.trim();
+      const words = text.length > 0 ? text.split(/\s+/).filter(Boolean).length : 0;
+      const chars = ta.value.length;
+
+      wordBadge.textContent = `📝 ${words} word${words === 1 ? '' : 's'}`;
+      charBadge.textContent = `${chars} character${chars === 1 ? '' : 's'}`;
+
+      wordBadge.classList.add('pulse');
+      setTimeout(() => wordBadge.classList.remove('pulse'), 220);
+    }
+
+    // ─── WhatsApp Phone Number Formatter & Validator ────────────────────────
+    function formatWaNumber(phone) {
+      if (!phone) return '';
+      let clean = String(phone).replace(/[^0-9]/g, '');
+      // Strip leading 0 if present (e.g. 09876543210 -> 9876543210)
+      if (clean.startsWith('0')) clean = clean.substring(1);
+
+      // If exactly 10 digits starting with 6-9, prepend standard country code 91
+      if (/^[6-9]\d{9}$/.test(clean)) {
+        return '91' + clean;
+      }
+      // If 12 digits starting with 91 followed by 6-9, it is already valid
+      if (/^91[6-9]\d{9}$/.test(clean)) {
+        return clean;
+      }
+
+      // Invalid number format (e.g. 1234 or garbage) -> return empty to avoid broken URL
+      return '';
+    }
+
+    // ─── Empathy Issue Tags Selection ────────────────────────────────────────
+    const selectedEmpathyTags = new Set();
+    let empathyTagsInitialized = false;
+
+    function resetNegativeFeedback() {
+      selectedEmpathyTags.clear();
+      document.querySelectorAll('.empathy-chip').forEach(chip => {
+        chip.classList.remove('selected');
+      });
+      const waText = $('wa-text');
+      if (waText) waText.value = '';
+    }
+
+    function initEmpathyTags() {
+      if (empathyTagsInitialized) return;
+      empathyTagsInitialized = true;
+
+      document.querySelectorAll('.empathy-chip').forEach(chip => {
+        chip.addEventListener('pointerdown', () => triggerHaptic('light'), { passive: true });
+        chip.addEventListener('click', () => {
+          triggerHaptic('light');
+          const tag = chip.dataset.tag;
+          if (selectedEmpathyTags.has(tag)) {
+            selectedEmpathyTags.delete(tag);
+            chip.classList.remove('selected');
+          } else {
+            selectedEmpathyTags.add(tag);
+            chip.classList.add('selected');
+          }
+        });
+      });
     }
 
     // ─── Interactive Star Rating UI (Single-Screen Reactive) ───────────────────
@@ -1076,10 +1716,24 @@
     }
 
     document.querySelectorAll('.star-grid .star-btn').forEach(btn => {
+      btn.addEventListener('pointerdown', () => {
+        if (!state.submitted) triggerHaptic('light');
+      }, { passive: true });
+
       btn.addEventListener('click', () => {
         if (state.submitted) return;
+        triggerHaptic('light');
+        btn.classList.add('star-pop-anim');
+        setTimeout(() => btn.classList.remove('star-pop-anim'), 260);
         const rating = parseInt(btn.dataset.val);
+        const prevRating = state.starRating;
         state.starRating = rating;
+
+        // If star rating changed, always reset negative feedback chips & details note
+        if (prevRating !== rating) {
+          resetNegativeFeedback();
+        }
+
         updateStars(rating);
         updateRatingBadge(rating);
         renderDynamicSection(rating);
@@ -1111,6 +1765,7 @@
         rebuildReviewText();
       } else if (route === 'whatsapp') {
         targetSection = secLowWa;
+        initEmpathyTags();
       } else {
         targetSection = secLowThanks;
       }
@@ -1131,17 +1786,45 @@
 
       state.shuffledCategories.forEach(({ cat, originalIdx }) => {
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'chip';
-        btn.textContent = getCategoryDisplayName(cat);
+        const emoji = getCategoryEmoji(cat.name);
+        const displayName = getCategoryDisplayName(cat);
+
+        if (emoji) {
+          const spanEmoji = document.createElement('span');
+          spanEmoji.className = 'chip-emoji';
+          spanEmoji.textContent = emoji;
+          btn.appendChild(spanEmoji);
+          btn.appendChild(document.createTextNode(' '));
+        }
+
+        const spanText = document.createElement('span');
+        spanText.textContent = displayName;
+        btn.appendChild(spanText);
+
         if (state.selectedCategories.has(originalIdx)) {
           btn.classList.add('selected');
         }
+        btn.addEventListener('pointerdown', () => triggerHaptic('light'), { passive: true });
         btn.addEventListener('click', () => toggleChip(cat, originalIdx, btn));
         grid.appendChild(btn);
       });
     }
 
     function toggleChip(cat, idx, btn) {
+      triggerHaptic('light');
+      const aiBtn = $('btn-ai-generate');
+      if (aiBtn) aiBtn.classList.remove('active');
+
+      // If user was in AI generated mode, reset and start fresh with manual chips
+      if (state.isAiMode) {
+        state.isAiMode = false;
+        state.selectedCategories.clear();
+        state.phraseMap = {};
+        document.querySelectorAll('#chip-grid .chip').forEach(c => c.classList.remove('selected'));
+      }
+
       if (state.selectedCategories.has(idx)) {
         state.selectedCategories.delete(idx);
         delete state.phraseMap[idx];
@@ -1154,16 +1837,82 @@
       rebuildReviewText();
     }
 
+    function triggerAiReviewGeneration() {
+      if (!state.template || !state.shuffledCategories || !state.shuffledCategories.length) return;
+      triggerHaptic('medium');
+
+      const aiBtn = $('btn-ai-generate');
+      if (aiBtn) {
+        aiBtn.classList.add('active');
+        aiBtn.classList.add('pulse-active');
+        setTimeout(() => aiBtn.classList.remove('pulse-active'), 400);
+      }
+
+      // Mark AI mode as active and DESELECT all manual category chips (mutual exclusion)
+      state.isAiMode = true;
+      state.selectedCategories.clear();
+      state.phraseMap = {};
+
+      const chips = document.querySelectorAll('#chip-grid .chip');
+      chips.forEach(btn => btn.classList.remove('selected'));
+
+      const allCats = [...state.shuffledCategories];
+      // Choose 3 to 5 categories at random
+      const minCount = Math.min(allCats.length, 3);
+      const maxCount = Math.min(allCats.length, 5);
+      const targetCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+
+      // Fisher-Yates shuffle
+      const shuffled = [...allCats];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      const selectedSubset = shuffled.slice(0, targetCount);
+      const generatedPhrases = [];
+
+      selectedSubset.forEach(({ cat }) => {
+        const phrase = pickPhraseForCategory(cat);
+        if (phrase) generatedPhrases.push(phrase);
+      });
+
+      const ta = $('review-text');
+      const card = $('review-card');
+      if (card) card.style.display = 'block';
+      if (ta) {
+        ta.value = generatedPhrases.join(' ');
+        ta.classList.add('glow-highlight');
+        setTimeout(() => ta.classList.remove('glow-highlight'), 600);
+      }
+      state.wasAutoGenerated = true;
+      updateReviewStats();
+    }
+
+    const btnAiGenerate = $('btn-ai-generate');
+    if (btnAiGenerate) {
+      btnAiGenerate.addEventListener('click', triggerAiReviewGeneration);
+    }
+
     function rebuildReviewText() {
       const ta = $('review-text');
       const card = $('review-card');
       card.style.display = 'block';
+
+      // Keep AI-generated review text intact
+      if (state.isAiMode) {
+        const aiBtn = $('btn-ai-generate');
+        if (aiBtn) aiBtn.classList.add('active');
+        updateReviewStats();
+        return;
+      }
 
       if (!state.selectedCategories.size) {
         if (state.wasAutoGenerated) {
           ta.value = '';
           state.wasAutoGenerated = false;
         }
+        updateReviewStats();
         return;
       }
       const phrases = [];
@@ -1174,16 +1923,22 @@
       });
       ta.value = phrases.join(' ');
       state.wasAutoGenerated = true;
+      updateReviewStats();
     }
 
     $('review-text').addEventListener('input', () => {
       state.wasAutoGenerated = false;
+      state.isAiMode = false;
+      const aiBtn = $('btn-ai-generate');
+      if (aiBtn) aiBtn.classList.remove('active');
+      updateReviewStats();
     });
 
-    // ─── Log scan to Firestore (per-business subcollection + aggregate) ────────
+    // ─── Log scan to Firestore (per-business subcollection; aggregated by Cloud Function) ─
     async function logScan({ actionTaken }) {
       try {
-        // 1. Write individual scan doc to businesses/{bizId}/scans/{auto-id}
+        // Write individual immutable scan doc to businesses/{bizId}/scans/{auto-id}
+        // Server-side onScanCreated trigger safely aggregates stats_summary on the branch
         await addDoc(collection(db, 'businesses', state.businessId, 'scans'), {
           branch_id: state.branchId,
           star_rating: state.starRating,
@@ -1191,39 +1946,56 @@
           session_token: state.sessionToken,
           action_taken: actionTaken,
         });
-
-        // 2. Atomically increment aggregate counters on the branch doc
-        const branchRef = doc(db, 'businesses', state.businessId, 'branches', state.branchId);
-        const statsUpdates = {
-          'stats_summary.total_scans': increment(1),
-        };
-        if (actionTaken === 'google_maps') {
-          statsUpdates['stats_summary.total_reviews_redirected'] = increment(1);
-          statsUpdates['stats_summary.monthly_google_reviews'] = increment(1);
-        }
-        if (state.starRating >= 1 && state.starRating <= 5) {
-          statsUpdates[`stats_summary.star_counts.${state.starRating}`] = increment(1);
-        }
-        await updateDoc(branchRef, statsUpdates);
       } catch (e) {
         console.warn('scan write failed', e);
       }
     }
 
-    // ─── WhatsApp button ─────────────────────────────────────────────────────
+    // ─── WhatsApp button with Empathy Tags pre-filling ────────────────────────
     $('btn-wa-send').addEventListener('click', async () => {
-      const feedback = $('wa-text').value.trim();
-      const num = (state.branch && state.branch.whatsapp_number) || '';
-      const msg = encodeURIComponent(feedback || 'Feedback from a customer.');
-      await logScan({ actionTaken: 'whatsapp' });
-      markSubmitted(state.branchId);
-      if (num) {
-        window.open(`https://wa.me/${num.replace(/^\+/, '')}?text=${msg}`, '_blank', 'noopener');
+      if (state.isWaSending) return;
+      state.isWaSending = true;
+
+      triggerHaptic('medium');
+      const customNote = $('wa-text').value.trim();
+      const num = formatWaNumber((state.branch && state.branch.whatsapp_number) || '');
+      const bizName = (state.business && state.business.brand_name) || 'your business';
+      const branchName = (state.branch && state.branch.branch_name) || '';
+
+      const greeting = branchName 
+        ? `Hello, I visited ${bizName} (${branchName}) today and would like to share private feedback.`
+        : `Hello, I visited ${bizName} today and would like to share private feedback.`;
+
+      const lines = [greeting];
+      if (selectedEmpathyTags.size > 0) {
+        lines.push(`*Issue:* ${Array.from(selectedEmpathyTags).join(', ')}`);
       }
-      showScreen('done');
+      if (customNote) {
+        lines.push(`*Details:* "${customNote}"`);
+      }
+      if (!selectedEmpathyTags.size && !customNote) {
+        lines.push(`I had an unsatisfactory experience and would appreciate a follow-up.`);
+      }
+
+      const msg = encodeURIComponent(lines.join('\n\n'));
+      const waUrl = num ? `https://wa.me/${num}?text=${msg}` : '';
+
+      logScan({ actionTaken: 'whatsapp' }).catch(console.warn);
+      markSubmitted(state.branchId);
+
+      if (waUrl) {
+        window.open(waUrl, '_blank', 'noopener');
+        showScreen('done');
+      } else {
+        showScreen('done');
+      }
     });
 
     $('btn-low-skip').addEventListener('click', async () => {
+      if (state.isSubmittingFeedback) return;
+      state.isSubmittingFeedback = true;
+
+      triggerHaptic('light');
       const feedback = $('wa-text').value.trim();
       await logScan({ actionTaken: feedback ? 'feedback_submitted' : 'low_skip' });
       markSubmitted(state.branchId);
@@ -1231,13 +2003,24 @@
     });
 
     $('btn-thanks-submit').addEventListener('click', async () => {
+      if (state.isSubmittingFeedback) return;
+      state.isSubmittingFeedback = true;
+
+      triggerHaptic('light');
       await logScan({ actionTaken: 'thankyou' });
       markSubmitted(state.branchId);
       showScreen('done');
     });
 
-    // ─── Google Maps / Copy button ────────────────────────────────────────────
+    // ─── Google Maps / Copy button with Confetti & Countdown ───────────────────
     $('btn-google-post').addEventListener('click', async () => {
+      if (state.isPosting) return;
+      state.isPosting = true;
+
+      triggerHaptic('success');
+      launchConfetti();
+
+      const btn = $('btn-google-post');
       const reviewText = $('review-text').value.trim();
 
       if (reviewText) {
@@ -1250,21 +2033,47 @@
         }
       }
 
+      btn.classList.add('copying');
+      btn.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; width:100%;">
+          <span style="display:flex; align-items:center; gap:8px;">
+            <span>✓</span> <span>Copied! Opening Google Maps…</span>
+          </span>
+          <div class="copy-countdown-bar">
+            <div class="copy-countdown-fill"></div>
+          </div>
+        </div>
+      `;
+
       await logScan({ actionTaken: 'google_maps' });
       markSubmitted(state.branchId);
 
-      const rawPlaceId = (state.branch && state.branch.place_id) || '';
-      const placeId = rawPlaceId.replace(/\|/g, 'I');
-      
-      const mobileUrl = `https://search.google.com/local/writereview/mobile?placeid=${placeId}`;
-      const desktopUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
-      const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-      
-      if (placeId) {
-        window.open(isMobile ? mobileUrl : desktopUrl, '_blank', 'noopener');
+      const placeId = (state.branch && state.branch.place_id) ? state.branch.place_id.trim() : '';
+      const customReviewLink = (state.branch && state.branch.google_review_link) ? state.branch.google_review_link.trim() : '';
+      const brandName = (state.business && state.business.brand_name) || '';
+      const branchName = (state.branch && state.branch.branch_name) || '';
+      const address = (state.branch && state.branch.address) || '';
+
+      let targetUrl = '';
+      if (customReviewLink) {
+        targetUrl = customReviewLink;
+      } else if (placeId) {
+        const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+        targetUrl = isMobile 
+          ? `https://search.google.com/local/writereview/mobile?placeid=${encodeURIComponent(placeId)}`
+          : `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
+      } else {
+        // Graceful fallback: Search on Google Maps by business brand + branch + address
+        const searchQuery = [brandName, branchName, address].filter(Boolean).join(' ');
+        targetUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery || 'Google Review')}`;
       }
 
-      showScreen('posted');
+      setTimeout(() => {
+        if (targetUrl) {
+          window.open(targetUrl, '_blank', 'noopener');
+        }
+        showScreen('posted');
+      }, 1250);
     });
 
     // ─── Expandable Terms of Service / Integrity Policy Accordion ────────────
@@ -1284,7 +2093,7 @@
 
     // ─── Load data on page init ───────────────────────────────────────────────
     async function init() {
-      // Format: /r/{businessId}/{branchId} or fallback /r/{branchId}
+      // Format: /r/{businessId}/{branchId}
       const parts = window.location.pathname.split('/').filter(Boolean);
       let businessId = null;
       let branchId = null;
@@ -1292,15 +2101,19 @@
       if (parts.length >= 3) {
         businessId = parts[1];
         branchId = parts[2];
-      } else if (parts.length === 2) {
+      } else if (parts.length === 2 && parts[0] === 'r') {
+        // Handle direct /r/branchId if businessId is provided in query parameter (?biz=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        businessId = urlParams.get('biz') || urlParams.get('businessId');
         branchId = parts[1];
       }
 
-      if (!branchId) {
+      if (!businessId || !branchId) {
         showScreen('error');
         return;
       }
 
+      state.businessId = businessId;
       state.branchId = branchId;
       state.sessionToken = getOrCreateSessionToken(branchId);
 
@@ -1314,23 +2127,12 @@
 
     async function loadData(businessId, branchId) {
       try {
-        let branchSnap, bizSnap;
+        const [bizSnap, branchSnap] = await Promise.all([
+          getDoc(doc(db, 'businesses', businessId)),
+          getDoc(doc(db, 'businesses', businessId, 'branches', branchId)),
+        ]);
 
-        if (businessId) {
-          [bizSnap, branchSnap] = await Promise.all([
-            getDoc(doc(db, 'businesses', businessId)),
-            getDoc(doc(db, 'businesses', businessId, 'branches', branchId)),
-          ]);
-        } else {
-          branchSnap = await getDoc(doc(db, 'branches', branchId));
-          if (branchSnap.exists()) {
-            const bizRef = branchSnap.ref.parent.parent;
-            businessId = bizRef.id;
-            bizSnap = await getDoc(bizRef);
-          }
-        }
-
-        if (!branchSnap || !branchSnap.exists() || !bizSnap || !bizSnap.exists()) {
+        if (!branchSnap.exists() || !bizSnap.exists()) {
           showScreen('error');
           return;
         }
@@ -1339,9 +2141,10 @@
         state.business = bizSnap.data();
         state.branch = branchSnap.data();
 
-        // Check subscription status
-        const status = state.business.subscription_status;
-        if (status === 'deleted' || status === 'suspended' || status === 'pending_payment') {
+        // Check subscription status — Only active businesses and branches are allowed to collect reviews
+        const bizStatus = state.business.subscription_status;
+        const branchStatus = state.branch.subscription_status;
+        if (bizStatus !== 'active' || (branchStatus && branchStatus !== 'active')) {
           showScreen('unavailable');
           return;
         }

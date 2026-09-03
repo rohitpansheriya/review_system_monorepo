@@ -416,7 +416,7 @@ async function main() {
     console.log('  T5  — run `npm run test:qa -- --idempotency` immediately after this');
     console.log('  T7  — delete tst-biz-g doc, re-trigger, verify 0 notifications');
     console.log('  T10 — set bad BREVO_API_KEY, restart emulators, re-seed, check Firestore');
-    console.log('  T16 — check rohitpansheriya100@gmail.com inbox + spam');
+    console.log('  T16 — check support@appnexa.co.in inbox + spam');
     console.log('  T17 — DEFERRED until Flutter panel (doc 02/03) is built');
   }
 

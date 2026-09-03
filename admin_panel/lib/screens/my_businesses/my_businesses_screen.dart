@@ -18,13 +18,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../core/constants.dart';
+import '../../widgets/app_animated_loader.dart';
 import '../../core/logout_helper.dart';
 import '../../models/business_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/commission_provider.dart';
 import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
 
@@ -50,6 +53,9 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
         // so the query must use 'admin' to match.
         final queryId = auth.isAdmin ? 'admin' : uid;
         context.read<MyBusinessesProvider>().loadFirst(queryId);
+        if (!auth.isAdmin) {
+          context.read<CommissionProvider>().startListening(uid);
+        }
       }
     });
   }
@@ -64,8 +70,41 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
   Widget build(BuildContext context) {
     final auth     = context.watch<AppAuthProvider>();
     final provider = context.watch<MyBusinessesProvider>();
+    final commProvider = context.watch<CommissionProvider>();
     final employee = auth.employee;
     final scheme   = Theme.of(context).colorScheme;
+
+    // Calculate live earnings this month for employee
+    final currentMonthStr = DateFormat('yyyy-MM').format(DateTime.now());
+    final currentMonthName = DateFormat('MMMM').format(DateTime.now());
+    
+    double thisMonthEarned = commProvider.records
+        .where((r) => r.activationMonth == currentMonthStr)
+        .fold(0.0, (sum, r) => sum + r.amount);
+
+    if (thisMonthEarned == 0 && (employee?.thisMonthEnrollments ?? 0) > 0) {
+      thisMonthEarned = (employee!.thisMonthEnrollments * AppConstants.commissionAmountPerActivation).toDouble();
+    }
+
+    // Dynamic gamified milestones
+    double targetGoal = 5000.0;
+    String milestoneTier = 'Rising Star';
+    if (thisMonthEarned < 2500) {
+      targetGoal = 2500.0;
+      milestoneTier = 'Bronze Starter';
+    } else if (thisMonthEarned < 5000) {
+      targetGoal = 5000.0;
+      milestoneTier = 'Silver Closer';
+    } else if (thisMonthEarned < 10000) {
+      targetGoal = 10000.0;
+      milestoneTier = 'Gold Champion';
+    } else {
+      targetGoal = ((thisMonthEarned ~/ 5000) + 1) * 5000.0;
+      milestoneTier = 'Platinum Legend';
+    }
+
+    final double meterProgress = (thisMonthEarned / targetGoal).clamp(0.0, 1.0);
+    final int remainingToGoal = (targetGoal - thisMonthEarned).toInt();
 
     return Scaffold(
       appBar: AppBar(
@@ -109,7 +148,7 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
 
       body: Column(
         children: [
-          // ── Summary bar ─────────────────────────────────────────────────
+          // ── Summary bar with Live Commission Earnings Meter ──────────────
           if (employee != null)
             Container(
               decoration: BoxDecoration(
@@ -122,19 +161,137 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
                   end:   Alignment.bottomRight,
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _StatChip(
-                    icon:  Icons.business_outlined,
-                    label: 'Total enrolled',
-                    value: '${employee.totalEnrollments}',
+                  Row(
+                    children: [
+                      _StatChip(
+                        icon:  Icons.business_outlined,
+                        label: 'Total enrolled',
+                        value: '${employee.totalEnrollments}',
+                      ),
+                      const SizedBox(width: 16),
+                      _StatChip(
+                        icon:  Icons.calendar_month_outlined,
+                        label: 'This month',
+                        value: '${employee.thisMonthEnrollments}',
+                      ),
+                      const Spacer(),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.account_balance_wallet_outlined, size: 14),
+                        label: const Text('Ledger', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        ),
+                        onPressed: () => context.go('/commission'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 24),
-                  _StatChip(
-                    icon:  Icons.calendar_month_outlined,
-                    label: 'This month',
-                    value: '${employee.thisMonthEnrollments}',
+                  const SizedBox(height: 12),
+
+                  // ── Gamified Live Commission Meter Card ───────────────────
+                  InkWell(
+                    onTap: () => context.go('/commission'),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                        border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withValues(alpha: 0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.monetization_on_rounded, color: Color(0xFFD97706), size: 18),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  RichText(
+                                    text: TextSpan(
+                                      style: GoogleFonts.inter(fontSize: 14, color: Colors.black87),
+                                      children: [
+                                        TextSpan(
+                                          text: '₹${NumberFormat('#,##0').format(thisMonthEarned.toInt())} ',
+                                          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF059669), fontSize: 16),
+                                        ),
+                                        TextSpan(
+                                          text: 'earned in $currentMonthName',
+                                          style: TextStyle(fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: scheme.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  remainingToGoal > 0 ? '₹${NumberFormat('#,##0').format(remainingToGoal)} to next goal' : '🎯 Target Smashed!',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: scheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: meterProgress,
+                              minHeight: 7,
+                              backgroundColor: scheme.surfaceContainerHighest,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                meterProgress >= 1.0 ? const Color(0xFF10B981) : scheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${(meterProgress * 100).toInt()}% towards ₹${NumberFormat('#,##0').format(targetGoal.toInt())} target ($milestoneTier)',
+                                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                              ),
+                              Row(
+                                children: [
+                                  Text('View Payouts', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
+                                  Icon(Icons.chevron_right, size: 14, color: scheme.primary),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -195,7 +352,11 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
           // ── List ───────────────────────────────────────────────────────
           Expanded(
             child: provider.loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: AppAnimatedLoader.card(
+                      message: 'Loading enrolled businesses…',
+                    ),
+                  )
                 : provider.error != null
                     ? _ErrorState(
                         message:  provider.error!,
@@ -383,15 +544,6 @@ class _BusinessCardState extends State<_BusinessCard> {
                           .bodySmall
                           ?.copyWith(color: scheme.onSurfaceVariant),
                     ),
-                    if (biz.isReassigned)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: _SemanticChip(
-                          label:  'Reassigned to admin',
-                          bgColor: AppColors.dueSoonBg,
-                          fgColor: AppColors.dueSoonFg,
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -509,33 +661,6 @@ class _StatusBadge extends StatelessWidget {
       ),
     );
   }
-}
-
-// ── Semantic Chip (e.g. Reassigned badge) ─────────────────────────────────────
-
-class _SemanticChip extends StatelessWidget {
-  final String label;
-  final Color  bgColor;
-  final Color  fgColor;
-  const _SemanticChip({
-    required this.label,
-    required this.bgColor,
-    required this.fgColor,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color:        bgColor,
-          borderRadius: BorderRadius.circular(AppRadius.full),
-          border:       Border.all(color: fgColor.withValues(alpha: 0.4)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(fontSize: 11, color: fgColor, fontWeight: FontWeight.w500),
-        ),
-      );
 }
 
 // ── Empty State ───────────────────────────────────────────────────────────────

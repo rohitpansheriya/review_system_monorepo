@@ -44,17 +44,5 @@ class QrStubService {
       // ignore: avoid_print
       print('QrStubService: QR generation unexpected error: $e');
     }
-
-    // ── Owner provisioning (doc 02) ──────────────────────────────────────────
-    try {
-      await _functions.httpsCallable('provisionOwner').call({
-        'businessId': businessId,
-      });
-      // ignore: avoid_print
-      print('QrStubService: Owner account provisioned for business $businessId');
-    } catch (e) {
-      // ignore: avoid_print
-      print('QrStubService: Owner provisioning error (non-fatal, webhook will retry): $e');
-    }
   }
 }

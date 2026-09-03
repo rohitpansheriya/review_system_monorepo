@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/app_animated_loader.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,28 +17,53 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey       = GlobalKey<FormState>();
   final _emailCtrl     = TextEditingController();
   final _passwordCtrl  = TextEditingController();
+  final _emailFocus    = FocusNode();
+  final _passwordFocus = FocusNode();
   bool _obscure = true;
+  String? _emailError;
+  String? _passwordError;
+  String? _loginError;
 
   @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    final auth = context.read<AppAuthProvider>();
-    final err  = await auth.signIn(_emailCtrl.text, _passwordCtrl.text);
-    if (err != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(err),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+    setState(() {
+      _emailError = null;
+      _passwordError = null;
+      _loginError = null;
+    });
+
+    if (!_formKey.currentState!.validate()) {
+      if (_emailCtrl.text.trim().isEmpty) {
+        _emailFocus.requestFocus();
+      } else if (_passwordCtrl.text.isEmpty) {
+        _passwordFocus.requestFocus();
+      }
+      return;
     }
-    // On success, GoRouter redirect handles navigation.
+
+    final auth = context.read<AppAuthProvider>();
+    final err  = await auth.signIn(_emailCtrl.text.trim(), _passwordCtrl.text);
+    if (err != null && mounted) {
+      final errLower = err.toLowerCase();
+      setState(() {
+        _loginError = err;
+        if (errLower.contains('password')) {
+          _passwordError = err;
+          _passwordFocus.requestFocus();
+        } else if (errLower.contains('email') || errLower.contains('user') || errLower.contains('account')) {
+          _emailError = err;
+          _emailFocus.requestFocus();
+        }
+      });
+    }
   }
 
   @override
@@ -140,11 +166,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: AppSpacing.lg),
 
-                                // Access-denied banner
-                                if (auth.status == AuthStatus.accessDenied) ...[
+                                // Access-denied or Login Error banner
+                                if (auth.status == AuthStatus.accessDenied || _loginError != null) ...[
                                   _AlertBanner(
-                                    icon:    Icons.lock_outline,
-                                    message: auth.error ??
+                                    icon:    Icons.error_outline,
+                                    message: _loginError ?? auth.error ??
                                         'Access denied: this account does not have access to this portal.',
                                     backgroundColor: scheme.errorContainer,
                                     borderColor:     scheme.error.withValues(alpha: 0.3),
@@ -157,11 +183,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                 // Email
                                 TextFormField(
                                   controller:   _emailCtrl,
+                                  focusNode:    _emailFocus,
                                   keyboardType: TextInputType.emailAddress,
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     labelText:   'Email address',
-                                    prefixIcon:  Icon(Icons.email_outlined),
+                                    prefixIcon:  const Icon(Icons.email_outlined),
+                                    errorText:   _emailError,
                                   ),
+                                  onChanged: (_) {
+                                    if (_emailError != null || _loginError != null) {
+                                      setState(() {
+                                        _emailError = null;
+                                        _loginError = null;
+                                      });
+                                    }
+                                  },
                                   validator: (v) =>
                                       (v == null || v.trim().isEmpty) ? 'Email is required' : null,
                                 ),
@@ -170,10 +206,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 // Password
                                 TextFormField(
                                   controller:  _passwordCtrl,
+                                  focusNode:   _passwordFocus,
                                   obscureText: _obscure,
                                   decoration: InputDecoration(
                                     labelText:  'Password',
                                     prefixIcon: const Icon(Icons.lock_outline),
+                                    errorText:  _passwordError,
                                     suffixIcon: IconButton(
                                       icon: Icon(_obscure
                                           ? Icons.visibility_outlined
@@ -181,6 +219,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                       onPressed: () => setState(() => _obscure = !_obscure),
                                     ),
                                   ),
+                                  onChanged: (_) {
+                                    if (_passwordError != null || _loginError != null) {
+                                      setState(() {
+                                        _passwordError = null;
+                                        _loginError = null;
+                                      });
+                                    }
+                                  },
                                   validator: (v) =>
                                       (v == null || v.isEmpty) ? 'Password is required' : null,
                                   onFieldSubmitted: (_) => _submit(),
@@ -212,12 +258,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ElevatedButton(
                                   onPressed: auth.loading ? null : _submit,
                                   child: auth.loading
-                                      ? SizedBox(
-                                          height: 18, width: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: scheme.onPrimary,
-                                          ),
+                                      ? AppAnimatedLoader.inline(
+                                          size: 18,
+                                          color: scheme.onPrimary,
                                         )
                                       : const Text('Sign in'),
                                 ),
@@ -449,10 +492,9 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
           FilledButton(
             onPressed: _loading ? null : _send,
             child: _loading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                ? const AppAnimatedLoader.inline(
+                    size: 16,
+                    color: Colors.white,
                   )
                 : const Text('Send Link'),
           ),

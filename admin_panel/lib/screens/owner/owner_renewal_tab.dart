@@ -12,6 +12,7 @@ import 'dart:js' as js;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../core/app_config.dart';
 import '../../core/constants.dart';
 import '../../providers/owner_dashboard_provider.dart';
 
@@ -26,14 +27,23 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
   bool _paying = false;
   String? _payError;
 
-  static const String _rzpKeyId = 'rzp_test_placeholder_key';
   static const int _renewalFeePaise = 99900; // ₹999 in paise
 
   Future<void> _launchRazorpayRenewal(String businessId, String brandName) async {
+    if (_paying) return;
     setState(() {
       _paying = true;
       _payError = null;
     });
+
+    final keyId = AppConfig.razorpayKeyId;
+    if (keyId.isEmpty) {
+      setState(() {
+        _paying = false;
+        _payError = 'Razorpay Key ID is not configured. Please contact support.';
+      });
+      return;
+    }
 
     if (!js.context.hasProperty('Razorpay')) {
       setState(() {
@@ -66,12 +76,13 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
       });
 
       final options = js.JsObject.jsify({
-        'key': _rzpKeyId,
+        'key': keyId,
         'amount': _renewalFeePaise,
         'currency': 'INR',
-        'name': 'Review System Renewal',
+        'name': 'Appnexa Technologies',
         'description': 'Annual Subscription Renewal — $brandName',
         'notes': {
+          'business_id': businessId,
           'businessId': businessId,
           'type': 'annual_renewal',
         },
@@ -136,45 +147,54 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
 
               // Grace Period Banner
               if (provider.isGracePeriod)
-                Card(
-                  color: colorScheme.errorContainer,
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.error),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                Builder(
+                  builder: (context) {
+                    final graceEnds = biz.gracePeriodEnds;
+                    final daysLeft = graceEnds != null ? graceEnds.difference(DateTime.now()).inDays : 0;
+                    return Card(
+                      color: const Color(0xFFFEF2F2),
+                      elevation: 0,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.warning_amber_rounded,
-                                color: colorScheme.onErrorContainer, size: 24),
-                            const SizedBox(width: 12),
+                            const Row(
+                              children: [
+                                Icon(Icons.qr_code_2_rounded,
+                                    color: Color(0xFFDC2626), size: 24),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    '⚠️ Subscription Expired — QR Standees Inactive',
+                                    style: TextStyle(
+                                      color: Color(0xFF991B1B),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
                             Text(
-                              'Subscription Lapsed — Grace Period Active',
-                              style: TextStyle(
-                                color: colorScheme.onErrorContainer,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                              'Customer review collection on your physical QR standees is currently unavailable ($daysLeft days remaining before permanent account & data deletion). Pay ₹999 below to instantly reactivate your standees and resume review collection.',
+                              style: const TextStyle(
+                                color: Color(0xFFB91C1C),
+                                fontSize: 13,
+                                height: 1.4,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Your review QR links are currently paused. Pay ₹999 now to immediately reactivate customer review collection.',
-                          style: TextStyle(
-                            color: colorScheme.onErrorContainer,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
 
               // Status & Dates Card

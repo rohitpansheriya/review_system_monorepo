@@ -13,6 +13,7 @@ import '../services/firestore_service.dart';
 import '../services/places_service.dart';
 import '../services/qr_stub_service.dart';
 import '../services/storage_service.dart';
+import '../core/string_utils.dart';
 
 enum EnrollMode { single, multi }
 enum EnrollStatus { idle, submitting, success, error }
@@ -60,6 +61,14 @@ class EnrollProvider extends ChangeNotifier {
   String ownerName  = '';
   String ownerEmail = '';
   String ownerPhone = '';
+
+  // Test / Demo Mode (Solution 2)
+  bool isTestAccount = false;
+
+  void setIsTestAccount(bool value) {
+    isTestAccount = value;
+    notifyListeners();
+  }
 
   // ── Branches ──────────────────────────────────────────────────────────────
   List<BranchDraft> _branches = [BranchDraft()];
@@ -210,6 +219,10 @@ class EnrollProvider extends ChangeNotifier {
   // ── Submit ────────────────────────────────────────────────────────────────
 
   Future<String?> submit(String employeeId) async {
+    if (_status == EnrollStatus.submitting) {
+      return 'Submission is already in progress.';
+    }
+
     // 1 — Validate
     final err = validationError;
     if (err != null) return err;
@@ -236,7 +249,7 @@ class EnrollProvider extends ChangeNotifier {
         final emailExists = await _firestore.ownerEmailExists(ownerEmail.trim());
         if (emailExists) {
           _status = EnrollStatus.error;
-          _error  = 'Owner email "${ownerEmail.trim()}" is already registered to another business. Please enter a unique owner email.';
+          _error  = 'Owner email "${ownerEmail.trim()}" is already registered to another business. If this owner has another location, please add it as a new branch under their existing business instead.';
           notifyListeners();
           return _error;
         }
@@ -247,17 +260,30 @@ class EnrollProvider extends ChangeNotifier {
         _branches[0].name = brandName.trim().isEmpty ? 'Main' : brandName.trim();
       }
 
+      // 4b — Automatically normalize fields
+      final cleanBrandName = StringUtils.toTitleCase(StringUtils.collapseWhitespace(brandName));
+      final cleanOwnerName = StringUtils.toTitleCase(StringUtils.collapseWhitespace(ownerName));
+      for (final b in _branches) {
+        b.name = StringUtils.toTitleCase(StringUtils.collapseWhitespace(b.name));
+        b.whatsappMonitoredBy = StringUtils.toTitleCase(StringUtils.collapseWhitespace(b.whatsappMonitoredBy));
+        b.address = StringUtils.collapseWhitespace(b.address);
+        if (b.placeId != null) {
+          b.setPlaceId(b.placeId!);
+        }
+      }
+
       // 5 — Atomic batch write (business + N branches + counter)
       final result = await _firestore.enrollBusiness(
-        employeeId:   employeeId,
-        brandName:    brandName.trim(),
-        logoUrl:      logoUrl ?? '',
-        categoryType: categoryType,
-        templateId:   templateId,
-        ownerEmail:   ownerEmail.trim(),
-        ownerName:    ownerName.trim(),
-        ownerPhone:   ownerPhone.trim(),
-        branches:     List.of(_branches), // snapshot at submit time
+        employeeId:    employeeId,
+        brandName:     cleanBrandName,
+        logoUrl:       logoUrl ?? '',
+        categoryType:  categoryType,
+        templateId:    templateId,
+        ownerEmail:    ownerEmail.trim().toLowerCase(),
+        ownerName:     cleanOwnerName,
+        ownerPhone:    ownerPhone.trim(),
+        isTestAccount: isTestAccount,
+        branches:      List.of(_branches), // snapshot at submit time
       );
 
       final businessId = result['businessId'] as String;
@@ -290,6 +316,7 @@ class EnrollProvider extends ChangeNotifier {
 
   void reset() {
     _mode         = EnrollMode.single;
+    isTestAccount = false;
     brandName     = '';
     categoryType  = '';
     templateId    = null;

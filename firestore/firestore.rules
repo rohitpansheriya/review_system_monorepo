@@ -5,6 +5,8 @@
 //   request.auth.uid          — Firebase Auth user ID
 //   request.auth.token.role == 'employee' | 'owner' | 'admin'
 
+rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -26,12 +28,24 @@ service cloud.firestore {
       return isSignedIn() && role() == 'employee';
     }
 
+    function isEmployeeActive() {
+      return isEmployee()
+        && (
+          !('status' in get(/databases/$(database)/documents/employees/$(request.auth.uid)).data)
+          || get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.status == 'active'
+        )
+        && (
+          !('active' in get(/databases/$(database)/documents/employees/$(request.auth.uid)).data)
+          || get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.active == true
+        );
+    }
+
     function isOwner() {
       return isSignedIn() && role() == 'owner';
     }
 
     function isEmployeeOrAdmin() {
-      return isSignedIn() && (role() == 'employee' || role() == 'admin');
+      return isAdmin() || isEmployeeActive();
     }
 
     // ─── businesses/{bizId} ────────────────────────────────────────────────
@@ -41,27 +55,29 @@ service cloud.firestore {
       // - Public customer review page: read business display config (brand_name, logo_url, etc.)
       //   when loading /r/{branchId} (if status is not deleted).
       // - Admin: read all.
-      // - Employee: read enrolled or currently managed businesses.
+      // - Employee: read self-enrolled businesses (only while employee is active).
       // - Owner: read own business (matched by owner_auth_uid).
       allow read: if isAdmin()
-        || (isEmployee() && (resource.data.enrolled_by == request.auth.uid || resource.data.currently_managed_by == request.auth.uid))
-        || (isOwner()    && resource.data.owner_auth_uid == request.auth.uid)
+        || (isEmployeeActive() && resource.data.enrolled_by == request.auth.uid)
+        || (isOwner()          && resource.data.owner_auth_uid == request.auth.uid)
         || (resource.data.subscription_status in ['active', 'grace_period', 'pending_payment']);
 
-      // CREATE: Employee or Admin creating a new enrollment draft (pending_payment).
+      // CREATE: Active Employee or Admin creating a new enrollment draft (pending_payment).
       allow create: if isEmployeeOrAdmin()
         && request.resource.data.subscription_status == 'pending_payment'
+        && request.resource.data.enrolled_by == request.auth.uid
         && request.resource.data.brand_name is string
         && request.resource.data.brand_name.size() <= 200;
 
       // UPDATE:
-      // - Admin: full update (subscription overrides, category templates, management reassignments).
+      // - Admin: full update (subscription overrides, category templates, etc.).
       // - Employee: editable basic fields (brand_name, logo_url, category_type, default_category_template_id, owner_name, owner_email, owner_phone).
-      //   CANNOT update subscription_status, renewal_date, grace_period_ends, or currently_managed_by.
+      //   Must be active and must be the enroller (enrolled_by == uid).
+      //   CANNOT update subscription_status, renewal_date, grace_period_ends, or enrolled_by.
       // - Owner: may update ONLY active_categories on their business, and ONLY when subscription_status == 'active'.
       allow update: if isAdmin()
         || (
-          isEmployee()
+          isEmployeeActive()
           && resource.data.enrolled_by == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly([
@@ -84,11 +100,11 @@ service cloud.firestore {
         );
 
       // DELETE: Admin can delete pending_payment drafts or admin operations.
-      // Employee can delete ONLY pending_payment drafts enrolled by themselves.
+      // Active Employee can delete ONLY pending_payment drafts enrolled by themselves.
       // CANNOT delete active or grace_period businesses.
       allow delete: if isAdmin()
         || (
-          isEmployee()
+          isEmployeeActive()
           && resource.data.subscription_status == 'pending_payment'
           && resource.data.enrolled_by == request.auth.uid
         );
@@ -96,39 +112,50 @@ service cloud.firestore {
       // ─── businesses/{bizId}/branches/{branchId} ─────────────────────────
 
       match /branches/{branchId} {
-        // READ: Public review page loads branch config; panel users read per parent business rules.
-        allow read: if isAdmin()
-          || (isEmployee() && get(/databases/$(database)/documents/businesses/$(bizId)).data.enrolled_by == request.auth.uid)
-          || (isOwner()    && get(/databases/$(database)/documents/businesses/$(bizId)).data.owner_auth_uid == request.auth.uid)
-          || true; // Public review page branch display config
+        // READ: Public review page loads branch display config; all roles and public can read.
+        allow read: if true;
 
-        // CREATE: Employee or Admin creating branch subdocs during enrollment.
+        // CREATE: Active Employee or Admin creating branch subdocs during enrollment.
         allow create: if isEmployeeOrAdmin();
 
         // UPDATE:
         // - Admin: full update.
-        // - Employees: standee tracking fields & whatsapp_monitored_by + editable branch fields.
+        // - Active Employees: editable branch detail fields & standee tracking (for self-enrolled businesses).
+        //   CANNOT update subscription_status, payment_mode, stats_summary, qr_code_id, plain_qr_storage_path, or star_routing_config.
         // - Owners: star_routing_config & active_categories.
-        // - Public (review page): atomic stats_summary counter increments only.
+        // (Public stats_summary updates are handled securely server-side via onScanCreated Cloud Function trigger).
         allow update: if isAdmin()
           || (
-            isEmployee()
+            isEmployeeActive()
             && get(/databases/$(database)/documents/businesses/$(bizId)).data.enrolled_by == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly([
+                  'branch_name',
+                  'address',
+                  'whatsapp_number',
+                  'whatsapp_monitored_by',
+                  'place_id',
+                  'google_review_link',
+                  'category_override_id',
+                  'standee_status',
+                  'standee_status_updated_at'
+                ])
           )
           || (
             isOwner()
             && get(/databases/$(database)/documents/businesses/$(bizId)).data.owner_auth_uid == request.auth.uid
+            && get(/databases/$(database)/documents/businesses/$(bizId)).data.subscription_status == 'active'
             && request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['star_routing_config', 'active_categories'])
-          )
-          || (
-            // Public scan counter increments from review page (unauthenticated)
-            request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['stats_summary'])
           );
 
         // DELETE: Allowed during draft deletion only.
-        allow delete: if isAdmin() || (isEmployee() && get(/databases/$(database)/documents/businesses/$(bizId)).data.subscription_status == 'pending_payment');
+        allow delete: if isAdmin()
+          || (
+            isEmployeeActive()
+            && get(/databases/$(database)/documents/businesses/$(bizId)).data.subscription_status == 'pending_payment'
+            && get(/databases/$(database)/documents/businesses/$(bizId)).data.enrolled_by == request.auth.uid
+          );
       }
 
       // ─── businesses/{bizId}/scans/{scanId} ──────────────────────────────
@@ -180,7 +207,7 @@ service cloud.firestore {
       //   CANNOT update status, role, active, or self-approve documents_verified to 'verified'.
       allow update: if isAdmin()
         || (
-          isEmployee()
+          isEmployeeActive()
           && request.auth.uid == empId
           && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly([
@@ -244,55 +271,81 @@ service cloud.firestore {
     }
 
     // ─── notifications/{notifId} ───────────────────────────────────────────
+    // System notifications generated by Cloud Functions (Admin SDK).
+    // Client-side creates are DENIED. Recipients may only update read/dismissed status.
 
     match /notifications/{notifId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.recipient == request.auth.uid);
-      allow create: if isEmployeeOrAdmin();
-      allow update: if isAdmin() || (isSignedIn() && resource.data.recipient == request.auth.uid);
+      allow create: if false;
+      allow update: if isAdmin()
+        || (
+          isSignedIn()
+          && resource.data.recipient == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'dismissed', 'read_at', 'dismissed_at'])
+        );
       allow delete: if isAdmin();
     }
 
-    // ─── scan_logs/{logId} ──────────────────────────────────────────────────
 
-    match /scan_logs/{logId} {
-      // Public review page writes scan log (strictly validated schema & capped string sizes)
-      allow create: if request.resource.data.keys().hasAll(['branch_id', 'business_id', 'timestamp'])
-        && request.resource.data.keys().hasOnly(['branch_id', 'business_id', 'star_rating', 'timestamp', 'session_token', 'action_taken', 'rating', 'action'])
-        && request.resource.data.branch_id is string && request.resource.data.branch_id.size() <= 128
-        && request.resource.data.business_id is string && request.resource.data.business_id.size() <= 128
+
+    // ─── leads/{leadId} ───────────────────────────────────────────────────
+    // Public marketing landing page contact/enquiry lead submissions.
+    // Unauthenticated create with strict schema validation; Admin read/delete only.
+
+    match /leads/{leadId} {
+      allow create: if request.resource.data.keys().hasAll(['name', 'business_name', 'phone', 'city', 'timestamp'])
+        && request.resource.data.keys().hasOnly(['name', 'business_name', 'phone', 'city', 'message', 'source', 'status', 'timestamp', 'created_at'])
+        && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 100
+        && request.resource.data.business_name is string && request.resource.data.business_name.size() >= 2 && request.resource.data.business_name.size() <= 150
+        && request.resource.data.phone is string && request.resource.data.phone.size() >= 8 && request.resource.data.phone.size() <= 20
+        && request.resource.data.city is string && request.resource.data.city.size() >= 2 && request.resource.data.city.size() <= 100
         && (
-          !('session_token' in request.resource.data)
-          || (request.resource.data.session_token is string && request.resource.data.session_token.size() <= 128)
+          !('status' in request.resource.data)
+          || (request.resource.data.status in ['lead', 'new'])
         )
         && (
-          !('star_rating' in request.resource.data)
-          || (request.resource.data.star_rating is int && request.resource.data.star_rating >= 1 && request.resource.data.star_rating <= 5)
+          !('message' in request.resource.data)
+          || (request.resource.data.message is string && request.resource.data.message.size() <= 1000)
         )
         && (
-          !('rating' in request.resource.data)
-          || (request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5)
+          !('source' in request.resource.data)
+          || (request.resource.data.source is string && request.resource.data.source.size() <= 64)
         )
         && (
-          !('action_taken' in request.resource.data)
-          || (request.resource.data.action_taken is string && request.resource.data.action_taken.size() <= 64)
-        )
-        && (
-          !('action' in request.resource.data)
-          || (request.resource.data.action is string && request.resource.data.action.size() <= 64)
+          !('created_at' in request.resource.data)
+          || (request.resource.data.created_at is string && request.resource.data.created_at.size() <= 50)
         );
 
-      allow read: if isAdmin();
-      allow update, delete: if false;
+      allow read, update, delete: if isAdmin();
     }
 
     // ─── subscription_override_logs/{logId} ──────────────────────────────
     // Admin audit trail for subscription overrides and reverse activations.
     // Immutable once created — corrections are new entries, never edits.
-
     match /subscription_override_logs/{logId} {
       allow read: if isAdmin();
       allow create: if isAdmin();
       allow update, delete: if false;
+    }
+
+    // ─── counters/{counterId} ─────────────────────────────────────────────
+    // Internal atomic counters for sequential business numbering.
+    match /counters/{counterId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── processed_payment_events/{eventId} ─────────────────────────────
+    // Internal server-side ledger for Razorpay webhook idempotency.
+    match /processed_payment_events/{eventId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── orphan_payments/{paymentId} ───────────────────────────────────────
+    // Payments captured for non-existent/deleted businesses.
+    // Written server-side by Cloud Functions (Admin SDK); Admin read/update only.
+    match /orphan_payments/{paymentId} {
+      allow read, update: if isAdmin();
+      allow create, delete: if false;
     }
 
     // ─── Default-Deny Fallback ─────────────────────────────────────────────

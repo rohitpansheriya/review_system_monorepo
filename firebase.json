@@ -56,10 +56,35 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "cleanUrls": true,
     "rewrites": [
       {
         "source": "/r/**",
         "destination": "/r/index.html"
+      },
+      {
+        "source": "/app/**",
+        "destination": "/app/index.html"
+      },
+      {
+        "source": "/login",
+        "destination": "/app/index.html"
+      },
+      {
+        "source": "/privacy-policy",
+        "destination": "/privacy-policy.html"
+      },
+      {
+        "source": "/terms-of-service",
+        "destination": "/terms-of-service.html"
+      },
+      {
+        "source": "/refund-policy",
+        "destination": "/refund-policy.html"
+      },
+      {
+        "source": "/contact",
+        "destination": "/contact.html"
       },
       {
         "source": "**",

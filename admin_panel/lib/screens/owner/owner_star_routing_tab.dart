@@ -179,11 +179,37 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                           onChanged: () => setState(() {}),
                         ),
                       const SizedBox(height: 24),
+                      if (provider.isGracePeriod)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFEF4444)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.lock_clock, color: Color(0xFFDC2626), size: 20),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Star-routing editing is locked during grace period. Renew your subscription to modify settings.',
+                                  style: TextStyle(
+                                    color: Color(0xFF991B1B),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       SizedBox(
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton.icon(
-                          onPressed: _saving ? null : _saveStarRouting,
+                          onPressed: (_saving || provider.isGracePeriod) ? null : _saveStarRouting,
                           icon: _saving
                               ? const SizedBox(
                                   width: 20,
@@ -191,7 +217,145 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.save),
-                          label: Text(_saving ? 'Saving...' : 'Save Star-Routing Config'),
+                          label: Text(
+                            provider.isGracePeriod
+                                ? 'Locked (Grace Period Active)'
+                                : (_saving ? 'Saving...' : 'Save Star-Routing Config'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // ── Interactive WhatsApp Private Resolution Live Preview ─────────
+              Card(
+                elevation: 0,
+                color: const Color(0xFFF0FDF4),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Color(0xFFBBF7D0)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(22.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF25D366),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Live WhatsApp Private Feedback Preview',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF14532D),
+                                  ),
+                                ),
+                                Text(
+                                  'What you receive on +91 ${currentBranch.whatsappNumber} when a 1–3★ customer submits feedback',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFF166534),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Smartphone Chat Mockup
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE5DDD5),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // WhatsApp Chat Bubble
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                constraints: const BoxConstraints(maxWidth: 480),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(4),
+                                    topRight: Radius.circular(14),
+                                    bottomLeft: Radius.circular(14),
+                                    bottomRight: Radius.circular(14),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.06),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Hello, I visited ${provider.business?.brandName ?? 'your store'} (${currentBranch.branchName}) today and would like to share private feedback.',
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), height: 1.4),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF2F2),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFFECACA)),
+                                      ),
+                                      child: const Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Issue: ⏳ Long Wait Time, 🍽️ Food Quality',
+                                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                                          ),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            'Details: "Food was cold and took 30 mins to arrive."',
+                                            style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xFF7F1D1D)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    const Align(
+                                      alignment: Alignment.bottomRight,
+                                      child: Text(
+                                        'Just now • Sent via AppNexa Smart QR',
+                                        style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

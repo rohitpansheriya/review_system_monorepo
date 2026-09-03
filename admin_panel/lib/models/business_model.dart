@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BusinessModel {
   final String id;
+  final String? businessCode;
+  final int? businessNumber;
+  final bool isTestAccount;
   final String brandName;
   final String logoUrl;
   final String categoryType;
@@ -21,8 +24,15 @@ class BusinessModel {
   final DateTime? createdAt;
   final Map<String, bool> activeCategories;
 
+  final double? amountPaid;
+  final double? setupFeePaid;
+  final double? renewalAmountPaid;
+
   const BusinessModel({
     required this.id,
+    this.businessCode,
+    this.businessNumber,
+    this.isTestAccount = false,
     required this.brandName,
     required this.logoUrl,
     required this.categoryType,
@@ -40,6 +50,9 @@ class BusinessModel {
     this.ownerPhone,
     this.createdAt,
     this.activeCategories = const {},
+    this.amountPaid,
+    this.setupFeePaid,
+    this.renewalAmountPaid,
   });
 
   factory BusinessModel.fromDoc(DocumentSnapshot doc) {
@@ -47,6 +60,9 @@ class BusinessModel {
     final rawActive = d['active_categories'] as Map<String, dynamic>? ?? {};
     return BusinessModel(
       id:                         doc.id,
+      businessCode:               d['business_code']                 as String?,
+      businessNumber:             d['business_number']               as int?,
+      isTestAccount:              d['is_test_account']               as bool? ?? false,
       brandName:                  d['brand_name']                    as String? ?? '',
       logoUrl:                    d['logo_url']                      as String? ?? '',
       categoryType:               d['category_type']                 as String? ?? '',
@@ -64,8 +80,18 @@ class BusinessModel {
       ownerPhone:                 d['owner_phone']                   as String?,
       createdAt:                  (d['created_at']      as Timestamp?)?.toDate(),
       activeCategories:           rawActive.map((k, v) => MapEntry(k, v as bool? ?? true)),
+      amountPaid:                 (d['amount_paid']     as num?)?.toDouble(),
+      setupFeePaid:               (d['setup_fee_paid']  as num?)?.toDouble(),
+      renewalAmountPaid:          (d['renewal_amount_paid'] as num?)?.toDouble(),
     );
   }
+
+  /// Human-friendly display code: APT-01001, TEST-00001, or fallback to short ID.
+  String get displayCode => businessCode ?? (isTestAccount ? 'TEST' : (id.length > 8 ? id.substring(0, 8) : id));
+
+  bool get isPendingPayment => subscriptionStatus == 'pending_payment';
+  bool get isActive => subscriptionStatus == 'active';
+  bool get isGracePeriod => subscriptionStatus == 'grace_period';
 
   /// Returns true if renewal is within [days] days from now.
   bool isDueSoon(int days) {
@@ -74,37 +100,57 @@ class BusinessModel {
     return diff >= 0 && diff <= days;
   }
 
-  bool get isReassigned => currentlyManagedBy == 'admin';
+  bool get isReassigned => false;
 
-  /// Creates a copy with specified employee-editable fields replaced.
+  /// Creates a copy with specified fields replaced.
   BusinessModel copyWith({
-    String?  brandName,
-    String?  logoUrl,
-    String?  categoryType,
-    String?  defaultCategoryTemplateId,
-    String?  ownerName,
-    String?  ownerEmail,
-    String?  ownerPhone,
-    String?  paymentMode,
+    String?   businessCode,
+    int?      businessNumber,
+    bool?     isTestAccount,
+    String?   brandName,
+    String?   logoUrl,
+    String?   categoryType,
+    String?   defaultCategoryTemplateId,
+    String?   enrolledBy,
+    String?   enrolledByOriginal,
+    String?   currentlyManagedBy,
+    String?   subscriptionStatus,
+    String?   paymentMode,
+    DateTime? renewalDate,
+    DateTime? gracePeriodEnds,
+    String?   ownerAuthUid,
+    String?   ownerEmail,
+    String?   ownerName,
+    String?   ownerPhone,
+    DateTime? createdAt,
     Map<String, bool>? activeCategories,
+    double?   amountPaid,
+    double?   setupFeePaid,
+    double?   renewalAmountPaid,
   }) => BusinessModel(
     id:                        id,
+    businessCode:              businessCode ?? this.businessCode,
+    businessNumber:            businessNumber ?? this.businessNumber,
+    isTestAccount:             isTestAccount ?? this.isTestAccount,
     brandName:                 brandName ?? this.brandName,
     logoUrl:                   logoUrl   ?? this.logoUrl,
     categoryType:              categoryType ?? this.categoryType,
     defaultCategoryTemplateId: defaultCategoryTemplateId ?? this.defaultCategoryTemplateId,
-    enrolledBy:                enrolledBy,
-    enrolledByOriginal:        enrolledByOriginal,
-    currentlyManagedBy:        currentlyManagedBy,
-    subscriptionStatus:        subscriptionStatus,
+    enrolledBy:                enrolledBy ?? this.enrolledBy,
+    enrolledByOriginal:        enrolledByOriginal ?? this.enrolledByOriginal,
+    currentlyManagedBy:        currentlyManagedBy ?? this.currentlyManagedBy,
+    subscriptionStatus:        subscriptionStatus ?? this.subscriptionStatus,
     paymentMode:               paymentMode ?? this.paymentMode,
-    renewalDate:               renewalDate,
-    gracePeriodEnds:           gracePeriodEnds,
-    ownerAuthUid:              ownerAuthUid,
+    renewalDate:               renewalDate ?? this.renewalDate,
+    gracePeriodEnds:           gracePeriodEnds ?? this.gracePeriodEnds,
+    ownerAuthUid:              ownerAuthUid ?? this.ownerAuthUid,
     ownerEmail:                ownerEmail ?? this.ownerEmail,
     ownerName:                 ownerName  ?? this.ownerName,
     ownerPhone:                ownerPhone ?? this.ownerPhone,
-    createdAt:                 createdAt,
-    activeCategories:           activeCategories ?? this.activeCategories,
+    createdAt:                 createdAt ?? this.createdAt,
+    activeCategories:          activeCategories ?? this.activeCategories,
+    amountPaid:                amountPaid ?? this.amountPaid,
+    setupFeePaid:              setupFeePaid ?? this.setupFeePaid,
+    renewalAmountPaid:         renewalAmountPaid ?? this.renewalAmountPaid,
   );
 }

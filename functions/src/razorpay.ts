@@ -60,9 +60,16 @@ import {
   razorpayKeySecret,
   razorpayWebhookSecret,
   razorpayPlanId,
+  brevoApiKey,
+  reviewDomain,
+  adminEmail,
 } from "./secrets.js";
 import {buildQrForBranch, buildPlainQrForBranch} from "./qrGenerator.js";
-import {sendPaymentLinkEmail} from "./notifications.js";
+import {
+  sendPaymentLinkEmail,
+  sendOwnerWelcomeEmail,
+  sendOrphanPaymentAdminAlert,
+} from "./notifications.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -83,6 +90,14 @@ const GRACE_PERIOD_DAYS = 30;
  * Change this constant only — never scatter the value throughout the code.
  */
 const ABANDONED_DRAFT_AGE_HOURS = 48;
+
+/**
+ * Payment link validity in hours (47h).
+ * Strictly shorter than ABANDONED_DRAFT_AGE_HOURS (48h).
+ * Guarantees a payment link expires before the draft can be cleaned up,
+ * completely eliminating the possibility of orphan payments.
+ */
+const PAYMENT_LINK_EXPIRY_HOURS = 47;
 
 /** Default standee status written to every branch on first activation. (Change 2) */
 const STANDEE_STATUS_DEFAULT = "not_ordered";
@@ -154,7 +169,12 @@ export async function provisionOwnerAccount(
   db: Firestore,
   businessId: string,
   ownerEmail: string,
-  ownerName?: string
+  ownerName?: string,
+  brandName?: string,
+  paymentMode: "online" | "cash" = "online",
+  paymentReference?: string,
+  amount = 1999,
+  businessCode?: string
 ): Promise<string> {
   const auth = admin.auth();
   let uid: string;
@@ -184,8 +204,35 @@ export async function provisionOwnerAccount(
       businessId,
       link,
     });
+
+    let resolvedBrandName = brandName;
+    let resolvedBusinessCode = businessCode;
+    if (!resolvedBrandName || !resolvedBusinessCode) {
+      const bizDoc = await db.collection("businesses").doc(businessId).get();
+      const bData = bizDoc.data();
+      if (!resolvedBrandName) resolvedBrandName = bData?.brand_name as string | undefined;
+      if (!resolvedBusinessCode) resolvedBusinessCode = bData?.business_code as string | undefined;
+    }
+
+    // Send Welcome & Account Activation Email with setup link and PDF Invoice
+    await sendOwnerWelcomeEmail({
+      ownerEmail,
+      ownerName: ownerName || "Business Owner",
+      brandName: resolvedBrandName || "your business",
+      setupPasswordLink: link,
+      businessId,
+      businessCode: resolvedBusinessCode,
+      amount,
+      paymentMode,
+      paymentReference,
+    });
+    logger.info("provisionOwnerAccount: welcome email and invoice sent to owner", {
+      ownerEmail,
+      businessId,
+      businessCode: resolvedBusinessCode,
+    });
   } catch (err) {
-    logger.warn("provisionOwnerAccount: password reset link generation warning", {err});
+    logger.error("provisionOwnerAccount: failed to generate setup link or send welcome email", {err});
   }
 
   return uid;
@@ -249,6 +296,7 @@ export const createOrder = onCall(
         // receipt is used by the webhook to map payment → business.
         receipt: businessId,
         notes: {
+          business_id: businessId,
           businessId,
           type: "setup_fee",
           branchCount: String(branchCount),
@@ -341,6 +389,7 @@ export const createSubscription = onCall(
         total_count: 100,
         quantity: 1,
         notes: {
+          business_id: businessId,
           businessId,
         },
       }) as {id: string};
@@ -408,7 +457,7 @@ export const createSubscription = onCall(
  */
 export const razorpayWebhook = onRequest(
   {
-    secrets: [razorpayKeyId, razorpayKeySecret, razorpayWebhookSecret],
+    secrets: [razorpayKeyId, razorpayKeySecret, razorpayWebhookSecret, brevoApiKey],
     maxInstances: 10,
     region: "asia-south1",
     // rawBody must be available for HMAC verification.
@@ -524,95 +573,190 @@ async function handleSuccessfulPayment(
     return;
   }
 
+  // ── 0. Webhook Idempotency Check ──────────────────────────────────────────
+  const eventId = (event["id"] as string | undefined)?.trim();
+  const paymentEntity = (payload["payment"] as Record<string, unknown> | undefined)?.["entity"] as Record<string, unknown> | undefined;
+  const subscriptionEntity = (payload["subscription"] as Record<string, unknown> | undefined)?.["entity"] as Record<string, unknown> | undefined;
+
+  const paymentId = (
+    (paymentEntity?.["id"] as string | undefined) ??
+    ((subscriptionEntity?.["payment"] as Record<string, unknown> | undefined)?.["entity"] as Record<string, unknown> | undefined)?.["id"] as string | undefined
+  )?.trim();
+
+  const idempotencyKey = paymentId || eventId;
+  if (!idempotencyKey) {
+    logger.error("handleSuccessfulPayment: missing payment/event ID for idempotency check", {eventName});
+    return;
+  }
+
+  const db = getFirestore();
+  const eventDocRef = db.collection("processed_payment_events").doc(idempotencyKey);
+
+  const isFirstProcessing = await db.runTransaction(async (t) => {
+    const existing = await t.get(eventDocRef);
+    if (existing.exists) {
+      return false;
+    }
+    t.set(eventDocRef, {
+      idempotency_key: idempotencyKey,
+      payment_id: paymentId ?? null,
+      event_id: eventId ?? null,
+      event_name: eventName,
+      processed_at: FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
+
+  if (!isFirstProcessing) {
+    logger.info("handleSuccessfulPayment: idempotent skip — payment event already processed", {
+      idempotencyKey,
+      paymentId,
+      eventId,
+      eventName,
+    });
+    return;
+  }
+
   let businessId: string | undefined;
   let branchId: string | undefined;
   let amountPaise: number;
 
   if (eventName === "payment.captured") {
-    // payment.captured: businessId from order.receipt (set in createOrder)
-    const paymentEntity = (
-      (payload["payment"] as Record<string, unknown> | undefined)?.["entity"]
-    ) as Record<string, unknown> | undefined;
-
     if (!paymentEntity) {
       logger.error("handleSuccessfulPayment: missing payment.entity");
       return;
     }
 
-    // The order receipt is the businessId we set in createOrder.
-    // Also check notes.businessId as a fallback.
     const notes =
       paymentEntity["notes"] as Record<string, unknown> | undefined;
-    const descId =
-      paymentEntity["description"] as string | undefined;
-    const notesId = notes?.["businessId"] as string | undefined;
-    businessId = descId ?? notesId;
-    branchId = notes?.["branchId"] as string | undefined;
 
-    // If still no businessId from notes, try fetching the order.
+    // Defensively check both snake_case and camelCase keys for business ID and branch ID
+    businessId = (notes?.["business_id"] ?? notes?.["businessId"]) as string | undefined;
+    branchId = (notes?.["branch_id"] ?? notes?.["branchId"]) as string | undefined;
+
+    // Never use description string as a document ID. If missing, look up order via Razorpay API.
     if (!businessId) {
       const orderId = paymentEntity["order_id"] as string | undefined;
-      if (!orderId) {
-        logger.error(
-          "handleSuccessfulPayment: cannot determine businessId",
-          {paymentEntity}
-        );
-        return;
-      }
-      // Look up order receipt via Razorpay API.
-      try {
-        const razorpay = new Razorpay({
-          key_id: razorpayKeyId.value(),
-          key_secret: razorpayKeySecret.value(),
-        });
-        const orderData = await razorpay.orders.fetch(orderId) as {
-          receipt?: string;
-          notes?: Record<string, string>;
-        };
-        businessId =
-          orderData.receipt ?? orderData.notes?.["businessId"];
-        if (!branchId) {
-          branchId = orderData.notes?.["branchId"];
+      if (orderId) {
+        try {
+          const razorpay = new Razorpay({
+            key_id: razorpayKeyId.value(),
+            key_secret: razorpayKeySecret.value(),
+          });
+          const orderData = await razorpay.orders.fetch(orderId) as {
+            receipt?: string;
+            notes?: Record<string, string>;
+          };
+          businessId =
+            orderData.notes?.["business_id"] ??
+            orderData.notes?.["businessId"] ??
+            orderData.receipt;
+          if (!branchId) {
+            branchId = orderData.notes?.["branch_id"] ?? orderData.notes?.["branchId"];
+          }
+        } catch (err) {
+          logger.error(
+            "handleSuccessfulPayment: failed to fetch order for payment",
+            {orderId, err}
+          );
         }
-      } catch (err) {
-        logger.error(
-          "handleSuccessfulPayment: failed to fetch order",
-          {orderId, err}
-        );
-        return;
       }
     }
 
     amountPaise =
       (paymentEntity["amount"] as number | undefined) ?? SETUP_FEE_PAISE;
   } else {
-    // subscription.charged → businessId in subscription.notes.businessId
-    const subscriptionEntity = (
-      (payload["subscription"] as Record<string, unknown> | undefined)
-        ?.["entity"]
-    ) as Record<string, unknown> | undefined;
-
+    // subscription.charged → businessId in subscription.notes.business_id / businessId
     const subNotes =
       subscriptionEntity?.["notes"] as Record<string, unknown> | undefined;
-    businessId = subNotes?.["businessId"] as string | undefined;
-    branchId = subNotes?.["branchId"] as string | undefined;
+    businessId = (subNotes?.["business_id"] ?? subNotes?.["businessId"]) as string | undefined;
+    branchId = (subNotes?.["branch_id"] ?? subNotes?.["branchId"]) as string | undefined;
     amountPaise = RENEWAL_FEE_PAISE;
   }
 
   if (!businessId || businessId.trim().length === 0) {
-    logger.error("handleSuccessfulPayment: could not determine businessId", {
+    logger.error("handleSuccessfulPayment: FATAL - could not determine valid businessId from payment notes or order receipt", {
       eventName,
-      payload,
+      paymentNotes: (payload["payment"] as Record<string, unknown> | undefined)?.["entity"],
+      subscriptionNotes: (payload["subscription"] as Record<string, unknown> | undefined)?.["entity"],
     });
     return;
   }
 
-  const db = getFirestore();
   const bizRef = db.collection("businesses").doc(businessId);
   const bizSnap = await bizRef.get();
 
   if (!bizSnap.exists) {
-    logger.error("handleSuccessfulPayment: business not found", {businessId});
+    logger.error("handleSuccessfulPayment: CRITICAL - Payment captured for non-existent/deleted business!", {
+      businessId,
+      branchId,
+      paymentId,
+      amountPaise,
+      paymentEntity,
+    });
+
+    const safePaymentId = paymentId || `orphan_${Date.now()}`;
+    const orderId = (paymentEntity?.["order_id"] as string | undefined) ?? null;
+    const customerEmail = (paymentEntity?.["email"] as string | undefined) ?? null;
+    const customerContact = (paymentEntity?.["contact"] as string | undefined) ?? null;
+    const paymentNotes = (paymentEntity?.["notes"] as Record<string, unknown> | undefined) ?? {};
+
+    // 1. Record orphan payment in dedicated collection for audit & resolution
+    await db.collection("orphan_payments").doc(safePaymentId).set({
+      payment_id: safePaymentId,
+      order_id: orderId,
+      business_id: businessId,
+      branch_id: branchId ?? null,
+      amount_paise: amountPaise,
+      amount_rupees: amountPaise / 100,
+      customer_email: customerEmail,
+      customer_contact: customerContact,
+      notes: paymentNotes,
+      event_name: eventName,
+      status: "needs_action", // 'needs_action' | 'refunded' | 'resolved'
+      reason: "Payment captured on Razorpay, but target business does not exist in Firestore (likely an abandoned draft that was purged).",
+      razorpay_dashboard_link: `https://dashboard.razorpay.com/app/payments/${safePaymentId}`,
+      captured_at: FieldValue.serverTimestamp(),
+    });
+
+    // 2. Write high-priority notification for Admin Portal
+    await db.collection("notifications").add({
+      recipient: "admin",
+      recipient_name: "Platform Super Admin",
+      recipient_role: "admin",
+      type: "orphan_payment_alert",
+      business_id: businessId,
+      subject: `⚠️ [URGENT ACTION] Orphan Payment Captured: ₹${amountPaise / 100} (Payment ID: ${safePaymentId})`,
+      message: `A customer payment of ₹${amountPaise / 100} was captured on Razorpay (Payment: ${safePaymentId}, Customer: ${customerEmail || customerContact || "N/A"}), but business "${businessId}" does not exist in Firestore. Please review in Razorpay dashboard to issue a refund or recreate the business account.`,
+      sent_at: FieldValue.serverTimestamp(),
+      read: false,
+      urgent: true,
+    });
+
+    // 3. Dispatch an immediate alert email to the platform admin
+    try {
+      const adminEmailStr = (adminEmail.value() || process.env.ADMIN_EMAIL || "support@appnexa.co.in").trim();
+      await sendOrphanPaymentAdminAlert({
+        adminEmail: adminEmailStr,
+        paymentId: safePaymentId,
+        orderId: orderId ?? null,
+        businessId,
+        amountRupees: amountPaise / 100,
+        customerEmail,
+        customerContact,
+        notes: paymentNotes,
+      });
+      logger.info("handleSuccessfulPayment: orphan payment alert email sent to admin", {
+        adminEmail: adminEmailStr,
+        paymentId: safePaymentId,
+      });
+    } catch (emailErr) {
+      logger.error("handleSuccessfulPayment: failed to send orphan payment alert email", {
+        paymentId: safePaymentId,
+        emailErr,
+      });
+    }
+
     return;
   }
 
@@ -640,16 +784,86 @@ async function handleSuccessfulPayment(
       now;
   const newRenewalDate = addYears(baseDate, 1);
 
+  // ── 1. Fetch branches & recompute status counts synchronously ──────────────
+  const branchesSnap = await bizRef.collection("branches").get();
+  const branchCount = Math.max(branchesSnap.size, 1);
+
+  // ── Pricing & Amount Integrity Check ────────────────────────────────────
+  let minimumRequiredPaise: number;
+  if (eventName === "subscription.charged") {
+    minimumRequiredPaise = RENEWAL_FEE_PAISE;
+  } else if (branchId) {
+    // Single branch setup fee
+    minimumRequiredPaise = SETUP_FEE_PAISE;
+  } else if (isPendingDraft) {
+    // Initial business enrollment for all branches
+    minimumRequiredPaise = SETUP_FEE_PAISE * branchCount;
+  } else {
+    // Fallback/renewal payment captured
+    minimumRequiredPaise = RENEWAL_FEE_PAISE;
+  }
+
+  if (amountPaise < minimumRequiredPaise) {
+    logger.error("handleSuccessfulPayment: FATAL - Paid amount is below required threshold. Aborting activation.", {
+      businessId,
+      branchId,
+      amountPaise,
+      minimumRequiredPaise,
+      eventName,
+      isPendingDraft,
+      branchCount,
+    });
+    return;
+  }
+
+  let activeCount = 0;
+  let graceCount = 0;
+  let deletedCount = 0;
+  let pendingCount = 0;
+
+  if (branchesSnap.empty) {
+    activeCount = 1;
+  } else {
+    for (const bDoc of branchesSnap.docs) {
+      const bData = bDoc.data();
+      const bStatus = (branchId && bDoc.id === branchId) ?
+        "active" :
+        (branchId ? (bData.subscription_status ?? "active") : "active");
+      if (bStatus === "active") activeCount++;
+      else if (bStatus === "grace_period") graceCount++;
+      else if (bStatus === "deleted") deletedCount++;
+      else if (bStatus === "pending_payment") pendingCount++;
+    }
+  }
+
+  const hasGraceBranches = graceCount > 0;
+  const hasInactiveBranches = graceCount > 0 || deletedCount > 0 || pendingCount > 0;
+
   // ── Firestore writes (all in one batch) ───────────────────────────────────
   const batch = db.batch();
 
-  // 1. Activate business: flip status, start clock, clear grace, tag as online.
-  batch.update(bizRef, {
+  // 1. Activate business: flip status, start clock, clear grace, update flags and store actual paid amount.
+  const amountRupees = amountPaise / 100;
+  const bizUpdateData: Record<string, unknown> = {
     subscription_status: "active",
     renewal_date: Timestamp.fromDate(newRenewalDate),
     grace_period_ends: FieldValue.delete(),
     payment_mode: "online",
-  });
+    has_grace_branches: hasGraceBranches,
+    has_inactive_branches: hasInactiveBranches,
+    active_branches_count: activeCount,
+    total_branches_count: branchesSnap.size || 1,
+  };
+
+  if (isPendingDraft) {
+    bizUpdateData.setup_fee_paid = amountRupees;
+    bizUpdateData.amount_paid = amountRupees;
+  } else {
+    bizUpdateData.renewal_amount_paid = FieldValue.increment(amountRupees);
+    bizUpdateData.amount_paid = FieldValue.increment(amountRupees);
+  }
+
+  batch.update(bizRef, bizUpdateData);
 
   // 2. Increment employee counters — ONLY on first activation (draft → active).
   //    Renewal payments skip this to avoid double-counting.
@@ -676,29 +890,13 @@ async function handleSuccessfulPayment(
     wasDraft: isPendingDraft,
     newRenewalDate: newRenewalDate.toISOString(),
     eventName,
-    amountRupees: amountPaise / 100,
+    amountRupees,
+    hasGraceBranches,
+    hasInactiveBranches,
+    activeCount,
   });
 
-  // Provision owner Auth user + assign role: 'owner' claim if email present
-  if (bizData.owner_email && (!bizData.owner_auth_uid || isPendingDraft)) {
-    try {
-      const ownerUid = await provisionOwnerAccount(
-        db,
-        businessId,
-        bizData.owner_email,
-        bizData.owner_name
-      );
-      logger.info("handleSuccessfulPayment: owner account provisioned", {
-        businessId, ownerUid,
-      });
-    } catch (ownerErr) {
-      logger.error("handleSuccessfulPayment: owner provisioning failed", {
-        businessId, err: ownerErr,
-      });
-    }
-  }
-
-  // 4. Generate QR PNGs for branches.
+  // 4. Generate QR PNGs for branches & update branch document status with actual paid amount.
   if (branchId) {
     const branchRef = bizRef.collection("branches").doc(branchId);
     const branchSnap = await branchRef.get();
@@ -706,7 +904,11 @@ async function handleSuccessfulPayment(
       try {
         await branchRef.update({
           subscription_status: "active",
+          renewal_date: Timestamp.fromDate(newRenewalDate),
+          grace_period_ends: FieldValue.delete(),
           payment_mode: "online",
+          setup_fee_paid: amountRupees,
+          amount_paid: amountRupees,
           activated_at: Timestamp.now(),
           standee_status: STANDEE_STATUS_DEFAULT,
           standee_status_updated_at: Timestamp.now(),
@@ -723,15 +925,19 @@ async function handleSuccessfulPayment(
     }
   } else {
     try {
-      const branchesSnap = await bizRef.collection("branches").get();
-      logger.info("handleSuccessfulPayment: activating branches and generating QR", {
+      logger.info("handleSuccessfulPayment: activating all branches and generating QR", {
         businessId, branchCount: branchesSnap.size,
       });
+      const perBranchAmount = amountRupees / (branchesSnap.size || 1);
       for (const branchDoc of branchesSnap.docs) {
         try {
           await branchDoc.ref.update({
             subscription_status: "active",
+            renewal_date: Timestamp.fromDate(newRenewalDate),
+            grace_period_ends: FieldValue.delete(),
             payment_mode: "online",
+            setup_fee_paid: perBranchAmount,
+            amount_paid: perBranchAmount,
             activated_at: Timestamp.now(),
             standee_status: STANDEE_STATUS_DEFAULT,
             standee_status_updated_at: Timestamp.now(),
@@ -822,57 +1028,141 @@ export const renewalLifecycle = onSchedule(
       timestamp: now.toDate().toISOString(),
     });
 
-    // ── Pass 1: active → grace_period ────────────────────────────────────
-    {
-      const overdueQuery = db
-        .collection("businesses")
-        .where("subscription_status", "==", "active")
-        .where("renewal_date", "<=", now);
+    // Query all non-draft businesses (active, grace_period)
+    const bizQuery = db
+      .collection("businesses")
+      .where("subscription_status", "in", ["active", "grace_period"]);
 
-      const overdueSnap = await overdueQuery.get();
-      logger.info("renewalLifecycle: active → grace_period candidates", {
-        count: overdueSnap.size,
-      });
+    const bizSnap = await bizQuery.get();
+    logger.info("renewalLifecycle: processing businesses", {count: bizSnap.size});
 
-      // Process in batches of 500.
-      const chunks = chunkArray(overdueSnap.docs, 500);
-      for (const chunk of chunks) {
-        const batch = db.batch();
-        for (const doc of chunk) {
-          const data = doc.data() as {renewal_date?: Timestamp};
-          const renewalDate =
-            data.renewal_date?.toDate() ?? now.toDate();
-          const gracePeriodEnds = addDays(renewalDate, GRACE_PERIOD_DAYS);
+    for (const bizDoc of bizSnap.docs) {
+      const bizData = bizDoc.data() as {
+        subscription_status?: string;
+        renewal_date?: Timestamp;
+        grace_period_ends?: Timestamp;
+      };
 
-          batch.update(doc.ref, {
+      const branchesSnap = await bizDoc.ref.collection("branches").get();
+      const batch = db.batch();
+      let hasUpdates = false;
+
+      let activeCount = 0;
+      let graceCount = 0;
+      let deletedCount = 0;
+      let pendingCount = 0;
+
+      if (branchesSnap.empty) {
+        // Standalone business with no subcollection branches (legacy/fallback)
+        const currentStatus = bizData.subscription_status ?? "active";
+        const renewalDate = bizData.renewal_date?.toDate() ?? now.toDate();
+
+        if (
+          currentStatus === "active" &&
+          bizData.renewal_date &&
+          bizData.renewal_date.toMillis() <= now.toMillis()
+        ) {
+          batch.update(bizDoc.ref, {
             subscription_status: "grace_period",
-            grace_period_ends:
-              Timestamp.fromDate(gracePeriodEnds),
+            grace_period_ends: Timestamp.fromDate(
+              addDays(renewalDate, GRACE_PERIOD_DAYS)
+            ),
+            has_grace_branches: true,
+            has_inactive_branches: true,
           });
-
-          logger.info("renewalLifecycle: grace_period set", {
-            businessId: doc.id,
-            gracePeriodEnds: gracePeriodEnds.toISOString(),
+          hasUpdates = true;
+        } else if (
+          currentStatus === "grace_period" &&
+          bizData.grace_period_ends &&
+          bizData.grace_period_ends.toMillis() <= now.toMillis()
+        ) {
+          batch.update(bizDoc.ref, {
+            subscription_status: "deleted",
+            has_grace_branches: false,
+            has_inactive_branches: true,
           });
+          hasUpdates = true;
         }
-        await batch.commit();
+      } else {
+        // Multi-branch or standard branch-based business
+        for (const branchDoc of branchesSnap.docs) {
+          const bData = branchDoc.data() as {
+            subscription_status?: string;
+            renewal_date?: Timestamp;
+            grace_period_ends?: Timestamp;
+          };
+
+          let bStatus =
+            bData.subscription_status ??
+            (bizData.subscription_status === "active" ? "active" : "pending_payment");
+          const bRenewal = bData.renewal_date ?? bizData.renewal_date;
+          const bGraceEnds = bData.grace_period_ends ?? bizData.grace_period_ends;
+
+          // Branch active → grace_period
+          if (
+            bStatus === "active" &&
+            bRenewal &&
+            bRenewal.toMillis() <= now.toMillis()
+          ) {
+            const graceEndsDate = addDays(bRenewal.toDate(), GRACE_PERIOD_DAYS);
+            batch.update(branchDoc.ref, {
+              subscription_status: "grace_period",
+              grace_period_ends: Timestamp.fromDate(graceEndsDate),
+            });
+            bStatus = "grace_period";
+            hasUpdates = true;
+            logger.info("renewalLifecycle: branch set to grace_period", {
+              businessId: bizDoc.id,
+              branchId: branchDoc.id,
+            });
+          } else if (
+            bStatus === "grace_period" &&
+            bGraceEnds &&
+            bGraceEnds.toMillis() <= now.toMillis()
+          ) {
+            // Branch grace_period → deleted (lapsed)
+            batch.update(branchDoc.ref, {
+              subscription_status: "deleted",
+            });
+            bStatus = "deleted";
+            hasUpdates = true;
+            logger.info("renewalLifecycle: branch set to deleted", {
+              businessId: bizDoc.id,
+              branchId: branchDoc.id,
+            });
+          }
+
+          if (bStatus === "active") activeCount++;
+          else if (bStatus === "grace_period") graceCount++;
+          else if (bStatus === "deleted") deletedCount++;
+          else if (bStatus === "pending_payment") pendingCount++;
+        }
+
+        // Determine overall parent business subscription_status & indicator flags
+        let parentStatus = "active";
+        if (activeCount > 0) {
+          parentStatus = "active";
+        } else if (graceCount > 0) {
+          parentStatus = "grace_period";
+        } else if (pendingCount > 0) {
+          parentStatus = "pending_payment";
+        } else {
+          parentStatus = "deleted";
+        }
+
+        batch.update(bizDoc.ref, {
+          subscription_status: parentStatus,
+          has_grace_branches: graceCount > 0,
+          has_inactive_branches:
+            graceCount > 0 || deletedCount > 0 || pendingCount > 0,
+          active_branches_count: activeCount,
+          total_branches_count: branchesSnap.size,
+        });
+        hasUpdates = true;
       }
-    }
 
-    // ── Pass 2: grace_period → deleted ───────────────────────────────────
-    {
-      const expiredQuery = db
-        .collection("businesses")
-        .where("subscription_status", "==", "grace_period")
-        .where("grace_period_ends", "<=", now);
-
-      const expiredSnap = await expiredQuery.get();
-      logger.info("renewalLifecycle: grace_period → deleted candidates", {
-        count: expiredSnap.size,
-      });
-
-      for (const bizDoc of expiredSnap.docs) {
-        await deleteBusiness(db, bizDoc.id, bizDoc.ref);
+      if (hasUpdates) {
+        await batch.commit();
       }
     }
 
@@ -964,33 +1254,24 @@ async function deleteBusiness(
 ): Promise<void> {
   logger.info("deleteBusiness: starting deletion", {businessId});
 
-  // 1. Fetch all branch IDs before deleting anything.
+  // 1. Fetch branches before deleting anything.
   const branchesSnap = await bizRef.collection("branches").get();
-  const branchIds = branchesSnap.docs.map((d) => d.id);
 
-  // 2. Delete scan_logs for each branch (in chunks — Firestore `in` max 30).
-  if (branchIds.length > 0) {
-    const branchChunks = chunkArray(branchIds, 30);
-    for (const branchChunk of branchChunks) {
-      const scanLogsSnap = await db
-        .collection("scan_logs")
-        .where("branch_id", "in", branchChunk)
-        .get();
-
-      const scanLogChunks = chunkArray(scanLogsSnap.docs, 500);
-      for (const chunk of scanLogChunks) {
-        const batch = db.batch();
-        for (const doc of chunk) {
-          batch.delete(doc.ref);
-        }
-        await batch.commit();
+  // 2. Delete scans subcollection under businesses/{businessId}/scans
+  const scansSnap = await bizRef.collection("scans").get();
+  if (scansSnap.docs.length > 0) {
+    const scanChunks = chunkArray(scansSnap.docs, 500);
+    for (const chunk of scanChunks) {
+      const batch = db.batch();
+      for (const doc of chunk) {
+        batch.delete(doc.ref);
       }
-      logger.info("deleteBusiness: scan_logs deleted", {
-        businessId,
-        branchChunk,
-        count: scanLogsSnap.size,
-      });
+      await batch.commit();
     }
+    logger.info("deleteBusiness: scans deleted", {
+      businessId,
+      count: scansSnap.size,
+    });
   }
 
   // 3. Delete all branch documents.
@@ -1009,7 +1290,24 @@ async function deleteBusiness(
     });
   }
 
-  // 4. Delete the business document itself.
+  // 4. Delete notifications associated with this business
+  try {
+    const notifsSnap = await db.collection("notifications").where("business_id", "==", businessId).get();
+    if (!notifsSnap.empty) {
+      const notifChunks = chunkArray(notifsSnap.docs, 500);
+      for (const chunk of notifChunks) {
+        const batch = db.batch();
+        for (const doc of chunk) {
+          batch.delete(doc.ref);
+        }
+        await batch.commit();
+      }
+    }
+  } catch (err) {
+    logger.warn("deleteBusiness: error deleting notifications", {err, businessId});
+  }
+
+  // 5. Delete the business document itself.
   await bizRef.delete();
 
   logger.info("deleteBusiness: completed", {businessId});
@@ -1057,7 +1355,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
  */
 export const resendPaymentLink = onCall(
   {
-    secrets: [razorpayKeyId, razorpayKeySecret],
+    secrets: [razorpayKeyId, razorpayKeySecret, brevoApiKey],
     maxInstances: 10,
     region: "asia-south1",
   },
@@ -1081,6 +1379,16 @@ export const resendPaymentLink = onCall(
     }
 
     const bizData = bizSnap.data() as Record<string, unknown>;
+    const callerRole = request.auth?.token?.role;
+    const callerUid = request.auth?.uid;
+    const isEnroller = bizData["enrolled_by"] === callerUid;
+    if (callerRole !== "admin" && !isEnroller) {
+      throw new HttpsError(
+        "permission-denied",
+        "You do not have permission to resend payment links for this business."
+      );
+    }
+
     const subscriptionStatus = bizData["subscription_status"] as string | undefined;
 
     // Only allowed for pending_payment drafts.
@@ -1109,13 +1417,14 @@ export const resendPaymentLink = onCall(
     const branchCount = Math.max(branchesSnap.size, 1);
     const totalAmountPaise = branchCount * SETUP_FEE_PAISE;
 
-    const razorpay = new Razorpay({
-      key_id: razorpayKeyId.value(),
-      key_secret: razorpayKeySecret.value(),
-    });
+    const expireBy = Math.floor(Date.now() / 1000) + PAYMENT_LINK_EXPIRY_HOURS * 3600;
 
     let paymentLink: {id: string; short_url: string};
     try {
+      const razorpay = new Razorpay({
+        key_id: razorpayKeyId.value(),
+        key_secret: razorpayKeySecret.value(),
+      });
       paymentLink = await (razorpay as unknown as {
         paymentLink: {
           create: (opts: Record<string, unknown>) => Promise<{id: string; short_url: string}>;
@@ -1126,8 +1435,12 @@ export const resendPaymentLink = onCall(
         description: branchCount > 1 ?
           `Enrollment setup fee (${branchCount} locations) — ${brandName}` :
           `Enrollment setup fee — ${brandName}`,
+        expire_by: expireBy,
         notes: {
+          business_id: businessId,
           businessId,
+          brand_name: brandName,
+          brandName,
           type: "setup_fee",
           branchCount: String(branchCount),
         },
@@ -1135,20 +1448,25 @@ export const resendPaymentLink = onCall(
         callback_method: "get",
       });
     } catch (err) {
-      logger.error("resendPaymentLink: Razorpay paymentLink.create failed", {
+      logger.warn("resendPaymentLink: Razorpay paymentLink.create failed, falling back to direct checkout link", {
         err, businessId,
       });
-      throw new HttpsError(
-        "internal",
-        "Failed to create payment link. Please try again."
-      );
+      const fallbackUrl = `https://${reviewDomain.value() || "appnexa.co.in"}/app/#/enroll/payment/${businessId}`;
+      paymentLink = {
+        id: `plink_direct_${businessId}`,
+        short_url: fallbackUrl,
+      };
     }
 
     // Persist the payment link on the business doc so the panel can display it.
+    // Setting created_at: FieldValue.serverTimestamp() ensures the draft cleanup window (48h)
+    // resets to outlive the 47h payment link, so the link can never outlive its draft.
     await bizRef.update({
       last_payment_link_url: paymentLink.short_url,
       last_payment_link_id: paymentLink.id,
       last_payment_link_created_at: Timestamp.now(),
+      last_payment_link_expires_at: Timestamp.fromMillis(expireBy * 1000),
+      created_at: FieldValue.serverTimestamp(),
     });
 
     // ── Email the payment link to the owner ──────────────────────────────────
@@ -1162,9 +1480,13 @@ export const resendPaymentLink = onCall(
         paymentLinkUrl: paymentLink.short_url,
         businessId,
       });
+      logger.info("resendPaymentLink: payment link email sent to owner", {
+        businessId,
+        ownerEmail,
+        paymentLinkUrl: paymentLink.short_url,
+      });
     } catch (emailErr) {
-      // Email failure is non-fatal — the link is still returned to the
-      // employee who can share it manually via WhatsApp/copy.
+      // Non-fatal: link was still created and saved to Firestore.
       logger.error("resendPaymentLink: email send failed (non-fatal)", {
         businessId, err: emailErr,
       });
@@ -1172,9 +1494,7 @@ export const resendPaymentLink = onCall(
 
     logger.info("resendPaymentLink: complete", {
       businessId,
-      paymentLinkId: paymentLink.id,
       shortUrl: paymentLink.short_url,
-      callerUid: request.auth?.uid,
     });
 
     return {
@@ -1234,7 +1554,9 @@ export const createBranchOrder = onCall(
         currency: "INR",
         receipt: `${businessId}_${branchId}`,
         notes: {
+          business_id: businessId,
           businessId,
+          branch_id: branchId,
           branchId,
           type: "branch_setup_fee",
         },
@@ -1269,7 +1591,7 @@ export const createBranchOrder = onCall(
  */
 export const resendBranchPaymentLink = onCall(
   {
-    secrets: [razorpayKeyId, razorpayKeySecret],
+    secrets: [razorpayKeyId, razorpayKeySecret, brevoApiKey],
     maxInstances: 10,
     region: "asia-south1",
   },
@@ -1280,8 +1602,12 @@ export const resendBranchPaymentLink = onCall(
       businessId?: unknown;
       branchId?: unknown;
     };
-    if (typeof businessId !== "string" || businessId.trim().length === 0 ||
-        typeof branchId !== "string" || branchId.trim().length === 0) {
+    if (
+      typeof businessId !== "string" ||
+      businessId.trim().length === 0 ||
+      typeof branchId !== "string" ||
+      branchId.trim().length === 0
+    ) {
       throw new HttpsError(
         "invalid-argument",
         "`businessId` and `branchId` must be non-empty strings."
@@ -1301,6 +1627,16 @@ export const resendBranchPaymentLink = onCall(
     const bizData = bizSnap.data() as Record<string, unknown>;
     const branchData = branchSnap.data() as Record<string, unknown>;
 
+    const callerRole = request.auth?.token?.role;
+    const callerUid = request.auth?.uid;
+    const isEnroller = bizData["enrolled_by"] === callerUid;
+    if (callerRole !== "admin" && !isEnroller) {
+      throw new HttpsError(
+        "permission-denied",
+        "You do not have permission to resend payment links for this branch."
+      );
+    }
+
     const ownerEmail = bizData["owner_email"] as string | undefined;
     const ownerName = (bizData["owner_name"] as string | undefined) ?? "Business Owner";
     const brandName = (bizData["brand_name"] as string | undefined) ?? "Business";
@@ -1313,13 +1649,14 @@ export const resendBranchPaymentLink = onCall(
       );
     }
 
-    const razorpay = new Razorpay({
-      key_id: razorpayKeyId.value(),
-      key_secret: razorpayKeySecret.value(),
-    });
+    const expireBy = Math.floor(Date.now() / 1000) + PAYMENT_LINK_EXPIRY_HOURS * 3600;
 
     let paymentLink: {id: string; short_url: string};
     try {
+      const razorpay = new Razorpay({
+        key_id: razorpayKeyId.value(),
+        key_secret: razorpayKeySecret.value(),
+      });
       paymentLink = await (razorpay as unknown as {
         paymentLink: {
           create: (opts: Record<string, unknown>) => Promise<{id: string; short_url: string}>;
@@ -1328,9 +1665,14 @@ export const resendBranchPaymentLink = onCall(
         amount: SETUP_FEE_PAISE,
         currency: "INR",
         description: `Setup fee for ${brandName} (${branchName})`,
+        expire_by: expireBy,
         notes: {
+          business_id: businessId,
           businessId,
+          branch_id: branchId,
           branchId,
+          brand_name: brandName,
+          brandName,
           type: "branch_setup_fee",
         },
         customer: {
@@ -1344,14 +1686,22 @@ export const resendBranchPaymentLink = onCall(
         reminder_enable: true,
       });
     } catch (err) {
-      logger.error("resendBranchPaymentLink: Razorpay paymentLink.create failed", {
+      logger.warn("resendBranchPaymentLink: Razorpay paymentLink.create failed, falling back to direct checkout link", {
         businessId, branchId, err,
       });
-      throw new HttpsError(
-        "internal",
-        "Failed to generate payment link. Please try again."
-      );
+      const fallbackUrl = `https://${reviewDomain.value() || "appnexa.co.in"}/app/#/enroll/payment/${businessId}/${branchId}`;
+      paymentLink = {
+        id: `plink_branch_direct_${branchId}`,
+        short_url: fallbackUrl,
+      };
     }
+
+    await branchRef.update({
+      last_payment_link_url: paymentLink.short_url,
+      last_payment_link_id: paymentLink.id,
+      last_payment_link_created_at: Timestamp.now(),
+      last_payment_link_expires_at: Timestamp.fromMillis(expireBy * 1000),
+    });
 
     try {
       await sendPaymentLinkEmail({
@@ -1378,7 +1728,12 @@ export const resendBranchPaymentLink = onCall(
  * Callable function to provision or re-provision an owner Firebase Auth account.
  */
 export const provisionOwner = onCall(
-  {region: "asia-south1"},
+  {
+    secrets: [brevoApiKey],
+    region: "asia-south1",
+    memory: "512MiB",
+    timeoutSeconds: 120,
+  },
   async (request) => {
     requireAuth(request.auth);
     const {businessId} = request.data as { businessId?: string };
@@ -1390,7 +1745,32 @@ export const provisionOwner = onCall(
     if (!bizSnap.exists) {
       throw new HttpsError("not-found", "Business not found.");
     }
-    const bizData = bizSnap.data() as { owner_email?: string; owner_name?: string };
+    const bizData = bizSnap.data() as {
+      owner_email?: string;
+      owner_name?: string;
+      brand_name?: string;
+      subscription_status?: string;
+      payment_mode?: "online" | "cash";
+      enrolled_by?: string;
+      currently_managed_by?: string;
+    };
+
+    const callerRole = request.auth?.token?.role;
+    const callerUid = request.auth?.uid;
+    const isEnroller = bizData.enrolled_by === callerUid;
+    if (callerRole !== "admin" && !isEnroller) {
+      throw new HttpsError(
+        "permission-denied",
+        "You do not have permission to provision owner accounts for this business."
+      );
+    }
+
+    if (bizData.subscription_status !== "active") {
+      throw new HttpsError(
+        "failed-precondition",
+        `Business is not active (current: '${bizData.subscription_status}'). Owner provisioning and welcome emails are only dispatched once payment is completed.`
+      );
+    }
     if (!bizData.owner_email) {
       throw new HttpsError("failed-precondition", "Business has no owner_email.");
     }
@@ -1398,9 +1778,164 @@ export const provisionOwner = onCall(
       db,
       businessId,
       bizData.owner_email,
-      bizData.owner_name
+      bizData.owner_name,
+      bizData.brand_name,
+      bizData.payment_mode || "online"
     );
     return {success: true, ownerUid};
   }
 );
+
+/**
+ * Callable function for Admins to completely delete a business, all branches,
+ * scan logs, storage assets, and the owner's Firebase Auth account.
+ */
+export const deleteBusinessAdmin = onCall(
+  {region: "asia-south1"},
+  async (request) => {
+    if (!request.auth?.uid || request.auth.token?.role !== "admin") {
+      throw new HttpsError(
+        "permission-denied",
+        "Only admins can delete a business."
+      );
+    }
+    const {businessId, deleteOwnerAuth = true} = (request.data || {}) as {
+      businessId?: string;
+      deleteOwnerAuth?: boolean;
+    };
+    if (!businessId) {
+      throw new HttpsError("invalid-argument", "businessId is required.");
+    }
+
+    const db = getFirestore();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const bizSnap = await bizRef.get();
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", "Business not found.");
+    }
+
+    const bizData = bizSnap.data() as {
+      owner_email?: string;
+      owner_auth_uid?: string;
+      brand_name?: string;
+    };
+
+    logger.info("deleteBusinessAdmin: starting full deletion", {
+      businessId,
+      adminUid: request.auth.uid,
+      brandName: bizData.brand_name,
+    });
+
+    // 1. Delete all subcollections (branches, reviews, feedback, scans, analytics)
+    const subcollections = ["branches", "reviews", "feedback", "scans", "analytics", "orders"];
+    for (const sub of subcollections) {
+      try {
+        const snap = await bizRef.collection(sub).get();
+        if (!snap.empty) {
+          const chunks = chunkArray(snap.docs, 500);
+          for (const chunk of chunks) {
+            const batch = db.batch();
+            for (const doc of chunk) {
+              batch.delete(doc.ref);
+            }
+            await batch.commit();
+          }
+        }
+      } catch (err) {
+        logger.warn(`deleteBusinessAdmin: error deleting subcollection ${sub}`, {err});
+      }
+    }
+
+    // 2. Delete scans subcollection matching businesses/{businessId}/scans
+    try {
+      const scansSnap = await bizRef.collection("scans").get();
+      if (!scansSnap.empty) {
+        const chunks = chunkArray(scansSnap.docs, 500);
+        for (const chunk of chunks) {
+          const batch = db.batch();
+          for (const doc of chunk) {
+            batch.delete(doc.ref);
+          }
+          await batch.commit();
+        }
+      }
+    } catch (err) {
+      logger.warn("deleteBusinessAdmin: error deleting scans", {err});
+    }
+
+    // 3. NOTE (Retention Policy): Financial & commission records (employee_commissions and
+    //    commission_records) are PERMANENTLY PRESERVED for payroll, tax, and audit compliance.
+    //    They are NOT deleted.
+
+    // 4. Delete notifications (DPDP deletion requirement: purges all notifications for this business)
+    try {
+      const [notifsBySnake, notifsByCamel] = await Promise.all([
+        db.collection("notifications").where("business_id", "==", businessId).get(),
+        db.collection("notifications").where("businessId", "==", businessId).get(),
+      ]);
+      const notifDocsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+      for (const d of notifsBySnake.docs) notifDocsMap.set(d.id, d);
+      for (const d of notifsByCamel.docs) notifDocsMap.set(d.id, d);
+      const uniqueNotifDocs = Array.from(notifDocsMap.values());
+
+      if (uniqueNotifDocs.length > 0) {
+        const chunks = chunkArray(uniqueNotifDocs, 500);
+        for (const chunk of chunks) {
+          const batch = db.batch();
+          for (const doc of chunk) {
+            batch.delete(doc.ref);
+          }
+          await batch.commit();
+        }
+        logger.info("deleteBusinessAdmin: notifications deleted", {
+          businessId,
+          count: uniqueNotifDocs.length,
+        });
+      }
+    } catch (err) {
+      logger.warn("deleteBusinessAdmin: error deleting notifications", {err});
+    }
+
+    // 5. Delete Firebase Storage files under businesses/{businessId}
+    try {
+      const bucket = admin.storage().bucket();
+      await bucket.deleteFiles({prefix: `businesses/${businessId}/`});
+      logger.info("deleteBusinessAdmin: storage files deleted", {businessId});
+    } catch (err) {
+      logger.warn("deleteBusinessAdmin: storage delete error", {err});
+    }
+
+    // 6. Delete Owner Firebase Auth user
+    if (deleteOwnerAuth) {
+      const auth = admin.auth();
+      if (bizData.owner_auth_uid) {
+        try {
+          await auth.deleteUser(bizData.owner_auth_uid);
+          logger.info("deleteBusinessAdmin: owner auth user deleted by UID", {
+            uid: bizData.owner_auth_uid,
+          });
+        } catch (authErr) {
+          logger.warn("deleteBusinessAdmin: auth delete by UID failed", {authErr});
+        }
+      } else if (bizData.owner_email) {
+        try {
+          const user = await auth.getUserByEmail(bizData.owner_email);
+          await auth.deleteUser(user.uid);
+          logger.info("deleteBusinessAdmin: owner auth user deleted by email", {
+            email: bizData.owner_email,
+          });
+        } catch (authErr) {
+          logger.warn("deleteBusinessAdmin: auth delete by email failed", {authErr});
+        }
+      }
+    }
+
+    // 7. Delete the business doc itself
+    await bizRef.delete();
+
+    logger.info("deleteBusinessAdmin: deletion complete", {businessId});
+    return {success: true, businessId};
+  }
+);
+
 

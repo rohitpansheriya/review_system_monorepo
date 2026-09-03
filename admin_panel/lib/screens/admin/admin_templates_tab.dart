@@ -8,7 +8,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants.dart';
+import '../../core/string_utils.dart';
 import '../../providers/admin_dashboard_provider.dart';
+import '../../widgets/category_template_visualizer.dart';
+import '../../widgets/app_animated_loader.dart';
 
 class AdminTemplatesTab extends StatefulWidget {
   const AdminTemplatesTab({super.key});
@@ -20,6 +23,32 @@ class AdminTemplatesTab extends StatefulWidget {
 class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
   String? _selectedTemplateId;
 
+  void _showLivePreviewModal(
+    BuildContext context,
+    String templateId,
+    String businessType,
+    List<String> categoryNames,
+    Map<String, List<String>> cachedPhrases,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: CategoryTemplateLiveVisualizer(
+            templateId: templateId,
+            businessType: businessType,
+            categoryNames: categoryNames,
+            cachedPhrases: cachedPhrases,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Create New Template Dialog (With Bulk Phrases) ─────────────────────────
   void _showCreateTemplateDialog(
     BuildContext context,
     AdminDashboardProvider provider,
@@ -31,84 +60,256 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Create New Category Template'),
-        content: SizedBox(
-          width: 440,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: idCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Template ID',
-                    hintText: 'e.g. bakery_v1 or fitness_v1',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: typeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Business Type Label',
-                    hintText: 'e.g. Bakery / Confectionery',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: catCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'First Category Name',
-                    hintText: 'e.g. Taste & Freshness',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: phraseCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Initial Review Phrase Variant',
-                    hintText: 'e.g. Freshly baked goods and amazing cakes!',
-                  ),
-                  maxLines: 2,
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (idCtrl.text.trim().isEmpty ||
-                  typeCtrl.text.trim().isEmpty ||
-                  catCtrl.text.trim().isEmpty ||
-                  phraseCtrl.text.trim().isEmpty) {
-                return;
-              }
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          final detectedPhrases = StringUtils.parseBulkPhrases(phraseCtrl.text);
+          final theme = Theme.of(ctx);
+          final colorScheme = theme.colorScheme;
 
-              Navigator.of(ctx).pop();
-              await provider.createCategoryTemplate(
-                templateId: idCtrl.text.trim(),
-                businessType: typeCtrl.text.trim(),
-                categoryName: catCtrl.text.trim(),
-                initialPhrase: phraseCtrl.text.trim(),
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Category template created successfully!')),
-                );
-              }
-            },
-            child: const Text('Create Template'),
-          ),
-        ],
+          return AlertDialog(
+            title: const Text('Create New Category Template'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: idCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Template ID *',
+                        hintText: 'e.g. bakery_v1 or fitness_v1',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: typeCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Business Type Label *',
+                        hintText: 'e.g. Bakery / Confectionery',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: catCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'First Category Name *',
+                        hintText: 'e.g. Taste & Quality',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Review Phrases (Paste all at once):',
+                          style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (detectedPhrases.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '✨ ${detectedPhrases.length} phrases detected',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: phraseCtrl,
+                      minLines: 4,
+                      maxLines: 7,
+                      decoration: const InputDecoration(
+                        hintText: 'Paste phrases here (one per line, numbered list, or separated by semicolons)\n\ne.g.\n1. Freshly baked cakes!\n2. Great taste and hygiene\n3. Value for money',
+                        helperText: 'System automatically cleans numbering, bullets, and separates each phrase.',
+                      ),
+                      onChanged: (_) => setDlgState(() {}),
+                    ),
+                    if (detectedPhrases.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: detectedPhrases.map((p) => Chip(
+                          label: Text(p, style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: colorScheme.surfaceContainerHigh,
+                        )).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final phrases = StringUtils.parseBulkPhrases(phraseCtrl.text);
+                  if (idCtrl.text.trim().isEmpty ||
+                      typeCtrl.text.trim().isEmpty ||
+                      catCtrl.text.trim().isEmpty ||
+                      phrases.isEmpty) {
+                    return;
+                  }
+
+                  Navigator.of(ctx).pop();
+                  await provider.createCategoryTemplate(
+                    templateId: idCtrl.text.trim(),
+                    businessType: typeCtrl.text.trim(),
+                    categoryName: catCtrl.text.trim(),
+                    phrases: phrases,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Category template created with ${phrases.length} phrases!')),
+                    );
+                  }
+                },
+                child: Text(detectedPhrases.length > 1
+                    ? 'Create Template (${detectedPhrases.length} Phrases)'
+                    : 'Create Template'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
+  // ── Add New Category Dialog (With Bulk Phrases) ────────────────────────────
+  void _showAddCategoryDialog(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    String templateId,
+  ) {
+    final catCtrl = TextEditingController();
+    final phraseCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          final detectedPhrases = StringUtils.parseBulkPhrases(phraseCtrl.text);
+          final theme = Theme.of(ctx);
+          final colorScheme = theme.colorScheme;
+
+          return AlertDialog(
+            title: const Text('Add New Category & Phrases'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: catCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Category Name *',
+                        hintText: 'e.g. Cleanliness & Ambience, Staff & Service',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Review Phrases (Paste all at once):',
+                          style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (detectedPhrases.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '✨ ${detectedPhrases.length} phrases detected',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: phraseCtrl,
+                      minLines: 4,
+                      maxLines: 7,
+                      decoration: const InputDecoration(
+                        hintText: 'Paste multiple phrases here (one per line, numbered list, or separated by semicolons)\n\ne.g.\n- Very clean and sanitized place\n- Pleasant atmosphere with soothing music\n- Cozy seating arrangement',
+                        helperText: 'System automatically cleans numbering, bullets, and separates each phrase.',
+                      ),
+                      onChanged: (_) => setDlgState(() {}),
+                    ),
+                    if (detectedPhrases.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: detectedPhrases.map((p) => Chip(
+                          label: Text(p, style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: colorScheme.surfaceContainerHigh,
+                        )).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final phrases = StringUtils.parseBulkPhrases(phraseCtrl.text);
+                  if (catCtrl.text.trim().isEmpty || phrases.isEmpty) return;
+
+                  Navigator.of(ctx).pop();
+                  await provider.addCategory(
+                    templateId: templateId,
+                    categoryName: catCtrl.text.trim(),
+                    phrases: phrases,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Category "${catCtrl.text.trim()}" added with ${phrases.length} phrase(s)!')),
+                    );
+                  }
+                },
+                child: Text(detectedPhrases.length > 1
+                    ? 'Add Category (${detectedPhrases.length} Phrases)'
+                    : 'Add Category'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Bulk Add Phrases Dialog (Paste All at Once) ────────────────────────────
   void _showAddPhraseDialog(
     BuildContext context,
     AdminDashboardProvider provider,
@@ -117,45 +318,148 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
     String poolVersion = AppConstants.defaultPoolVersion,
   }) {
     final phraseCtrl = TextEditingController();
-    final title = AppConstants.enableMultiplePoolVersions
-        ? 'Add Phrase to $categoryName ($poolVersion)'
-        : 'Add Phrase to $categoryName';
 
     showDialog(
       context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          final detectedPhrases = StringUtils.parseBulkPhrases(phraseCtrl.text);
+          final theme = Theme.of(ctx);
+          final colorScheme = theme.colorScheme;
+
+          return AlertDialog(
+            title: Text('Paste Phrases to "$categoryName"'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Review Phrases:',
+                          style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (detectedPhrases.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '✨ ${detectedPhrases.length} phrases detected',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: phraseCtrl,
+                      minLines: 4,
+                      maxLines: 8,
+                      decoration: const InputDecoration(
+                        hintText: 'Paste all phrases at once (one per line, numbered list, or separated by semicolons)\n\ne.g.\n1. Friendly staff and fast service!\n2. Extremely polite and helpful team\n3. Quick turnaround and great support',
+                        helperText: 'System automatically parses and divides each phrase in real time.',
+                      ),
+                      onChanged: (_) => setDlgState(() {}),
+                    ),
+                    if (detectedPhrases.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        'Preview of Divided Phrases:',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: detectedPhrases.map((p) => Chip(
+                          label: Text('"$p"', style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: colorScheme.surfaceContainerHigh,
+                        )).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.icon(
+                icon: const Icon(Icons.playlist_add_check, size: 18),
+                onPressed: detectedPhrases.isEmpty
+                    ? null
+                    : () async {
+                        Navigator.of(ctx).pop();
+                        await provider.addPhrasesBulk(
+                          templateId: templateId,
+                          categoryName: categoryName,
+                          poolVersion: poolVersion,
+                          language: 'en',
+                          phrases: detectedPhrases,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Added ${detectedPhrases.length} phrase(s) to $categoryName!')),
+                          );
+                        }
+                      },
+                label: Text(detectedPhrases.length > 1
+                    ? 'Add ${detectedPhrases.length} Phrases'
+                    : 'Add Phrase'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Delete Category Confirmation Dialog ────────────────────────────────────
+  void _showDeleteCategoryDialog(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    String templateId,
+    String categoryName,
+  ) {
+    showDialog(
+      context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: phraseCtrl,
-          decoration: const InputDecoration(
-            labelText: 'New Phrase Variant',
-            hintText: 'e.g. Friendly staff and fast service!',
-          ),
-          maxLines: 2,
-        ),
+        title: Text('Delete "$categoryName"?'),
+        content: Text('Are you sure you want to remove the category "$categoryName" and all its phrase variants from this template?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () async {
-              if (phraseCtrl.text.trim().isEmpty) return;
               Navigator.of(ctx).pop();
-              await provider.addPhraseVariant(
+              await provider.deleteCategory(
                 templateId: templateId,
                 categoryName: categoryName,
-                poolVersion: poolVersion,
-                language: 'en',
-                phrase: phraseCtrl.text.trim(),
               );
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Phrase variant added successfully (takes effect immediately).')),
+                  SnackBar(content: Text('Category "$categoryName" removed.')),
                 );
               }
             },
-            child: const Text('Add Variant'),
+            child: const Text('Delete Category'),
           ),
         ],
       ),
@@ -191,102 +495,214 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
         [];
 
     final templateId = currentTemplate['id'] as String;
+    final businessType = currentTemplate['business_type'] as String? ?? 'Business';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
+    final Map<String, List<String>> cachedPhrases = {};
+    for (final cat in categoryNames) {
+      final list = provider.getCachedCategoryPhrases(templateId, cat);
+      if (list != null && list.isNotEmpty) {
+        cachedPhrases[cat] = list;
+      }
+    }
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWide = screenWidth >= 1150;
+
+    final editorSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Category Template Library (Doc 07 CRUD)',
+                    'Category Template Library',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Manage review phrase pools. Pure Firestore updates — zero code deployment needed.',
+                    'Manage review phrase pools. Live interactive visualizer previews customer flow.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Template Selector & Create Button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Select Industry Template: ',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 12),
-                  DropdownButton<String>(
-                    value: currentTemplate['id'] as String?,
-                    items: templates
-                        .map((t) => DropdownMenuItem<String>(
-                              value: t['id'] as String,
-                              child: Text('${t['business_type']} (${t['id']})'),
-                            ))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedTemplateId = val);
-                    },
-                  ),
-                ],
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _showCreateTemplateDialog(context, provider),
-                icon: const Icon(Icons.add),
-                label: const Text('Create New Template'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Categories & Lazy-Loaded Phrase Pools
-          if (categoryNames.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Center(
-                  child: Text(
-                    'No categories defined for this template yet.',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
+            ),
+            if (!isWide)
+              FilledButton.icon(
+                onPressed: () => _showLivePreviewModal(
+                  context,
+                  templateId,
+                  businessType,
+                  categoryNames,
+                  cachedPhrases,
+                ),
+                icon: const Icon(Icons.phone_iphone, size: 18),
+                label: const Text('Live Phone Preview'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
                 ),
               ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: categoryNames.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                final catName = categoryNames[index];
-                return _buildCategoryExpansionCard(
-                  context,
-                  provider,
-                  templateId,
-                  catName,
-                );
-              },
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // Template Selector & Action Buttons
+        Wrap(
+          spacing: 16,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Industry Template: ',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
+                DropdownButton<String>(
+                  value: currentTemplate['id'] as String?,
+                  items: templates
+                      .map((t) => DropdownMenuItem<String>(
+                            value: t['id'] as String,
+                            child: Text('${t['business_type']} (${t['id']})'),
+                          ))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedTemplateId = val);
+                  },
+                ),
+              ],
             ),
-        ],
-      ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: () => _showAddCategoryDialog(context, provider, templateId),
+                  icon: const Icon(Icons.add_circle_outline, size: 18),
+                  label: const Text('Add Category & Phrases'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _showCreateTemplateDialog(context, provider),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Create New Template'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // Categories & Lazy-Loaded Phrase Pools
+        if (categoryNames.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'No categories defined for this template yet.',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () => _showAddCategoryDialog(context, provider, templateId),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add First Category'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: categoryNames.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, index) {
+              final catName = categoryNames[index];
+              return _buildCategoryExpansionCard(
+                context,
+                provider,
+                templateId,
+                catName,
+              );
+            },
+          ),
+      ],
+    );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: isWide
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: editorSection),
+                const SizedBox(width: 32),
+                SizedBox(
+                  width: 380,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.phone_iphone, color: Color(0xFF4F46E5), size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Live Customer Preview',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.refresh, size: 18),
+                            tooltip: 'Reset Preview',
+                            onPressed: () => setState(() {}),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Interactive smartphone frame. Click tags or stars to test live review synthesis.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: CategoryTemplateLiveVisualizer(
+                          key: ValueKey('${templateId}_${cachedPhrases.length}'),
+                          templateId: templateId,
+                          businessType: businessType,
+                          categoryNames: categoryNames,
+                          cachedPhrases: cachedPhrases,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : editorSection,
     );
   }
 
@@ -335,6 +751,12 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
                 : 'Click to load & edit phrase pool',
             style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            color: colorScheme.error.withValues(alpha: 0.8),
+            tooltip: 'Delete Category',
+            onPressed: () => _showDeleteCategoryDialog(context, provider, templateId, catName),
+          ),
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -354,7 +776,7 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
                           color: colorScheme.primary,
                         ),
                       ),
-                      ElevatedButton.icon(
+                      FilledButton.icon(
                         onPressed: () => _showAddPhraseDialog(
                           context,
                           provider,
@@ -362,8 +784,8 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
                           catName,
                           poolVersion: version,
                         ),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add Phrase Variant'),
+                        icon: const Icon(Icons.content_paste_go_rounded, size: 16),
+                        label: const Text('Paste & Add Phrases'),
                       ),
                     ],
                   ),

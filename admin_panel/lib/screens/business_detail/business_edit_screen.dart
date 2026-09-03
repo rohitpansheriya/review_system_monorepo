@@ -39,6 +39,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/storage_service.dart';
+import '../../core/string_utils.dart';
 import '../enroll/branch_form_widget.dart';
 
 class BusinessEditScreen extends StatefulWidget {
@@ -87,6 +88,9 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
   // ── Save ─────────────────────────────────────────────────────────────────
   bool    _saving    = false;
   String? _saveError;
+  String? _ownerEmailError;
+  String? _brandNameError;
+  String? _ownerNameError;
 
   @override
   void initState() {
@@ -204,10 +208,15 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
 
   // ── Validation ────────────────────────────────────────────────────────────
 
+  static final RegExp _validIndianPhone = RegExp(r'^\+91[6-9]\d{9}$');
+
   String? get _validationError {
     if (_brandNameCtrl.text.trim().isEmpty) return 'Business name is required.';
     if (_ownerNameCtrl.text.trim().isEmpty) return 'Owner name is required.';
     if (_ownerEmailCtrl.text.trim().isEmpty) return 'Owner email is required.';
+    if (!_validIndianPhone.hasMatch(_ownerPhoneE164.trim())) {
+      return 'Owner phone must be a valid 10-digit Indian mobile (starts with 6–9).';
+    }
     if (_branchDrafts.isEmpty) return 'At least one branch is required.';
     final multiBranch = _branchDrafts.length > 1;
     for (int i = 0; i < _branchDrafts.length; i++) {
@@ -215,6 +224,9 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
       final label = multiBranch ? 'Branch ${i + 1}' : 'Branch';
       if (multiBranch && d.name.trim().isEmpty)     return '$label: branch name is required.';
       if (d.whatsappNumber.trim().isEmpty)          return '$label: WhatsApp number is required.';
+      if (!_validIndianPhone.hasMatch(d.whatsappNumber.trim())) {
+        return '$label: WhatsApp must be a valid 10-digit Indian mobile (starts with 6–9).';
+      }
       if (d.whatsappMonitoredBy.trim().isEmpty)     return '$label: "Monitored by" is required.';
       if (d.address.trim().isEmpty)                 return '$label: address is required.';
       if (!d.starRoutingComplete)                   return '$label: set routing for all 5 star ratings.';
@@ -224,41 +236,50 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
 
   // ── Bug 1: focus + scroll to first invalid field ─────────────────────────
 
-  void _focusFirstError(String? error) {
-    if (error == null) return;
-    FocusNode? target;
-    if (_brandNameCtrl.text.trim().isEmpty) {
-      target = _brandNameFocus;
-    } else if (_ownerNameCtrl.text.trim().isEmpty) {
-      target = _ownerNameFocus;
-    } else if (_ownerEmailCtrl.text.trim().isEmpty) {
-      target = _ownerEmailFocus;
-    }
-    if (target?.context != null) {
-      target!.requestFocus();
-      Scrollable.ensureVisible(
-        target.context!,
-        duration:  const Duration(milliseconds: 300),
-        curve:     Curves.easeInOut,
-        alignment: 0.25,
-      );
-    }
+  void _focusFirstError([String? specificError]) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FocusNode? target;
+      final errLower = (specificError ?? _validationError ?? '').toLowerCase();
+
+      if (errLower.contains('email') || _ownerEmailError != null || _ownerEmailCtrl.text.trim().isEmpty) {
+        target = _ownerEmailFocus;
+      } else if (errLower.contains('business name') || errLower.contains('brand') || _brandNameCtrl.text.trim().isEmpty) {
+        target = _brandNameFocus;
+      } else if (errLower.contains('owner name') || _ownerNameCtrl.text.trim().isEmpty) {
+        target = _ownerNameFocus;
+      }
+
+      if (target != null) {
+        target.requestFocus();
+        if (target.context != null) {
+          Scrollable.ensureVisible(
+            target.context!,
+            duration:  const Duration(milliseconds: 400),
+            curve:     Curves.easeInOutCubic,
+            alignment: 0.2,
+          );
+        }
+      }
+    });
   }
 
   // ── Save — Bug 2 (upload if staged) + Bug 3 (replaceLocal) ───────────────
 
   Future<void> _save() async {
-    setState(() { _showErrors = true; _saveError = null; });
+    if (_saving) return;
+
+    setState(() {
+      _saving = true;
+      _showErrors = true;
+      _saveError = null;
+      _ownerEmailError = null;
+    });
+
     final valErr = _validationError;
     if (valErr != null) {
+      setState(() => _saving = false);
       _focusFirstError(valErr); // Bug 1
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content:         Text(valErr),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior:        SnackBarBehavior.floating,
-        ));
-      }
       return;
     }
 
@@ -272,6 +293,7 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
         final exists = await svc.placeIdExistsForEdit(
             draft.placeId!, widget.business.id);
         if (exists && mounted) {
+          setState(() => _saving = false);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(
                 'Place ID "${draft.placeId}" is already registered to another business.'),
@@ -286,15 +308,16 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
     if (editEmail.isNotEmpty) {
       final emailExists = await svc.ownerEmailExistsForEdit(editEmail, widget.business.id);
       if (emailExists && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Owner email "$editEmail" is already registered to another business.'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ));
+        setState(() {
+          _saving = false;
+          _ownerEmailError = 'Owner email "$editEmail" is already registered to another business.';
+          _showErrors = true;
+        });
+        _focusFirstError(_ownerEmailError);
         return;
       }
     }
 
-    setState(() => _saving = true);
     try {
       // Bug 2: upload staged logo bytes if the user picked a new logo
       String finalLogoUrl = _logoUrl;
@@ -304,14 +327,17 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
         if (mounted) setState(() { _logoUrl = finalLogoUrl; _logoUploading = false; });
       }
 
+      final cleanBrandName = StringUtils.toTitleCase(_brandNameCtrl.text.trim());
+      final cleanOwnerName = StringUtils.toTitleCase(_ownerNameCtrl.text.trim());
+
       // 1 — Update business-level fields
       await svc.updateBusiness(
         widget.business.id,
-        brandName:    _brandNameCtrl.text.trim(),
+        brandName:    cleanBrandName,
         logoUrl:      finalLogoUrl,
         categoryType: _selectedCategoryType.trim(),
         templateId:   _selectedTemplateId,
-        ownerName:    _ownerNameCtrl.text.trim(),
+        ownerName:    cleanOwnerName,
         ownerEmail:   _ownerEmailCtrl.text.trim(),
         ownerPhone:   _ownerPhoneE164.trim(),
       );
@@ -319,17 +345,21 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
       // 2 — Update existing branches OR insert newly added branches
       for (int i = 0; i < _branchDrafts.length; i++) {
         final draft = _branchDrafts[i];
+        final cleanBranchName = StringUtils.toTitleCase(draft.name.trim());
+        final cleanMonitor = StringUtils.toTitleCase(draft.whatsappMonitoredBy.trim());
+        draft.name = cleanBranchName;
+        draft.whatsappMonitoredBy = cleanMonitor;
+
         if (i < _branchIds.length) {
           await svc.updateBranch(
             widget.business.id,
             _branchIds[i],
-            branchName:          draft.name.trim(),
+            branchName:          cleanBranchName,
             address:             draft.address.trim(),
             whatsappNumber:      draft.whatsappNumber.trim(),
-            whatsappMonitoredBy: draft.whatsappMonitoredBy.trim(),
+            whatsappMonitoredBy: cleanMonitor,
             placeId:             draft.placeId,
             googleReviewLink:    draft.googleReviewLink,
-            starRoutingConfig:   draft.starRoutingAsMap,
             categoryOverrideId:  null,
           );
         } else {
@@ -386,7 +416,7 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
         actions: [
           if (!_saving)
             TextButton.icon(
-              onPressed: _save,
+              onPressed: _saving ? null : _save,
               icon:  const Icon(Icons.save_outlined),
               label: const Text('Save'),
             )
@@ -436,6 +466,7 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                   TextFormField(
                     controller: _brandNameCtrl,
                     focusNode:  _brandNameFocus,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
                       labelText:  'Business / Brand name *',
                       prefixIcon: Icon(Icons.storefront_outlined),
@@ -498,26 +529,34 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                   TextFormField(
                     controller: _ownerNameCtrl,
                     focusNode:  _ownerNameFocus,
-                    decoration: const InputDecoration(labelText: 'Owner name *'),
-                    validator:  (v) =>
-                        v == null || v.trim().isEmpty ? 'Required' : null,
-                    onChanged:  (_) => setState(() {}),
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: 'Owner name *',
+                      prefixIcon: const Icon(Icons.person_outline),
+                      errorText: _ownerNameError ?? (_showErrors && _ownerNameCtrl.text.trim().isEmpty ? 'Owner name is required.' : null),
+                    ),
+                    onChanged: (v) {
+                      if (_ownerNameError != null) setState(() => _ownerNameError = null);
+                      setState(() {});
+                    },
                   ),
-                  if (_showErrors && _ownerNameCtrl.text.trim().isEmpty)
-                    _FieldError('Owner name is required.'),
                   const SizedBox(height: 12),
 
                   TextFormField(
                     controller:   _ownerEmailCtrl,
                     focusNode:    _ownerEmailFocus,
-                    decoration:   const InputDecoration(labelText: 'Owner email *'),
+                    decoration:   InputDecoration(
+                      labelText: 'Owner email *',
+                      prefixIcon: const Icon(Icons.mail_outline),
+                      errorText: _ownerEmailError ?? (_showErrors && _ownerEmailCtrl.text.trim().isEmpty ? 'Owner email is required.' : null),
+                      errorMaxLines: 3,
+                    ),
                     keyboardType: TextInputType.emailAddress,
-                    validator:    (v) =>
-                        v == null || v.trim().isEmpty ? 'Required' : null,
-                    onChanged:    (_) => setState(() {}),
+                    onChanged: (v) {
+                      if (_ownerEmailError != null) setState(() => _ownerEmailError = null);
+                      setState(() {});
+                    },
                   ),
-                  if (_showErrors && _ownerEmailCtrl.text.trim().isEmpty)
-                    _FieldError('Owner email is required.'),
                   const SizedBox(height: 12),
 
                   PhoneField(

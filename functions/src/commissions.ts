@@ -21,12 +21,66 @@ import * as logger from "firebase-functions/logger";
 import {getFirestore, Timestamp, FieldValue} from "firebase-admin/firestore";
 import {buildQrForBranch, buildPlainQrForBranch} from "./qrGenerator.js";
 import {provisionOwnerAccount} from "./razorpay.js";
+import {brevoApiKey} from "./secrets.js";
 
 /**
  * Configurable per-activation commission amount (₹).
  * Change this single value to adjust employee commission across the platform.
  */
 const EMPLOYEE_COMMISSION_AMOUNT = 250;
+
+/**
+ * Assigns a sequential business code atomically.
+ * Real active businesses: APT-01001, APT-01002, ... (starting at 1001)
+ * Test accounts: TEST-00001, TEST-00002, ... (starting at 1)
+ */
+export async function assignBusinessCode(
+  db: FirebaseFirestore.Firestore,
+  bizRef: FirebaseFirestore.DocumentReference,
+  isTestAccount: boolean
+): Promise<string> {
+  const counterDocRef = db.collection("counters").doc(
+    isTestAccount ? "test_business_counter" : "business_counter"
+  );
+  const prefix = isTestAccount ? "TEST-" : "APT-";
+  const initialNumber = isTestAccount ? 1 : 1001;
+
+  let assignedCode = "";
+
+  await db.runTransaction(async (t) => {
+    const counterSnap = await t.get(counterDocRef);
+    let nextNum = initialNumber;
+    if (counterSnap.exists) {
+      const data = counterSnap.data();
+      const current = data?.last_number;
+      if (typeof current === "number" && current >= (isTestAccount ? 1 : 1000)) {
+        nextNum = current + 1;
+      }
+    }
+
+    t.set(
+      counterDocRef,
+      {last_number: nextNum, updated_at: Timestamp.now()},
+      {merge: true}
+    );
+
+    const padded = String(nextNum).padStart(5, "0");
+    assignedCode = `${prefix}${padded}`;
+
+    t.update(bizRef, {
+      business_code: assignedCode,
+      business_number: nextNum,
+    });
+  });
+
+  logger.info("assignBusinessCode: assigned code", {
+    businessId: bizRef.id,
+    assignedCode,
+    isTestAccount,
+  });
+
+  return assignedCode;
+}
 
 // ---------------------------------------------------------------------------
 // confirmCashPaymentAdmin — onCall (Build A: Payment)
@@ -50,6 +104,7 @@ const EMPLOYEE_COMMISSION_AMOUNT = 250;
  */
 export const confirmCashPaymentAdmin = onCall(
   {
+    secrets: [brevoApiKey],
     region: "asia-south1",
   },
   async (request) => {
@@ -85,7 +140,6 @@ export const confirmCashPaymentAdmin = onCall(
 
     const bizData = bizSnap.data() as Record<string, unknown>;
     const currentStatus = bizData.subscription_status as string | undefined;
-    const paymentMode = bizData.payment_mode as string | undefined;
 
     if (currentStatus !== "pending_payment") {
       throw new HttpsError(
@@ -94,30 +148,32 @@ export const confirmCashPaymentAdmin = onCall(
       );
     }
 
-    if (paymentMode && paymentMode !== "cash") {
-      throw new HttpsError(
-        "failed-precondition",
-        `Business payment_mode is '${paymentMode}', not 'cash'. Use Razorpay for online payments.`
-      );
-    }
-
     const now = Timestamp.now();
     const renewalDate = new Date();
     renewalDate.setDate(renewalDate.getDate() + 365);
+
+    const branchesSnap = await bizRef.collection("branches").get();
+    const branchCount = branchesSnap.size || 1;
+    const totalCashAmount = branchCount * 1999;
 
     const updateData: Record<string, unknown> = {
       subscription_status: "active",
       renewal_date: Timestamp.fromDate(renewalDate),
       payment_mode: "cash",
+      setup_fee_paid: totalCashAmount,
+      amount_paid: totalCashAmount,
       cash_payment_confirmed_at: now,
       cash_confirmed_by_admin: request.auth.uid,
+      has_grace_branches: false,
+      has_inactive_branches: false,
+      active_branches_count: branchCount,
+      total_branches_count: branchCount,
     };
 
     if (notes) {
       updateData.cash_confirm_notes = notes;
     }
 
-    const branchesSnap = await bizRef.collection("branches").get();
     const batch = db.batch();
     batch.update(bizRef, updateData);
 
@@ -125,6 +181,8 @@ export const confirmCashPaymentAdmin = onCall(
       batch.update(branchDoc.ref, {
         subscription_status: "active",
         payment_mode: "cash",
+        setup_fee_paid: 1999,
+        amount_paid: 1999,
         cash_payment_confirmed_at: now,
         cash_confirmed_by_admin: request.auth.uid,
         activated_at: now,
@@ -134,21 +192,6 @@ export const confirmCashPaymentAdmin = onCall(
     }
 
     await batch.commit();
-
-    // Provision owner Firebase Auth account
-    const ownerEmail = bizData.owner_email as string | undefined;
-    const ownerName = bizData.owner_name as string | undefined;
-    if (ownerEmail && !bizData.owner_auth_uid) {
-      try {
-        await provisionOwnerAccount(db, businessId, ownerEmail, ownerName);
-      } catch (provErr) {
-        logger.error("confirmCashPaymentAdmin: provisionOwnerAccount error", {
-          businessId,
-          ownerEmail,
-          provErr,
-        });
-      }
-    }
 
     logger.info("confirmCashPaymentAdmin: business and branches activated via cash", {
       businessId,
@@ -179,6 +222,7 @@ export const confirmCashPaymentAdmin = onCall(
  */
 export const adminCashActivateBranch = onCall(
   {
+    secrets: [brevoApiKey],
     region: "asia-south1",
   },
   async (request) => {
@@ -230,6 +274,8 @@ export const adminCashActivateBranch = onCall(
     const updateData: Record<string, unknown> = {
       subscription_status: "active",
       payment_mode: "cash",
+      setup_fee_paid: 1999,
+      amount_paid: 1999,
       cash_payment_confirmed_at: now,
       cash_confirmed_by_admin: request.auth.uid,
       activated_at: now,
@@ -251,8 +297,14 @@ export const adminCashActivateBranch = onCall(
         subscription_status: "active",
         renewal_date: Timestamp.fromDate(renewalDate),
         payment_mode: "cash",
+        setup_fee_paid: 1999,
+        amount_paid: 1999,
         cash_payment_confirmed_at: now,
         cash_confirmed_by_admin: request.auth.uid,
+      });
+    } else {
+      await bizRef.update({
+        amount_paid: FieldValue.increment(1999),
       });
     }
 
@@ -330,6 +382,9 @@ export const onBusinessActivated = onDocumentUpdated(
   {
     document: "businesses/{businessId}",
     region: "asia-south1",
+    memory: "512MiB",
+    timeoutSeconds: 120,
+    secrets: [brevoApiKey],
   },
   async (event) => {
     const beforeData = event.data?.before.data();
@@ -395,6 +450,58 @@ export const onBusinessActivated = onDocumentUpdated(
       logger.error("onBusinessActivated: failed to read branches for QR", {
         businessId, err,
       });
+    }
+
+    // ── Sequential Business Code Assignment (Solution 1 + 2) ──
+    let businessCode = afterData.business_code as string | undefined;
+    const isTestAccount = afterData.is_test_account === true;
+    if (!businessCode) {
+      try {
+        businessCode = await assignBusinessCode(
+          db,
+          db.collection("businesses").doc(businessId),
+          isTestAccount
+        );
+      } catch (codeErr) {
+        logger.error("onBusinessActivated: failed to assign business code", {
+          businessId,
+          err: codeErr,
+        });
+      }
+    }
+
+    // ── Owner Account Provisioning & Welcome Email ──
+    // Runs for ALL activations (admin-enrolled and employee-enrolled)
+    const ownerEmail = afterData.owner_email as string | undefined;
+    const ownerName = afterData.owner_name as string | undefined;
+    const brandName = afterData.brand_name as string | undefined;
+    const paymentMode = (afterData.payment_mode === "cash" ? "cash" : "online") as "online" | "cash";
+    const paymentRef = (afterData.last_payment_id || afterData.razorpay_payment_id) as string | undefined;
+    if (ownerEmail && ownerEmail.trim().length > 0) {
+      try {
+        await provisionOwnerAccount(
+          db,
+          businessId,
+          ownerEmail.trim(),
+          ownerName,
+          brandName,
+          paymentMode,
+          paymentRef,
+          1999,
+          businessCode
+        );
+        logger.info("onBusinessActivated: owner provisioned & welcome email sent", {
+          businessId,
+          ownerEmail,
+          businessCode,
+        });
+      } catch (provisionErr) {
+        logger.error("onBusinessActivated: failed to provision owner", {
+          businessId,
+          ownerEmail,
+          err: provisionErr,
+        });
+      }
     }
 
     // Admin-enrolled businesses generate NO employee commission
@@ -501,8 +608,8 @@ export const onBranchActivated = onDocumentUpdated(
     const beforeStatus = beforeData.subscription_status as string | undefined;
     const afterStatus = afterData.subscription_status as string | undefined;
 
-    // Only trigger on pending_payment → active transition
-    if (beforeStatus !== "pending_payment" || afterStatus !== "active") return;
+    // Only trigger on transition from non-active → active
+    if (beforeStatus === "active" || afterStatus !== "active") return;
 
     const {businessId, branchId} = event.params;
     const db = getFirestore();

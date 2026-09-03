@@ -86,7 +86,7 @@ export const brevoApiKey = defineSecret("BREVO_API_KEY");
  */
 export const brevoSenderEmail = defineString(
   "BREVO_SENDER_EMAIL",
-  {default: ""}
+  {default: "noreply@appnexa.co.in"}
 );
 
 /**
@@ -95,7 +95,7 @@ export const brevoSenderEmail = defineString(
  */
 export const adminEmail = defineString(
   "ADMIN_EMAIL",
-  {default: ""}
+  {default: "support@appnexa.co.in"}
 );
 
 // ─── Domain ──────────────────────────────────────────────────────────
@@ -108,5 +108,5 @@ export const adminEmail = defineString(
  * This is NOT a secret — it is a plain string param.
  */
 export const reviewDomain = defineString("REVIEW_DOMAIN", {
-  default: "review-system-prod-49b7a.web.app",
+  default: "appnexa.co.in",
 });

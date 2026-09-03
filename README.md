@@ -141,3 +141,18 @@ firebase deploy --only firestore:indexes
 cd functions && npm install
 firebase deploy --only functions
 ```
+
+---
+
+## 🔒 Secret Management & Security Guidelines
+
+1. **Zero Hardcoded Secrets**:
+   - Production secrets (`RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `BREVO_API_KEY`, `PLACE_API_KEY`) are managed strictly through **Google Cloud Secret Manager** via Firebase Functions (`defineSecret()`).
+   - Plain configuration parameters (`REVIEW_DOMAIN`, `RAZORPAY_PLAN_ID`, `BREVO_SENDER_EMAIL`) are managed via `defineString()`.
+2. **Client-Side vs Server-Side Separation**:
+   - Only public-safe credentials (Firebase Web Client Config) are exposed to browsers via `window.__FIREBASE_CONFIG__`.
+   - Razorpay Key Secrets, Service Account private keys, and Brevo API keys are strictly forbidden from appearing in client-side bundles.
+3. **Git History & Rotation Policy**:
+   - `.env`, `.env.local`, `serviceAccountKey.json`, and `*firebase-adminsdk*.json` are permanently `.gitignore`d.
+   - ⚠️ **Mandatory Secret Rotation**: If any real production API key, secret, or service account credential was ever committed or shared outside Secret Manager, rotate it immediately in the respective vendor dashboard (Razorpay, Brevo, Google Cloud Console).
+

@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../models/employee_commission_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/commission_provider.dart';
+import '../../widgets/app_animated_loader.dart';
 
 class CommissionScreen extends StatefulWidget {
   const CommissionScreen({super.key});
@@ -42,7 +43,11 @@ class _CommissionScreenState extends State<CommissionScreen> {
       ),
 
       body: provider.loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: AppAnimatedLoader.card(
+                message: 'Loading commissions…',
+              ),
+            )
           : Column(
               children: [
                 // ── Summary Cards ──────────────────────────────────────

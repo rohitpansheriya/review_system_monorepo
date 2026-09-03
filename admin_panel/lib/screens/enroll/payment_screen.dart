@@ -20,6 +20,9 @@
 // IMPORTANT: This screen NEVER writes subscription_status directly.
 // Activation paths: admin cash activate (via service) OR Razorpay webhook.
 
+import 'dart:async';
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
+import 'dart:html' as html;
 // ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:js' as js;
 
@@ -29,14 +32,12 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_config.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
-
-/// Razorpay checkout key — placeholder. Replace with real key before production.
-const String _rzpKeyId = 'rzp_test_PLACEHOLDER';
 
 class PaymentScreen extends StatefulWidget {
   final String businessId;
@@ -62,6 +63,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _loading = true;
   String _brandName = '';
   String _ownerName  = '';
+  String _ownerPhone = '';
   String _branchName = '';
   String _branchAddress = '';
   int _branchCount = 1;
@@ -93,6 +95,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final bizData = bizDoc.data();
       _brandName = bizData?['brand_name'] as String? ?? '—';
       _ownerName = bizData?['owner_name'] as String? ?? '—';
+      _ownerPhone = bizData?['owner_phone'] as String? ?? '';
 
       if (isBranchPayment) {
         _branchCount = 1;
@@ -126,6 +129,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ── Razorpay checkout (Dart → JS interop) ───────────────────────────────────
   Future<void> _launchRazorpay() async {
+    if (_paying || _cashActivating || _sharingLink) return;
     setState(() { _paying = true; _payError = null; });
 
     if (!js.context.hasProperty('Razorpay')) {
@@ -168,20 +172,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       final notesMap = <String, dynamic>{
         'business_id': bizId,
+        'businessId': bizId,
         'enrolled_by': empId,
         'branch_count': _branchCount,
       };
 
       if (isBranchPayment) {
         notesMap['branch_id'] = widget.branchId!;
+        notesMap['branchId'] = widget.branchId!;
         notesMap['type'] = 'branch_setup_fee';
       }
 
       final options = js.JsObject.jsify({
-        'key':         _rzpKeyId,
+        'key':         AppConfig.razorpayKeyId,
         'amount':      setupFeePaise,
         'currency':    'INR',
-        'name':        'Review System',
+        'name':        'Appnexa Technologies',
         'description': isBranchPayment
             ? 'Branch setup fee — $_branchName ($_brandName)'
             : (_branchCount > 1
@@ -208,6 +214,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ── Admin Cash Activate (Admin only) ───────────────────────────────────────
   Future<void> _adminCashActivate() async {
+    if (_cashActivating || _paying || _sharingLink) return;
     setState(() { _cashActivating = true; _payError = null; });
 
     final auth = context.read<AppAuthProvider>();
@@ -260,8 +267,69 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  // ── Instant WhatsApp Share of Payment Link ──────────────────────────────
+  Future<void> _sendWhatsAppPaymentLink() async {
+    if (_sharingLink || _paying || _cashActivating) return;
+    setState(() {
+      _sharingLink = true;
+      _payError = null;
+    });
+
+    try {
+      String? url = _shortUrl;
+      if (url == null) {
+        final svc = context.read<FirestoreService>();
+        final Map<String, dynamic> res;
+        if (isBranchPayment) {
+          res = await svc.resendBranchPaymentLink(
+            businessId: widget.businessId,
+            branchId: widget.branchId!,
+          );
+        } else {
+          res = await svc.resendPaymentLink(widget.businessId);
+        }
+        url = res['shortUrl'] as String?;
+        if (mounted && url != null) {
+          setState(() => _shortUrl = url);
+        }
+      }
+
+      if (url != null) {
+        await Clipboard.setData(ClipboardData(text: url));
+        final ownerGreeting = _ownerName.isNotEmpty && _ownerName != '—' ? _ownerName : 'there';
+        final targetBiz = _brandName.isNotEmpty && _brandName != '—' ? _brandName : 'your business';
+        final msg = 'Hello $ownerGreeting, here is the secure link to activate your AppNexa Smart Standee for $targetBiz: $url';
+        
+        // Clean phone number for wa.me URL
+        String cleanPhone = _ownerPhone.replaceAll(RegExp(r'[^0-9]'), '');
+        if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+        if (cleanPhone.length == 10) cleanPhone = '91$cleanPhone';
+
+        final waUrl = cleanPhone.isNotEmpty
+            ? 'https://wa.me/$cleanPhone?text=${Uri.encodeComponent(msg)}'
+            : 'https://wa.me/?text=${Uri.encodeComponent(msg)}';
+
+        html.window.open(waUrl, '_blank');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Opening WhatsApp with pre-formatted payment message!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _payError = 'Failed to generate link: $e');
+    } finally {
+      if (mounted) setState(() => _sharingLink = false);
+    }
+  }
+
   // ── Generate / Share Payment Link ──────────────────────────────────────────
   Future<void> _sharePaymentLink() async {
+    if (_sharingLink || _paying || _cashActivating) return;
     setState(() {
       _sharingLink = true;
       _payError = null;
@@ -302,12 +370,36 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  // ── Defer ────────────────────────────────────────────────────────────────────
-  void _defer() {
-    if (isBranchPayment) {
-      context.go('/business/${widget.businessId}');
-    } else {
-      context.go(_homeRoute(context));
+  // ── Defer (Owner will pay online later) ──────────────────────────────────────
+  Future<void> _defer() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    try {
+      final svc = context.read<FirestoreService>();
+      if (isBranchPayment) {
+        await svc.resendBranchPaymentLink(
+          businessId: widget.businessId,
+          branchId: widget.branchId!,
+        );
+      } else {
+        await svc.resendPaymentLink(widget.businessId);
+      }
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('✉️ Payment link email sent to the owner!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      // Non-blocking fallback
+    }
+
+    if (mounted) {
+      if (isBranchPayment) {
+        context.go('/business/${widget.businessId}');
+      } else {
+        context.go(_homeRoute(context));
+      }
     }
   }
 
@@ -510,6 +602,31 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       const SizedBox(height: 12),
                     ],
 
+                    // ── WhatsApp Share Payment Link CTA ──────────────────────────────
+                    FilledButton.icon(
+                      onPressed: (_paying || _cashActivating || _sharingLink)
+                          ? null
+                          : _sendWhatsAppPaymentLink,
+                      icon: _sharingLink
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.chat_bubble_outline, size: 20),
+                      label: const Text('Send Payment Link on WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(52),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
                     // ── Primary CTA: Online payment ───────────────────────────
                     ElevatedButton.icon(
                       onPressed: (_paying || _cashActivating || _sharingLink)
@@ -523,7 +640,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   color: cs.onPrimary))
                           : const Icon(Icons.payments_outlined),
                       label: Text(
-                          _paying ? 'Opening checkout…' : 'Online Payment (Razorpay ₹$setupFeeRupees)'),
+                          _paying ? 'Opening checkout…' : 'Pay Online via Razorpay (₹$setupFeeRupees)'),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(52),
                       ),
@@ -531,19 +648,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     const SizedBox(height: 12),
 
-                    // ── Share Payment Link CTA ───────────────────────────────
+                    // ── Copy Payment Link CTA ─────────────────────────────────
                     OutlinedButton.icon(
                       onPressed: (_paying || _cashActivating || _sharingLink)
                           ? null
                           : _sharePaymentLink,
-                      icon: _sharingLink
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.share_outlined),
-                      label: const Text('Send / Copy Online Payment Link'),
+                      icon: const Icon(Icons.copy_outlined, size: 18),
+                      label: const Text('Copy Payment Link to Clipboard'),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                       ),

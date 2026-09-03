@@ -146,7 +146,12 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
       routes: [
         GoRoute(path: '/login',      builder: (_, __) => const LoginScreen()),
         GoRoute(path: '/businesses', builder: (_, __) => const MyBusinessesScreen()),
-        GoRoute(path: '/owner',      builder: (_, __) => const OwnerDashboardScreen()),
+        GoRoute(
+          path: '/owner',
+          builder: (_, state) => OwnerDashboardScreen(
+            initialTab: state.uri.queryParameters['tab'],
+          ),
+        ),
         GoRoute(path: '/enroll',     builder: (_, __) => const EnrollScreen()),
         GoRoute(path: '/commission', builder: (_, __) => const CommissionScreen()),
         GoRoute(path: '/profile',    builder: (_, __) => const ProfileScreen()),
@@ -193,7 +198,12 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
         ),
 
         // ── Admin Dashboard (Doc 04 Admin Panel) ───────────────────────────
-        GoRoute(path: '/admin', builder: (_, __) => const AdminDashboardScreen()),
+        GoRoute(
+          path: '/admin',
+          builder: (_, state) => AdminDashboardScreen(
+            initialTab: state.uri.queryParameters['tab'],
+          ),
+        ),
       ],
 
       errorBuilder: (_, state) => Scaffold(

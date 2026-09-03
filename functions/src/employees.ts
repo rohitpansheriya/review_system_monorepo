@@ -141,7 +141,7 @@ export const offboardEmployee = onCall(
 
     const db = getFirestore();
 
-    // 1. Update employee doc status to "inactive"
+    // 1. Update employee doc status to "inactive" and active = false
     const empRef = db.collection("employees").doc(employeeUid);
     const empSnap = await empRef.get();
 
@@ -150,51 +150,36 @@ export const offboardEmployee = onCall(
     }
 
     await empRef.update({
+      active: false,
       status: "inactive",
       offboarded_at: Timestamp.now(),
       offboarded_by: request.auth.uid,
     });
 
-    // 2. Bulk update all businesses currently managed by this employee
-    //    sets currently_managed_by = "admin", keeps enrolled_by_original intact
-    const bizSnap = await db
-      .collection("businesses")
-      .where("currently_managed_by", "==", employeeUid)
-      .get();
-
-    const batchSize = 400;
-    let batch = db.batch();
-    let count = 0;
-    let totalUpdated = 0;
-
-    for (const doc of bizSnap.docs) {
-      batch.update(doc.ref, {
-        currently_managed_by: "admin",
+    // 2. Disable Firebase Auth account so employee can no longer log in
+    try {
+      const auth = getAuth();
+      await auth.updateUser(employeeUid, {disabled: true});
+      await auth.revokeRefreshTokens(employeeUid);
+      logger.info("offboardEmployee: employee Auth account disabled", {employeeUid});
+    } catch (authErr) {
+      logger.warn("offboardEmployee: could not disable Auth account (may be test UID or non-existent in Auth)", {
+        employeeUid,
+        authErr,
       });
-      count++;
-      totalUpdated++;
-
-      if (count >= batchSize) {
-        await batch.commit();
-        batch = db.batch();
-        count = 0;
-      }
     }
 
-    if (count > 0) {
-      await batch.commit();
-    }
-
-    logger.info("offboardEmployee: completed bulk update", {
+    // 3. Enrolled businesses remain intact with enrolled_by = employeeUid.
+    // Admin manages all businesses directly via All-Businesses screen.
+    // No employee-to-employee reassignment is performed, and historical commission records are preserved.
+    logger.info("offboardEmployee: employee deactivated successfully", {
       employeeUid,
-      businessesReassignedToAdmin: totalUpdated,
       adminUid: request.auth.uid,
     });
 
     return {
       success: true,
       employeeUid,
-      businessesReassignedToAdmin: totalUpdated,
     };
   }
 );

@@ -29,10 +29,79 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>admin_panel</title>
+  <title>AppNexa Workspace</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0F172A;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #F8FAFC;
+    }
+    .splash-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+    .spinner-ring {
+      position: relative;
+      width: 64px;
+      height: 64px;
+    }
+    .spinner-ring::before, .spinner-ring::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+    }
+    .spinner-ring::before {
+      inset: 0;
+      border: 3px solid transparent;
+      border-top-color: #4F46E5;
+      border-right-color: #06B6D4;
+      animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+    }
+    .spinner-ring::after {
+      inset: 8px;
+      border: 2.5px solid transparent;
+      border-bottom-color: #A855F7;
+      border-left-color: #3B82F6;
+      animation: spin-reverse 1.6s linear infinite;
+    }
+    .splash-title {
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      color: #94A3B8;
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes spin-reverse {
+      100% { transform: rotate(-360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+  </style>
 </head>
 <body>
+  <div class="splash-container">
+    <div class="spinner-ring"></div>
+    <div class="splash-title">Loading AppNexa…</div>
+  </div>
+
+  <!-- Injected Runtime Configuration -->
+  <script src="firebase-config.js"></script>
+
   <!-- Razorpay checkout — must load before Flutter bootstrap so dart:js can access window.Razorpay -->
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script src="flutter_bootstrap.js" async></script>

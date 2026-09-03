@@ -48,59 +48,99 @@ class PhoneField extends StatefulWidget {
   State<PhoneField> createState() => _PhoneFieldState();
 }
 
+class IndianPhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('91') && digits.length > 10) {
+      digits = digits.substring(2);
+    } else if (digits.startsWith('0') && digits.length > 10) {
+      digits = digits.substring(1);
+    }
+    if (digits.length > 10) {
+      digits = digits.substring(0, 10);
+    }
+    return TextEditingValue(
+      text: digits,
+      selection: TextSelection.collapsed(offset: digits.length),
+    );
+  }
+}
+
 class _PhoneFieldState extends State<PhoneField> {
   late final TextEditingController _ctrl;
+  late final FocusNode _focusNode;
   String? _validationError;
 
   static const String _prefix = '+91';
   static final RegExp _validDigits = RegExp(r'^[6-9]\d{9}$');
 
+  static String _cleanDigits(String raw) {
+    var digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('91') && digits.length > 10) {
+      digits = digits.substring(2);
+    } else if (digits.startsWith('0') && digits.length > 10) {
+      digits = digits.substring(1);
+    }
+    if (digits.length > 10) {
+      digits = digits.substring(0, 10);
+    }
+    return digits;
+  }
+
   @override
   void initState() {
     super.initState();
-    // Strip "+91" prefix from initial value for display
-    final raw = widget.initialValue;
-    final display = raw.startsWith(_prefix)
-        ? raw.substring(_prefix.length)
-        : raw;
-    _ctrl = TextEditingController(text: display);
+    _focusNode = FocusNode();
+    final clean = _cleanDigits(widget.initialValue);
+    _ctrl = TextEditingController(text: clean);
+
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus) {
+        final current = _cleanDigits(_ctrl.text);
+        if (_ctrl.text != current) {
+          _ctrl.text = current;
+        }
+        _onInputChanged(current);
+      }
+    });
   }
 
   @override
   void didUpdateWidget(covariant PhoneField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // GROUP B1: When parent provides a new initialValue (e.g. "Same as Owner"
-    // button), update the internal controller so the field actually shows it.
     if (widget.initialValue != oldWidget.initialValue) {
-      final raw = widget.initialValue;
-      final display = raw.startsWith(_prefix)
-          ? raw.substring(_prefix.length)
-          : raw;
-      if (_ctrl.text != display) {
-        _ctrl.text = display;
-        // Re-validate the new value
-        _onInputChanged(display);
+      final clean = _cleanDigits(widget.initialValue);
+      if (_ctrl.text != clean) {
+        _ctrl.text = clean;
+        _onInputChanged(clean);
       }
     }
   }
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _ctrl.dispose();
     super.dispose();
   }
 
   void _onInputChanged(String digits) {
-    final clean = digits.trim();
+    final clean = _cleanDigits(digits);
     String? err;
     if (clean.isEmpty) {
-      err = null; // empty handled by showError path below
+      err = null;
+    } else if (clean.length < 10) {
+      err = 'Phone number must be 10 digits (${clean.length}/10)';
     } else if (!_validDigits.hasMatch(clean)) {
       err = 'Enter a valid 10-digit number starting with 6–9';
     }
     setState(() => _validationError = err);
-    // Always emit E.164 — even if partially typed — so provider state stays live
-    widget.onChanged(_prefix + clean);
+    // Emit E.164 (+91XXXXXXXXXX) when present, or empty string when blank
+    widget.onChanged(clean.isEmpty ? '' : _prefix + clean);
   }
 
   String? get _errorText {
@@ -154,9 +194,10 @@ class _PhoneFieldState extends State<PhoneField> {
             Expanded(
               child: TextFormField(
                 controller: _ctrl,
+                focusNode: _focusNode,
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [IndianPhoneNumberFormatter()],
                 onChanged: _onInputChanged,
                 decoration: InputDecoration(
                   labelText: widget.label,

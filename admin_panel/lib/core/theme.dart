@@ -370,6 +370,7 @@ class AppTheme {
       case 'active':          return AppColors.activeBg;
       case 'due_soon':        return AppColors.dueSoonBg;
       case 'grace_period':    return AppColors.graceBg;
+      case 'suspended':       return const Color(0xFFFEE2E2);
       case 'deleted':         return AppColors.deletedBg;
       case 'pending_payment': return AppColors.pendingBg;
       default:                return AppColors.deletedBg;
@@ -382,6 +383,7 @@ class AppTheme {
       case 'active':          return AppColors.activeFg;
       case 'due_soon':        return AppColors.dueSoonFg;
       case 'grace_period':    return AppColors.graceFg;
+      case 'suspended':       return const Color(0xFFDC2626);
       case 'deleted':         return AppColors.deletedFg;
       case 'pending_payment': return AppColors.pendingFg;
       default:                return AppColors.deletedFg;
@@ -393,6 +395,7 @@ class AppTheme {
       case 'active':          return 'Active';
       case 'due_soon':        return 'Renewal due soon';
       case 'grace_period':    return 'Grace period';
+      case 'suspended':       return 'Suspended';
       case 'deleted':         return 'Deleted';
       case 'pending_payment': return 'Awaiting payment';
       default:                return status;

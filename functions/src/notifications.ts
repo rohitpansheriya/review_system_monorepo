@@ -93,12 +93,15 @@ interface WriteNotificationData {
 }
 
 /** Options for sendPaymentLinkEmail (Change 3 — resend payment link). */
-interface SendPaymentLinkEmailOpts {
+export interface SendPaymentLinkEmailOpts {
   ownerEmail: string;
   ownerName: string;
   brandName: string;
   paymentLinkUrl: string;
   businessId: string;
+  amount?: number;
+  branchNames?: string[];
+  branches?: Array<{name: string; address?: string}>;
 }
 
 // ---------------------------------------------------------------------------
@@ -976,6 +979,7 @@ export interface SendOwnerWelcomeEmailOpts {
   amount?: number;
   paymentMode?: "online" | "cash";
   paymentReference?: string;
+  branches?: Array<{name: string; address?: string; amount?: number}>;
 }
 
 /**
@@ -991,6 +995,8 @@ export async function sendOwnerWelcomeEmail(
   const {ownerEmail, ownerName, brandName, setupPasswordLink, businessId, businessCode} = opts;
   const amount = opts.amount || 1999;
   const paymentMode = opts.paymentMode || "online";
+  const branches = opts.branches || [];
+  const branchCount = branches.length;
 
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-IN", {
@@ -1012,6 +1018,7 @@ export async function sendOwnerWelcomeEmail(
       amount,
       paymentMode,
       paymentReference: opts.paymentReference,
+      branches: branches.length > 0 ? branches : undefined,
     });
     pdfBase64 = pdfBuffer.toString("base64");
   } catch (pdfErr) {
@@ -1027,12 +1034,21 @@ export async function sendOwnerWelcomeEmail(
     ] :
     undefined;
 
-  const subject = `🎉 Welcome to AppNexa! Your Smart Standee is Activated — ${brandName}`;
+  const subject = branchCount > 1 ?
+    `🎉 Welcome to AppNexa! Your ${branchCount} Smart Standees are Activated — ${brandName}` :
+    `🎉 Welcome to AppNexa! Your Smart Standee is Activated — ${brandName}`;
+
+  const branchListText = branchCount > 0 ?
+    `\nActivated Locations (${branchCount}):\n` +
+    branches.map((b) => ` • ${b.name} (₹${(b.amount || Math.round(amount / branchCount)).toLocaleString("en-IN")})`).join("\n") + "\n" :
+    "";
+
   const plainText =
     `Hello ${ownerName},\n\n` +
     `Congratulations! Your business "${brandName}" is now active on AppNexa.\n` +
     (businessCode ? `Client ID: ${businessCode}\n` : "") +
-    "Your automated review collection system is live, and your custom Smart Standee is in production.\n\n" +
+    "Your automated review collection system is live, and your custom Smart Standees are in production.\n\n" +
+    branchListText +
     `Payment Receipt: ₹${amount.toLocaleString("en-IN")} (${paymentMode === "cash" ? "Cash Collection" : "Online Razorpay"})\n` +
     `Invoice No: ${invoiceNumber}\n` +
     "Tax Status: GST Exemption (Turnover under limit as per Sec 22 of CGST Act)\n\n" +
@@ -1041,6 +1057,18 @@ export async function sendOwnerWelcomeEmail(
     `Owner Portal: https://appnexa.co.in/app (Login with: ${ownerEmail})\n\n` +
     "Need help? Contact support on WhatsApp: +91 8866390389 or email support@appnexa.co.in\n\n" +
     "AppNexa Technologies";
+
+  const branchReceiptRowsHtml = branches.length > 0 ?
+    [
+      "                  <tr>",
+      `                    <td colspan="2" style="padding: 10px 0 4px 0; font-weight: 700; color: #1E293B; border-top: 1px solid #E2E8F0;">Activated Locations (${branchCount}):</td>`,
+      "                  </tr>",
+      ...branches.map((b) => {
+        const bAmt = (b.amount || Math.round(amount / branchCount)).toLocaleString("en-IN");
+        return `                  <tr><td style="padding: 2px 0 2px 12px; color: #475569;">• ${b.name}</td><td align="right" style="padding: 2px 0; color: #475569;">₹${bAmt}</td></tr>`;
+      }),
+    ].join("\n") :
+    "";
 
   const html = [
     "<!DOCTYPE html>",
@@ -1074,7 +1102,9 @@ export async function sendOwnerWelcomeEmail(
     `                Congratulations! Your business <strong>${brandName}</strong> is now officially active on <strong>AppNexa</strong>.`,
     "              </p>",
     "              <p style=\"margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #334155;\">",
-    "                Your automated Google Review system is live, and your custom acrylic Smart Standee with NFC + QR code is moving to physical production.",
+    branchCount > 1 ?
+      `                Your automated Google Review system is live for all <strong>${branchCount} locations</strong>, and your custom acrylic Smart Standees with NFC + QR code are moving to physical production.` :
+      "                Your automated Google Review system is live, and your custom acrylic Smart Standee with NFC + QR code is moving to physical production.",
     "              </p>",
     "              <!-- Account Details Box -->",
     "              <div style=\"background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 24px;\">",
@@ -1120,12 +1150,13 @@ export async function sendOwnerWelcomeEmail(
     "                  </tr>",
     "                  <tr>",
     "                    <td style=\"padding: 4px 0;\"><strong>Plan:</strong></td>",
-    "                    <td align=\"right\" style=\"padding: 4px 0;\">1-Year AppNexa Pro + Smart Standee</td>",
+    `                    <td align="right" style="padding: 4px 0;">AppNexa Pro + Smart Standee (${branchCount > 1 ? `${branchCount} Locations` : "1-Year"})</td>`,
     "                  </tr>",
     "                  <tr>",
     "                    <td style=\"padding: 4px 0;\"><strong>Payment Mode:</strong></td>",
     `                    <td align="right" style="padding: 4px 0;">${paymentMode === "cash" ? "Cash Collection" : "Online (Razorpay)"}</td>`,
     "                  </tr>",
+    branchReceiptRowsHtml,
     "                  <tr>",
     "                    <td style=\"padding: 8px 0 4px 0; border-top: 1px dashed #CBD5E1;\"><strong>Total Paid:</strong></td>",
     `                    <td align="right" style="padding: 8px 0 4px 0; border-top: 1px dashed #CBD5E1; font-weight: 700; color: #059669; font-size: 15px;">₹${amount.toLocaleString("en-IN")} (PAID)</td>`,
@@ -1148,18 +1179,22 @@ export async function sendOwnerWelcomeEmail(
     "                  <td style=\"padding: 6px 0;\"><strong>Negative Feedback Shield:</strong> Capture customer concerns on WhatsApp privately before they post public negative reviews.</td>",
     "                </tr>",
     "                <tr>",
-    "                  <td style=\"padding: 6px 0; vertical-align: top; width: 24px;\">📦</td>",
-    "                  <td style=\"padding: 6px 0;\"><strong>Standee Tracking:</strong> Track physical standee printing and shipment status.</td>",
+    "                  <td style=\"padding: 6px 0; vertical-align: top; width: 24px;\">📱</td>",
+    "                  <td style=\"padding: 6px 0;\"><strong>Digital QR & Standee Status:</strong> Download instant digital review QRs and track standee shipping.</td>",
     "                </tr>",
     "              </table>",
     "            </td>",
     "          </tr>",
     "          <!-- Footer -->",
     "          <tr>",
-    "            <td style=\"background-color: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 24px 32px; text-align: center; font-size: 12px; color: #64748B;\">",
-    "              <p style=\"margin: 0 0 8px 0; font-weight: 600; color: #475569;\">AppNexa Technologies</p>",
-    "              <p style=\"margin: 0 0 12px 0;\">Need assistance? Chat with us on WhatsApp (+91 99797 99797) or email support@appnexa.co.in.</p>",
-    `              <p style="margin: 0; color: #94A3B8; font-size: 11px;">This email was sent to ${ownerEmail} because your business enrolled in AppNexa.</p>`,
+    "            <td style=\"background-color: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 24px 32px; text-align: center;\">",
+    "              <p style=\"margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #475569;\">AppNexa Technologies</p>",
+    "              <p style=\"margin: 0 0 12px 0; font-size: 12px; color: #94A3B8;\">Smart NFC & QR Review Management System</p>",
+    "              <p style=\"margin: 0; font-size: 12px; color: #64748B;\">",
+    "                WhatsApp: <a href=\"https://wa.me/918866390389\" style=\"color: #4F46E5; text-decoration: none;\">+91 8866390389</a> · ",
+    "                Email: <a href=\"mailto:support@appnexa.co.in\" style=\"color: #4F46E5; text-decoration: none;\">support@appnexa.co.in</a> · ",
+    "                Web: <a href=\"https://appnexa.co.in\" style=\"color: #4F46E5; text-decoration: none;\">appnexa.co.in</a>",
+    "              </p>",
     "            </td>",
     "          </tr>",
     "        </table>",
@@ -1180,7 +1215,7 @@ export async function sendOwnerWelcomeEmail(
     subject,
     html,
     text: plainText,
-    type: "owner_welcome_activation",
+    type: "owner_welcome",
     businessId,
     attachments,
   });
@@ -1201,15 +1236,38 @@ export async function sendPaymentLinkEmail(
   opts: SendPaymentLinkEmailOpts
 ): Promise<void> {
   const {ownerEmail, ownerName, brandName, paymentLinkUrl, businessId} = opts;
+  const amount = opts.amount || 1999;
+  const branchNames = opts.branchNames || opts.branches?.map((b) => b.name) || [];
+  const branchCount = branchNames.length;
 
-  const subject = `Complete your enrollment payment — ${brandName}`;
+  const subject = branchCount > 1 ?
+    `Complete your enrollment payment (${branchCount} Locations) — ${brandName}` :
+    (branchCount === 1 ?
+      `Complete your enrollment payment (${branchNames[0]}) — ${brandName}` :
+      `Complete your enrollment payment — ${brandName}`);
+
+  const branchListText = branchCount > 0 ?
+    `\nEnrolled Locations (${branchCount}):\n` +
+    branchNames.map((b) => ` • ${b}`).join("\n") + "\n" :
+    "";
+
   const plainText =
     `Hello ${ownerName},\n\n` +
     `Your enrollment for ${brandName} is pending payment.\n` +
-    "Please pay the ₹1999 setup fee to activate your review page and Smart Standee:\n" +
+    branchListText +
+    `Please pay the ₹${amount.toLocaleString("en-IN")} setup fee to activate your review pages and Smart Standees:\n` +
     `${paymentLinkUrl}\n\n` +
     "⏳ Please note: This payment link is valid for 47 hours.\n\n" +
     "AppNexa Support";
+
+  const branchRowsHtml = branchCount > 0 ?
+    [
+      "                  <tr>",
+      `                    <td colspan="2" style="padding: 8px 0 4px 0; font-weight: 700; color: #1E293B; border-top: 1px solid #E2E8F0;">Enrolled Locations (${branchCount}):</td>`,
+      "                  </tr>",
+      ...branchNames.map((b) => `                  <tr><td colspan="2" style="padding: 2px 0 2px 8px; color: #475569;">• ${b}</td></tr>`),
+    ].join("\n") :
+    "";
 
   const html = [
     "<!DOCTYPE html>",
@@ -1236,17 +1294,20 @@ export async function sendPaymentLinkEmail(
     "            <td style=\"padding: 32px;\">",
     `              <h2 style="margin: 0 0 14px 0; color: #0F172A; font-size: 18px; font-weight: 700;">Hello ${ownerName},</h2>`,
     "              <p style=\"margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;\">",
-    `                Your enrollment for <strong>${brandName}</strong> is ready. To activate your automated review collection page and initiate your custom NFC Smart Standee printing, please complete the secure online payment.`,
+    branchCount > 1 ?
+      `                Your enrollment for <strong>${brandName}</strong> (${branchCount} locations) is ready. To activate your automated review collection pages and initiate your custom NFC Smart Standee printing, please complete the secure online payment.` :
+      `                Your enrollment for <strong>${brandName}</strong> is ready. To activate your automated review collection page and initiate your custom NFC Smart Standee printing, please complete the secure online payment.`,
     "              </p>",
     "              <div style=\"background-color: #F1F5F9; border-radius: 12px; padding: 18px; margin-bottom: 24px;\">",
     "                <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"font-size: 14px; color: #334155;\">",
     "                  <tr>",
     "                    <td><strong>Plan:</strong></td>",
-    "                    <td align=\"right\">1-Year AppNexa Pro + Smart Standee</td>",
+    `                    <td align="right">1-Year AppNexa Pro + Smart Standee (${branchCount > 1 ? `${branchCount} Locations` : "1 Location"})</td>`,
     "                  </tr>",
+    branchRowsHtml,
     "                  <tr>",
-    "                    <td style=\"padding-top: 8px;\"><strong>Setup Fee:</strong></td>",
-    "                    <td align=\"right\" style=\"padding-top: 8px; font-weight: 700; color: #059669; font-size: 16px;\">₹1,999</td>",
+    "                    <td style=\"padding-top: 8px;\"><strong>Total Setup Fee:</strong></td>",
+    `                    <td align="right" style="padding-top: 8px; font-weight: 700; color: #059669; font-size: 16px;">₹${amount.toLocaleString("en-IN")}</td>`,
     "                  </tr>",
     "                  <tr>",
     "                    <td style=\"padding-top: 8px; font-size: 12px; color: #B45309;\"><strong>Link Validity:</strong></td>",
@@ -1257,7 +1318,7 @@ export async function sendPaymentLinkEmail(
     "              <!-- CTA Button -->",
     "              <div style=\"text-align: center; margin: 28px 0;\">",
     `                <a href="${paymentLinkUrl}" style="display: inline-block; background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: #FFFFFF; padding: 14px 32px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">`,
-    "                  Complete Payment (₹1,999) →",
+    `                  Complete Payment (₹${amount.toLocaleString("en-IN")}) →`,
     "                </a>",
     "              </div>",
     "              <p style=\"text-align: center; margin: 0; font-size: 12px; color: #64748B;\">",

@@ -132,8 +132,8 @@ class BranchDraft {
     // Lifecycle and payment status at draft time: strictly pending_payment
     'subscription_status':  'pending_payment',
     'payment_mode':         'pending',
-    // Change 2: standee fulfillment state — set to not_ordered at draft time.
-    'standee_status':       'not_ordered',
+    // Change 2: standee fulfillment state — set to ordered at enrollment time.
+    'standee_status':       'ordered',
     // stats_summary: initialized to zeros at draft time (complete per 00 schema).
     'stats_summary': {
       'total_scans':             0,

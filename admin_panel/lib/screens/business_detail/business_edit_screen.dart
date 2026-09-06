@@ -89,7 +89,6 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
   bool    _saving    = false;
   String? _saveError;
   String? _ownerEmailError;
-  String? _brandNameError;
   String? _ownerNameError;
 
   @override
@@ -602,6 +601,8 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                         draft:          _branchDrafts[i],
                         showBranchName: _branchDrafts.length > 1,
                         showError:      _showErrors,
+                        ownerPhone:     _ownerPhoneE164,
+                        ownerName:      _ownerNameCtrl.text,
                         onRemove:       i >= _branchIds.length && _branchDrafts.length > 1
                             ? () => setState(() => _branchDrafts.removeAt(i))
                             : null,

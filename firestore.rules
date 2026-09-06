@@ -65,7 +65,10 @@ service cloud.firestore {
       // CREATE: Active Employee or Admin creating a new enrollment draft (pending_payment).
       allow create: if isEmployeeOrAdmin()
         && request.resource.data.subscription_status == 'pending_payment'
-        && request.resource.data.enrolled_by == request.auth.uid
+        && (
+          (isAdmin() && (request.resource.data.enrolled_by == 'admin' || request.resource.data.enrolled_by == request.auth.uid))
+          || (isEmployeeActive() && request.resource.data.enrolled_by == request.auth.uid)
+        )
         && request.resource.data.brand_name is string
         && request.resource.data.brand_name.size() <= 200;
 
@@ -138,7 +141,12 @@ service cloud.firestore {
                   'google_review_link',
                   'category_override_id',
                   'standee_status',
-                  'standee_status_updated_at'
+                  'standee_status_updated_at',
+                  'courier_name',
+                  'courier_awb',
+                  'shipped_at',
+                  'delivered_at',
+                  'delivered_via'
                 ])
           )
           || (

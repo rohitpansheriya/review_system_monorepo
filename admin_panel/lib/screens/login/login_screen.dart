@@ -1,5 +1,6 @@
 // lib/screens/login/login_screen.dart
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
@@ -63,6 +64,14 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailFocus.requestFocus();
         }
       });
+    } else if (mounted) {
+      if (auth.isAdmin) {
+        context.go('/admin');
+      } else if (auth.isOwner) {
+        context.go('/owner');
+      } else {
+        context.go('/businesses');
+      }
     }
   }
 

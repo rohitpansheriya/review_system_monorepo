@@ -492,7 +492,8 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
             'all': 'All Statuses',
             'active': '🟢 Active',
             'grace_period': '🟡 Grace Period',
-            'deleted': '🔴 Expired / Lapsed',
+            'suspended': '🔴 Suspended / Lapsed',
+            'deleted': '⚫ Deleted',
             'pending_payment': '🟠 Pending Payment',
           },
           onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
@@ -599,9 +600,10 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
             final branchStats = provider.businessBranchStats[biz.id];
             final branchCount = branchStats?.active ?? 0;
             final branchGrace = branchStats?.grace ?? 0;
+            final branchSuspended = branchStats?.suspended ?? 0;
             final branchPending = branchStats?.pending ?? 0;
             final branchDeleted = branchStats?.deleted ?? 0;
-            final branchInactive = branchPending + branchDeleted;
+            final branchInactive = branchPending + branchSuspended + branchDeleted;
             final totalBranches = branchStats?.total ?? 1;
 
             final city = _extractCity(provider, biz);
@@ -798,6 +800,11 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
         fg = AppColors.graceFg;
         label = 'Grace';
         break;
+      case AppConstants.statusSuspended:
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFFDC2626);
+        label = 'Suspended';
+        break;
       case AppConstants.statusDeleted:
         bg = AppColors.deletedBg;
         fg = AppColors.deletedFg;
@@ -922,9 +929,10 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
         final branchStats = provider.businessBranchStats[biz.id];
         final branchCount = branchStats?.active ?? 0;
         final branchGrace = branchStats?.grace ?? 0;
+        final branchSuspended = branchStats?.suspended ?? 0;
         final branchPending = branchStats?.pending ?? 0;
         final branchDeleted = branchStats?.deleted ?? 0;
-        final branchInactive = branchPending + branchDeleted;
+        final branchInactive = branchPending + branchSuspended + branchDeleted;
         final totalBranches = branchStats?.total ?? 1;
 
         final city = _extractCity(provider, biz);

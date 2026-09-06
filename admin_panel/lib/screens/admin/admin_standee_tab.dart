@@ -3,14 +3,15 @@
 // Standee Fulfillment Tracking Screen for Platform Admin.
 // Features:
 //   - Lists all branches of activated businesses (excluding drafts).
-//   - Colored badges for standee status (Not Ordered / Ordered / Printed / Shipped / Delivered).
+//   - Employee-centric batch dispatch: Filter by enrolled employee and view fixed delivery address.
+//   - AWB tracking: Attach courier name & tracking number individually or in bulk.
+//   - Automated proof-of-delivery: Badges branches delivered via live counter scan.
 //   - Relative timestamp formatting ("Shipped 3 days ago").
-//   - Inline dropdown on each row to change status immediately without opening details.
-//   - Filters by standee status (Daily work queue).
-//   - Search by business name, branch name, or mobile number.
+//   - Inline dropdown on each row to change status immediately with AWB prompt on shipping.
 //   - Responsive layout for desktop and mobile (~380px).
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants.dart';
@@ -27,6 +28,7 @@ class AdminStandeeTab extends StatefulWidget {
 
 class _AdminStandeeTabState extends State<AdminStandeeTab> {
   String _selectedStatusFilter = 'all';
+  String _selectedEmployeeFilter = 'all';
   String _searchQuery = '';
 
   String _formatTimeAgo(DateTime? date, String status) {
@@ -50,8 +52,14 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
 
   List<StandeeFulfillmentModel> _filterList(List<StandeeFulfillmentModel> items) {
     return items.where((item) {
-      final statusMatch = _selectedStatusFilter == 'all' || item.standeeStatus == _selectedStatusFilter;
+      final safeStatus = AppConstants.standeeStatuses.contains(item.standeeStatus)
+          ? item.standeeStatus
+          : AppConstants.standeeOrdered;
+      final statusMatch = _selectedStatusFilter == 'all' || safeStatus == _selectedStatusFilter;
       if (!statusMatch) return false;
+
+      final empMatch = _selectedEmployeeFilter == 'all' || item.enrolledBy == _selectedEmployeeFilter;
+      if (!empMatch) return false;
 
       if (_searchQuery.trim().isEmpty) return true;
 
@@ -61,11 +69,90 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
       final nameMatch = item.businessName.toLowerCase().contains(q);
       final branchMatch = item.branchName.toLowerCase().contains(q);
       final addressMatch = item.address.toLowerCase().contains(q);
+      final empNameMatch = (item.enrolledByName ?? '').toLowerCase().contains(q);
+      final awbMatch = (item.courierAwb ?? '').toLowerCase().contains(q);
       final phoneMatch = digitNeedle.isNotEmpty &&
-          (item.ownerPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '').contains(digitNeedle);
+          ((item.ownerPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '').contains(digitNeedle) ||
+           (item.enrolledByPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '').contains(digitNeedle));
 
-      return nameMatch || branchMatch || addressMatch || phoneMatch;
+      return nameMatch || branchMatch || addressMatch || empNameMatch || awbMatch || phoneMatch;
     }).toList();
+  }
+
+  Future<({String courierName, String courierAwb})?> _showAwbInputDialog(
+    BuildContext context, {
+    required String title,
+    String initialCourier = 'DTDC',
+  }) async {
+    final courierCtrl = TextEditingController(text: initialCourier);
+    final awbCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    return showDialog<({String courierName, String courierAwb})>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.local_shipping, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter the courier partner and AWB/tracking number for this shipment:',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: courierCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Courier Partner',
+                  hintText: 'e.g. DTDC, India Post, Delhivery, Bluedart',
+                  prefixIcon: Icon(Icons.business_outlined, size: 18),
+                  isDense: true,
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter courier partner' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: awbCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'AWB / Tracking Number',
+                  hintText: 'e.g. 123456789',
+                  prefixIcon: Icon(Icons.tag, size: 18),
+                  isDense: true,
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter AWB number' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.of(ctx).pop((
+                  courierName: courierCtrl.text.trim(),
+                  courierAwb: awbCtrl.text.trim(),
+                ));
+              }
+            },
+            icon: const Icon(Icons.check, size: 16),
+            label: const Text('Confirm Shipment'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -75,6 +162,30 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
     final colorScheme = theme.colorScheme;
     final allItems = provider.standeeItems;
     final filtered = _filterList(allItems);
+
+    // Build unique enrolled employee list
+    final employeeMap = <String, String>{};
+    for (final item in allItems) {
+      if (item.enrolledBy != null && item.enrolledBy!.isNotEmpty) {
+        employeeMap[item.enrolledBy!] = item.enrolledByName ?? 'Employee (${item.enrolledBy!.substring(0, 6)})';
+      }
+    }
+
+    // Check if an employee is currently selected
+    final selectedEmpModel = _selectedEmployeeFilter != 'all'
+        ? provider.employees.where((e) => e.uid == _selectedEmployeeFilter).firstOrNull
+        : null;
+
+    final selectedEmpName = _selectedEmployeeFilter != 'all'
+        ? (employeeMap[_selectedEmployeeFilter] ?? selectedEmpModel?.name ?? 'Selected Employee')
+        : null;
+
+    // Items for selected employee ready for dispatch
+    final empReadyItems = _selectedEmployeeFilter != 'all'
+        ? allItems.where((i) =>
+            i.enrolledBy == _selectedEmployeeFilter &&
+            (i.standeeStatus == AppConstants.standeeOrdered || i.standeeStatus == AppConstants.standeePrinted)).toList()
+        : <StandeeFulfillmentModel>[];
 
     return Scaffold(
       body: RefreshIndicator(
@@ -101,7 +212,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Track acrylic standee printing, shipping, and delivery across all activated businesses.',
+                          'Batch standees by enrolling employee, attach AWB tracking, and track live counter handovers.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -118,7 +229,72 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
               ),
               const SizedBox(height: 20),
 
-              // ── Filter Chips ─────────────────────────────────────────────
+              // ── Filter Controls Row ──────────────────────────────────────
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  // Employee Filter Dropdown
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: colorScheme.outlineVariant),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedEmployeeFilter,
+                        isDense: true,
+                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                        items: [
+                          const DropdownMenuItem(
+                            value: 'all',
+                            child: Row(
+                              children: [
+                                Icon(Icons.people_outline, size: 16),
+                                SizedBox(width: 8),
+                                Text('All Enrolling Employees'),
+                              ],
+                            ),
+                          ),
+                          ...employeeMap.entries.map((e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.person_pin_circle_outlined, size: 16, color: AppColors.primary),
+                                const SizedBox(width: 8),
+                                Text('Employee: ${e.value}'),
+                              ],
+                            ),
+                          )),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedEmployeeFilter = val);
+                        },
+                      ),
+                    ),
+                  ),
+
+                  // Search Bar
+                  SizedBox(
+                    width: 320,
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'Search business, branch, AWB, phone…',
+                        prefixIcon: Icon(Icons.search, size: 18),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ── Status Filter Chips ──────────────────────────────────────
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -131,7 +307,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                   for (final status in AppConstants.standeeStatuses) ...[
                     FilterChip(
                       label: Text(
-                        '${AppConstants.standeeStatusLabels[status] ?? status} (${allItems.where((i) => i.standeeStatus == status).length})',
+                        '${AppConstants.standeeStatusLabels[status] ?? status} (${allItems.where((i) => (AppConstants.standeeStatuses.contains(i.standeeStatus) ? i.standeeStatus : AppConstants.standeeOrdered) == status).length})',
                       ),
                       selected: _selectedStatusFilter == status,
                       onSelected: (_) => setState(() => _selectedStatusFilter = status),
@@ -139,22 +315,26 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                   ],
                 ],
               ),
-              const SizedBox(height: 16),
-
-              // ── Search Bar ───────────────────────────────────────────────
-              SizedBox(
-                width: 380,
-                child: TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'Search by business name, branch, phone…',
-                    prefixIcon: Icon(Icons.search, size: 18),
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  ),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                ),
-              ),
               const SizedBox(height: 20),
+
+              // ── Employee Batch Shipping Card (Shown when employee filter active) ──
+              if (_selectedEmployeeFilter != 'all') ...[
+                _buildEmployeeBatchCard(
+                  context,
+                  provider,
+                  employeeUid: _selectedEmployeeFilter,
+                  employeeName: selectedEmpName ?? 'Employee',
+                  employeePhone: selectedEmpModel?.phone ?? filtered.firstOrNull?.enrolledByPhone ?? 'No Phone',
+                  employeeAddress: selectedEmpModel?.address.trim().isNotEmpty == true
+                      ? selectedEmpModel!.address.trim()
+                      : (filtered.firstOrNull?.enrolledByAddress?.trim().isNotEmpty == true
+                          ? filtered.firstOrNull!.enrolledByAddress!.trim()
+                          : 'No delivery address saved in employee profile'),
+                  readyCount: empReadyItems.length,
+                  totalForEmp: allItems.where((i) => i.enrolledBy == _selectedEmployeeFilter).length,
+                ),
+                const SizedBox(height: 24),
+              ],
 
               // ── List Section ─────────────────────────────────────────────
               if (provider.standeeLoading && allItems.isEmpty)
@@ -198,7 +378,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                           Icon(Icons.inventory_2_outlined, size: 48, color: colorScheme.onSurfaceVariant),
                           const SizedBox(height: 16),
                           Text(
-                            'No businesses found matching "$_selectedStatusFilter" status.',
+                            'No standees found matching current filters.',
                             style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                             textAlign: TextAlign.center,
                           ),
@@ -225,6 +405,143 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
     );
   }
 
+  // ── Employee Batch Shipping Card ───────────────────────────────────────────
+  Widget _buildEmployeeBatchCard(
+    BuildContext context,
+    AdminDashboardProvider provider, {
+    required String employeeUid,
+    required String employeeName,
+    required String employeePhone,
+    required String employeeAddress,
+    required int readyCount,
+    required int totalForEmp,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F3FF), // Light purple-50
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDDD6FE), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF7C3AED),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.local_shipping_outlined, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Batch Shipping to Field Employee: $employeeName',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF4C1D95)),
+                    ),
+                    Text(
+                      '$totalForEmp enrolled standees total • $readyCount ready for batch dispatch',
+                      style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(color: Color(0xFFDDD6FE), height: 1),
+          const SizedBox(height: 14),
+
+          // Address & Contact Block
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 16, color: Color(0xFF7C3AED)),
+                        const SizedBox(width: 6),
+                        const Text('Shipping Destination (Employee Address):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(employeeAddress, style: const TextStyle(fontSize: 13, height: 1.3)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone, size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text('Phone: $employeePhone', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      final labelText = 'TO: $employeeName\nPHONE: $employeePhone\nSHIPPING ADDRESS:\n$employeeAddress\nCONTENTS: $readyCount Custom Acrylic Standees';
+                      Clipboard.setData(ClipboardData(text: labelText));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('📋 Shipping address label copied to clipboard!'), duration: Duration(seconds: 2)),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 15),
+                    label: const Text('Copy Shipping Label'),
+                  ),
+                  const SizedBox(height: 8),
+                  if (readyCount > 0)
+                    FilledButton.icon(
+                      onPressed: () async {
+                        final result = await _showAwbInputDialog(
+                          context,
+                          title: 'Dispatch Batch ($readyCount Standees) to $employeeName',
+                        );
+                        if (result != null && context.mounted) {
+                          await provider.batchShipStandeesForEmployee(
+                            employeeUid: employeeUid,
+                            courierName: result.courierName,
+                            courierAwb: result.courierAwb,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('🚚 Batch of $readyCount standees marked as SHIPPED with AWB: ${result.courierAwb}'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+                      icon: const Icon(Icons.send_rounded, size: 16),
+                      label: Text('Ship Batch ($readyCount Ready)'),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Standee Card ───────────────────────────────────────────────────────────
   Widget _buildFulfillmentCard(
     BuildContext context,
     AdminDashboardProvider provider,
@@ -232,10 +549,16 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
   ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final statusColor = AppTheme.standeeStatusColor(item.standeeStatus);
-    final statusFg = AppTheme.standeeStatusForeground(item.standeeStatus);
-    final statusLabel = AppConstants.standeeStatusLabels[item.standeeStatus] ?? item.standeeStatus;
-    final updatedText = _formatTimeAgo(item.standeeStatusUpdatedAt, item.standeeStatus);
+    final safeStatus = AppConstants.standeeStatuses.contains(item.standeeStatus)
+        ? item.standeeStatus
+        : AppConstants.standeeOrdered;
+    final statusColor = AppTheme.standeeStatusColor(safeStatus);
+    final statusFg = AppTheme.standeeStatusForeground(safeStatus);
+    final statusLabel = AppConstants.standeeStatusLabels[safeStatus] ?? safeStatus;
+    final updatedText = _formatTimeAgo(item.standeeStatusUpdatedAt, safeStatus);
+
+    final isDeliveredViaScan = item.standeeStatus == AppConstants.standeeDelivered &&
+        item.deliveredVia == 'first_scan_detected';
 
     return Card(
       elevation: 1,
@@ -310,7 +633,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
             ),
             const SizedBox(height: 10),
 
-            // Row 2: Location & Contact Info
+            // Row 2: Location & Merchant Contact Info
             if (item.address.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
@@ -320,7 +643,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        item.address,
+                        'Merchant: ${item.address}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -332,26 +655,97 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                 ),
               ),
 
-            if (item.ownerPhone != null && item.ownerPhone!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6.0),
+            // Enrolled By (Employee Information)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_pin_outlined, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Enrolled by Field Agent: ',
+                    style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
+                  ),
+                  Text(
+                    item.enrolledByName ?? 'Direct / Admin',
+                    style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary),
+                  ),
+                  if (item.enrolledByPhone != null && item.enrolledByPhone!.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text('(${item.enrolledByPhone})', style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                  ],
+                ],
+              ),
+            ),
+
+            // Courier / AWB Tracking Badge (when shipped or delivered)
+            if (item.courierAwb != null && item.courierAwb!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.outlineVariant),
+                ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.phone_outlined, size: 14, color: colorScheme.onSurfaceVariant),
-                    const SizedBox(width: 4),
+                    const Icon(Icons.local_shipping, size: 14, color: AppColors.primary),
+                    const SizedBox(width: 6),
                     Text(
-                      item.ownerPhone!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                      '${item.courierName ?? "Courier"}: ',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                    ),
+                    SelectableText(
+                      item.courierAwb!,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace'),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: item.courierAwb!));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('AWB "${item.courierAwb}" copied!'), duration: const Duration(seconds: 1)),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(2),
+                        child: Icon(Icons.copy, size: 13, color: Colors.grey),
                       ),
                     ),
                   ],
                 ),
               ),
+            ],
+
+            // Auto-Delivery Verification Badge
+            if (isDeliveredViaScan) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.activeBg,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.activeFg.withValues(alpha: 0.3)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.verified, size: 12, color: AppColors.activeFg),
+                    SizedBox(width: 4),
+                    Text(
+                      'Verified Handover (Auto-Promoted via Live First Scan)',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.activeFg),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             const Divider(height: 16),
 
-            // Row 3: Timestamp & Inline Status Dropdown (Responsive wrap)
+            // Row 3: Timestamp & Inline Status Dropdown
             Wrap(
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -389,7 +783,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
-                          value: item.standeeStatus,
+                          value: safeStatus,
                           isDense: true,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
@@ -417,16 +811,35 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                           }).toList(),
                           onChanged: (newVal) async {
                             if (newVal == null || newVal == item.standeeStatus) return;
+
+                            String? courierName = item.courierName;
+                            String? courierAwb = item.courierAwb;
+
+                            // If changing to 'shipped', ask for Courier & AWB
+                            if (newVal == AppConstants.standeeShipped) {
+                              final res = await _showAwbInputDialog(
+                                context,
+                                title: 'Ship Standee for ${item.businessName}',
+                                initialCourier: item.courierName ?? 'DTDC',
+                              );
+                              if (res == null) return; // User cancelled
+                              courierName = res.courierName;
+                              courierAwb = res.courierAwb;
+                            }
+
                             await provider.updateStandeeStatusInline(
                               businessId: item.businessId,
                               branchId: item.branchId,
                               newStatus: newVal,
+                              courierName: courierName,
+                              courierAwb: courierAwb,
                             );
+
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    '${item.businessName} standee marked as ${AppConstants.standeeStatusLabels[newVal] ?? newVal}',
+                                    '${item.businessName} marked as ${AppConstants.standeeStatusLabels[newVal] ?? newVal}',
                                   ),
                                   duration: const Duration(seconds: 2),
                                 ),

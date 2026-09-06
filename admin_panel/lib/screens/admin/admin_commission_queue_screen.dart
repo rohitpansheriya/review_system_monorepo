@@ -8,7 +8,6 @@ import '../../models/employee_commission_model.dart';
 import '../../models/employee_profile_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/app_animated_loader.dart';
 
 class AdminCommissionQueueScreen extends StatefulWidget {
   const AdminCommissionQueueScreen({super.key});
@@ -134,7 +133,7 @@ class _AdminCommissionQueueScreenState
     final bytes = utf8.encode(csvBuffer.toString());
     final blob = html.Blob([bytes], 'text/csv;charset=utf-8');
     final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.AnchorElement(href: url)
+    html.AnchorElement(href: url)
       ..setAttribute('download', filename)
       ..click();
     html.Url.revokeObjectUrl(url);

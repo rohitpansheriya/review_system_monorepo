@@ -1939,12 +1939,15 @@
       try {
         // Write individual immutable scan doc to businesses/{bizId}/scans/{auto-id}
         // Server-side onScanCreated trigger safely aggregates stats_summary on the branch
+        // expire_at enables 100% free automated background deletion via Firestore TTL (30 days)
+        const expireAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         await addDoc(collection(db, 'businesses', state.businessId, 'scans'), {
           branch_id: state.branchId,
           star_rating: state.starRating,
           timestamp: serverTimestamp(),
           session_token: state.sessionToken,
           action_taken: actionTaken,
+          expire_at: expireAt,
         });
       } catch (e) {
         console.warn('scan write failed', e);

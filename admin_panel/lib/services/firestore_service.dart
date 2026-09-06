@@ -253,29 +253,10 @@ class FirestoreService {
     required String businessId,
     required String adminUid,
   }) async {
-    final bizRef = _db.collection(AppConstants.colBusinesses).doc(businessId);
-    final bizSnap = await bizRef.get();
-
-    if (!bizSnap.exists) throw Exception('Business not found');
-    final bizData = bizSnap.data()!;
-    final currentStatus = bizData['subscription_status'] as String?;
-    if (currentStatus != AppConstants.statusPendingPayment) {
-      throw Exception('Business is not in pending_payment status');
-    }
-
-    // Activate the business.
-    // Commission is NOT created here — the onBusinessActivated CF trigger
-    // fires when subscription_status flips to 'active' and creates the
-    // employee_commissions entry server-side (same path as online payments).
-    await bizRef.update({
-      'subscription_status': AppConstants.statusActive,
-      'renewal_date': Timestamp.fromDate(
-        DateTime.now().add(const Duration(days: AppConstants.renewalDays)),
-      ),
-      'payment_mode': 'cash',
-      'cash_payment_confirmed_at': FieldValue.serverTimestamp(),
-      'cash_confirmed_by_admin': adminUid,
-    });
+    await confirmCashAndActivate(
+      businessId: businessId,
+      adminUid: adminUid,
+    );
   }
 
   // ── My businesses — paginated, filtered, date-windowed ───────────────────
@@ -587,25 +568,63 @@ class FirestoreService {
 
   /// Updates standee_status + standee_status_updated_at for a branch.
   /// Only valid status values from AppConstants.standeeStatuses are accepted.
-  /// The employee uses this to track the physical acrylic standee lifecycle.
+  /// Tracks the physical acrylic standee lifecycle, courier name, and AWB tracking number.
   Future<void> updateStandeeStatus(
     String businessId,
     String branchId,
-    String newStatus,
-  ) async {
+    String newStatus, {
+    String? courierName,
+    String? courierAwb,
+  }) async {
     assert(
       AppConstants.standeeStatuses.contains(newStatus),
       'Invalid standee status: $newStatus',
     );
+    final data = <String, dynamic>{
+      'standee_status':            newStatus,
+      'standee_status_updated_at': FieldValue.serverTimestamp(),
+    };
+    if (courierName != null) data['courier_name'] = courierName.trim();
+    if (courierAwb != null) data['courier_awb'] = courierAwb.trim();
+
+    if (newStatus == AppConstants.standeeShipped) {
+      data['shipped_at'] = FieldValue.serverTimestamp();
+    } else if (newStatus == AppConstants.standeeDelivered) {
+      data['delivered_at'] = FieldValue.serverTimestamp();
+      data['delivered_via'] = 'manual_admin';
+    }
+
     await _db
         .collection(AppConstants.colBusinesses)
         .doc(businessId)
         .collection(AppConstants.colBranches)
         .doc(branchId)
-        .update({
-      'standee_status':            newStatus,
-      'standee_status_updated_at': FieldValue.serverTimestamp(),
-    });
+        .update(data);
+  }
+
+  /// Batch update all specified branches to 'shipped' with a shared courier & AWB.
+  Future<void> batchUpdateStandeeShipped({
+    required List<({String businessId, String branchId})> branches,
+    required String courierName,
+    required String courierAwb,
+  }) async {
+    if (branches.isEmpty) return;
+    final batch = _db.batch();
+    for (final b in branches) {
+      final docRef = _db
+          .collection(AppConstants.colBusinesses)
+          .doc(b.businessId)
+          .collection(AppConstants.colBranches)
+          .doc(b.branchId);
+      batch.update(docRef, {
+        'standee_status': AppConstants.standeeShipped,
+        'standee_status_updated_at': FieldValue.serverTimestamp(),
+        'shipped_at': FieldValue.serverTimestamp(),
+        'courier_name': courierName.trim(),
+        'courier_awb': courierAwb.trim(),
+      });
+    }
+    await batch.commit();
   }
 
   // ── Plain printable QR download (Change 1) ────────────────────────────────
@@ -633,6 +652,22 @@ class FirestoreService {
     return Map<String, dynamic>.from(result.data as Map);
   }
 
+  /// Calls the generateRenewalPaymentLink Cloud Function for an active / grace_period business or branch.
+  /// Returns { shortUrl, paymentLinkId, amountRupees } from the function.
+  Future<Map<String, dynamic>> generateRenewalPaymentLink({
+    required String businessId,
+    String? branchId,
+  }) async {
+    final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+    final result = await fn
+        .httpsCallable(AppConstants.fnGenerateRenewalPaymentLink)
+        .call({
+      'businessId': businessId,
+      if (branchId != null) 'branchId': branchId,
+    });
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
   /// Calls the deleteBusinessAdmin Cloud Function to completely cascade-delete
   /// a business, all branches, scan logs, storage assets, and owner auth account.
   Future<void> deleteBusinessAdmin(String businessId, {bool deleteOwnerAuth = true}) async {
@@ -640,6 +675,15 @@ class FirestoreService {
     await fn
         .httpsCallable(AppConstants.fnDeleteBusinessAdmin)
         .call({'businessId': businessId, 'deleteOwnerAuth': deleteOwnerAuth});
+  }
+
+  /// Calls the deleteBranchAdmin Cloud Function to completely delete a single branch,
+  /// its scan logs, and storage assets, updating business-level counters and stats.
+  Future<void> deleteBranchAdmin(String businessId, String branchId) async {
+    final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+    await fn
+        .httpsCallable(AppConstants.fnDeleteBranchAdmin)
+        .call({'businessId': businessId, 'branchId': branchId});
   }
 
   // ══════════════════════════════════════════════════════════════════════════

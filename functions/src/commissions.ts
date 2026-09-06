@@ -18,7 +18,7 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
-import {getFirestore, Timestamp, FieldValue} from "firebase-admin/firestore";
+import {getFirestore, Timestamp, FieldValue, DocumentSnapshot} from "firebase-admin/firestore";
 import {buildQrForBranch, buildPlainQrForBranch} from "./qrGenerator.js";
 import {provisionOwnerAccount} from "./razorpay.js";
 import {brevoApiKey} from "./secrets.js";
@@ -141,10 +141,16 @@ export const confirmCashPaymentAdmin = onCall(
     const bizData = bizSnap.data() as Record<string, unknown>;
     const currentStatus = bizData.subscription_status as string | undefined;
 
-    if (currentStatus !== "pending_payment") {
+    const branchesSnap = await bizRef.collection("branches").get();
+    const pendingBranches = branchesSnap.docs.filter((d) => {
+      const s = d.data().subscription_status;
+      return s === "pending_payment" || !s;
+    });
+
+    if (currentStatus !== "pending_payment" && pendingBranches.length === 0) {
       throw new HttpsError(
         "failed-precondition",
-        `Business is not pending_payment (current: '${currentStatus}'). Cannot confirm cash.`
+        "Business and all branches are already active. Cannot confirm cash."
       );
     }
 
@@ -152,22 +158,22 @@ export const confirmCashPaymentAdmin = onCall(
     const renewalDate = new Date();
     renewalDate.setDate(renewalDate.getDate() + 365);
 
-    const branchesSnap = await bizRef.collection("branches").get();
-    const branchCount = branchesSnap.size || 1;
-    const totalCashAmount = branchCount * 1999;
+    const targetBranches = pendingBranches.length > 0 ? pendingBranches : branchesSnap.docs;
+    const unpaidCount = targetBranches.length > 0 ? targetBranches.length : 1;
+    const totalCashAmount = unpaidCount * 1999;
 
     const updateData: Record<string, unknown> = {
       subscription_status: "active",
       renewal_date: Timestamp.fromDate(renewalDate),
       payment_mode: "cash",
-      setup_fee_paid: totalCashAmount,
-      amount_paid: totalCashAmount,
+      setup_fee_paid: FieldValue.increment(totalCashAmount),
+      amount_paid: FieldValue.increment(totalCashAmount),
       cash_payment_confirmed_at: now,
       cash_confirmed_by_admin: request.auth.uid,
       has_grace_branches: false,
       has_inactive_branches: false,
-      active_branches_count: branchCount,
-      total_branches_count: branchCount,
+      active_branches_count: branchesSnap.size || 1,
+      total_branches_count: branchesSnap.size || 1,
     };
 
     if (notes) {
@@ -177,7 +183,7 @@ export const confirmCashPaymentAdmin = onCall(
     const batch = db.batch();
     batch.update(bizRef, updateData);
 
-    for (const branchDoc of branchesSnap.docs) {
+    for (const branchDoc of targetBranches) {
       batch.update(branchDoc.ref, {
         subscription_status: "active",
         payment_mode: "cash",
@@ -186,16 +192,56 @@ export const confirmCashPaymentAdmin = onCall(
         cash_payment_confirmed_at: now,
         cash_confirmed_by_admin: request.auth.uid,
         activated_at: now,
-        standee_status: "not_ordered",
+        standee_status: "ordered",
         standee_status_updated_at: now,
       });
     }
 
     await batch.commit();
 
+    // Generate QRs for all activated branches
+    for (const branchDoc of targetBranches) {
+      try {
+        await buildQrForBranch(businessId, branchDoc.id, branchDoc.ref);
+        await buildPlainQrForBranch(businessId, branchDoc.id, branchDoc.ref);
+      } catch (qrErr) {
+        logger.error("confirmCashPaymentAdmin: QR generation failed", {businessId, branchId: branchDoc.id, qrErr});
+      }
+    }
+
+    // Auto-provision owner portal Firebase Auth account if owner_email exists
+    if (bizData.owner_email) {
+      try {
+        const branchList = targetBranches.map((bDoc) => ({
+          name: (bDoc.data().branch_name as string) || "Branch",
+          address: (bDoc.data().address as string) || undefined,
+          amount: 1999,
+        }));
+        await provisionOwnerAccount(
+          db,
+          businessId,
+          bizData.owner_email as string,
+          bizData.owner_name as string | undefined,
+          bizData.brand_name as string | undefined,
+          "cash",
+          `cash_${request.auth.uid}_${Date.now()}`,
+          totalCashAmount,
+          undefined,
+          branchList
+        );
+      } catch (authErr) {
+        logger.warn("confirmCashPaymentAdmin: owner account provisioning failed (non-fatal)", {
+          businessId,
+          error: authErr,
+        });
+      }
+    }
+
     logger.info("confirmCashPaymentAdmin: business and branches activated via cash", {
       businessId,
       branchCount: branchesSnap.size,
+      activatedBranchCount: targetBranches.length,
+      totalCashAmount,
       adminUid: request.auth.uid,
       renewalDate: renewalDate.toISOString(),
     });
@@ -205,6 +251,7 @@ export const confirmCashPaymentAdmin = onCall(
       businessId,
       status: "active",
       renewalDate: renewalDate.toISOString(),
+      amount: totalCashAmount,
     };
   }
 );
@@ -279,7 +326,7 @@ export const adminCashActivateBranch = onCall(
       cash_payment_confirmed_at: now,
       cash_confirmed_by_admin: request.auth.uid,
       activated_at: now,
-      standee_status: "not_ordered",
+      standee_status: "ordered",
       standee_status_updated_at: now,
     };
 
@@ -289,24 +336,41 @@ export const adminCashActivateBranch = onCall(
 
     await branchRef.update(updateData);
 
-    // If parent business is pending_payment, also activate parent business
+    // Query all branches to accurately set active_branches_count, has_grace_branches, and has_inactive_branches
+    const allBranchesSnap = await bizRef.collection("branches").get();
+    let activeCount = 0;
+    let hasGrace = false;
+    let hasInactive = false;
+    for (const doc of allBranchesSnap.docs) {
+      const s = doc.id === branchId ? "active" : (doc.data().subscription_status as string);
+      if (s === "active") activeCount++;
+      else if (s === "grace_period") hasGrace = true;
+      else hasInactive = true;
+    }
+
+    const bizUpdatePayload: Record<string, unknown> = {
+      subscription_status: "active",
+      payment_mode: "cash",
+      active_branches_count: activeCount,
+      total_branches_count: allBranchesSnap.size,
+      has_grace_branches: hasGrace,
+      has_inactive_branches: hasInactive,
+      cash_payment_confirmed_at: now,
+      cash_confirmed_by_admin: request.auth.uid,
+    };
+
     if (bizData.subscription_status === "pending_payment") {
       const renewalDate = new Date();
       renewalDate.setDate(renewalDate.getDate() + 365);
-      await bizRef.update({
-        subscription_status: "active",
-        renewal_date: Timestamp.fromDate(renewalDate),
-        payment_mode: "cash",
-        setup_fee_paid: 1999,
-        amount_paid: 1999,
-        cash_payment_confirmed_at: now,
-        cash_confirmed_by_admin: request.auth.uid,
-      });
+      bizUpdatePayload.renewal_date = Timestamp.fromDate(renewalDate);
+      bizUpdatePayload.amount_paid = 1999;
+      bizUpdatePayload.setup_fee_paid = 1999;
     } else {
-      await bizRef.update({
-        amount_paid: FieldValue.increment(1999),
-      });
+      bizUpdatePayload.amount_paid = FieldValue.increment(1999);
+      bizUpdatePayload.setup_fee_paid = FieldValue.increment(1999);
     }
+
+    await bizRef.update(bizUpdatePayload);
 
     // QR generation
     try {
@@ -479,6 +543,16 @@ export const onBusinessActivated = onDocumentUpdated(
     const paymentRef = (afterData.last_payment_id || afterData.razorpay_payment_id) as string | undefined;
     if (ownerEmail && ownerEmail.trim().length > 0) {
       try {
+        const totalAmount = (afterData.amount_paid || afterData.setup_fee_paid || (branchesSnap?.size ? branchesSnap.size * 1999 : 1999)) as number;
+        const branchList = branchesSnap?.docs.map((bDoc) => {
+          const bData = bDoc.data();
+          return {
+            name: (bData.branch_name as string) || "Branch",
+            address: (bData.address as string) || undefined,
+            amount: (bData.setup_fee_paid as number) || (bData.amount_paid as number) || 1999,
+          };
+        });
+
         await provisionOwnerAccount(
           db,
           businessId,
@@ -487,13 +561,16 @@ export const onBusinessActivated = onDocumentUpdated(
           brandName,
           paymentMode,
           paymentRef,
-          1999,
-          businessCode
+          totalAmount,
+          businessCode,
+          branchList
         );
         logger.info("onBusinessActivated: owner provisioned & welcome email sent", {
           businessId,
           ownerEmail,
           businessCode,
+          totalAmount,
+          branchCount: branchList?.length || 0,
         });
       } catch (provisionErr) {
         logger.error("onBusinessActivated: failed to provision owner", {
@@ -814,37 +891,59 @@ export const adminRevertBusinessActivation = onCall(
     const now = Timestamp.now();
     const batch = db.batch();
 
+    // Revert parent business document & payment amounts
     batch.update(bizRef, {
       subscription_status: "pending_payment",
       payment_mode: "pending",
+      setup_fee_paid: 0,
+      amount_paid: 0,
+      active_branches_count: 0,
+      has_inactive_branches: true,
+      cash_payment_confirmed_at: FieldValue.delete(),
+      cash_confirmed_by_admin: FieldValue.delete(),
+      activated_at: FieldValue.delete(),
       reverted_at: now,
       reverted_by: request.auth.uid,
       revert_reason: reason || null,
     });
 
-    // Revert all branches
+    // Revert all branches under the business & clear digital standee / QR credentials
     const branchesSnap = await bizRef.collection("branches").get();
     for (const branchDoc of branchesSnap.docs) {
       batch.update(branchDoc.ref, {
         subscription_status: "pending_payment",
         payment_mode: "pending",
+        setup_fee_paid: FieldValue.delete(),
+        amount_paid: FieldValue.delete(),
+        cash_payment_confirmed_at: FieldValue.delete(),
+        cash_confirmed_by_admin: FieldValue.delete(),
+        activated_at: FieldValue.delete(),
+        qr_code_id: FieldValue.delete(),
+        nfc_tag_id: FieldValue.delete(),
+        nfc_url: FieldValue.delete(),
+        plain_qr_storage_path: FieldValue.delete(),
+        standee_status: "ordered",
         reverted_at: now,
         reverted_by: request.auth.uid,
+        revert_reason: reason || null,
       });
     }
 
-    // Cancel pending commissions associated with this business
+    // Cancel / Revert all employee commissions associated with this business
     const commSnap = await db
       .collection("employee_commissions")
       .where("business_id", "==", businessId)
-      .where("status", "==", "pending")
       .get();
 
     for (const commDoc of commSnap.docs) {
       const commData = commDoc.data();
+      if (commData.status === "cancelled" || commData.status === "reverted") continue;
       const empId = commData.employee_id as string;
+      const commAmount = (commData.amount as number) || EMPLOYEE_COMMISSION_AMOUNT;
+      const wasPaid = commData.status === "paid";
+
       batch.update(commDoc.ref, {
-        status: "cancelled",
+        status: wasPaid ? "reverted" : "cancelled",
         cancelled_at: now,
         cancelled_by: request.auth.uid,
         cancel_reason: reason || "Activation reverted by admin",
@@ -853,11 +952,25 @@ export const adminRevertBusinessActivation = onCall(
       if (empId) {
         const empRef = db.collection("employees").doc(empId);
         batch.update(empRef, {
-          total_commissions_earned: FieldValue.increment(-EMPLOYEE_COMMISSION_AMOUNT),
+          total_commissions_earned: FieldValue.increment(-commAmount),
           total_enrollments: FieldValue.increment(-1),
           this_month_enrollments: FieldValue.increment(-1),
         });
       }
+    }
+
+    // Revert commission_records audit trail
+    const commRecordsSnap = await db
+      .collection("commission_records")
+      .where("business_id", "==", businessId)
+      .get();
+
+    for (const recDoc of commRecordsSnap.docs) {
+      batch.update(recDoc.ref, {
+        status: "reverted",
+        reverted_at: now,
+        revert_reason: reason || "Activation reverted by admin",
+      });
     }
 
     await batch.commit();
@@ -893,13 +1006,13 @@ export const adminRevertBranchActivation = onCall(
     }
 
     const db = getFirestore();
-    const branchRef = db
-      .collection("businesses")
-      .doc(businessId)
-      .collection("branches")
-      .doc(branchId);
+    const bizRef = db.collection("businesses").doc(businessId);
+    const branchRef = bizRef.collection("branches").doc(branchId);
 
-    const branchSnap = await branchRef.get();
+    const [bizSnap, branchSnap] = await Promise.all([bizRef.get(), branchRef.get()]);
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", `Business ${businessId} not found.`);
+    }
     if (!branchSnap.exists) {
       throw new HttpsError("not-found", `Branch ${branchId} not found.`);
     }
@@ -907,26 +1020,90 @@ export const adminRevertBranchActivation = onCall(
     const now = Timestamp.now();
     const batch = db.batch();
 
+    // Revert target branch document & clear payment received and QR/standee records
     batch.update(branchRef, {
       subscription_status: "pending_payment",
       payment_mode: "pending",
+      setup_fee_paid: FieldValue.delete(),
+      amount_paid: FieldValue.delete(),
+      cash_payment_confirmed_at: FieldValue.delete(),
+      cash_confirmed_by_admin: FieldValue.delete(),
+      activated_at: FieldValue.delete(),
+      qr_code_id: FieldValue.delete(),
+      nfc_tag_id: FieldValue.delete(),
+      nfc_url: FieldValue.delete(),
+      plain_qr_storage_path: FieldValue.delete(),
+      standee_status: "ordered",
       reverted_at: now,
       reverted_by: request.auth.uid,
       revert_reason: reason || null,
     });
 
-    // Cancel pending commissions for this specific branch
+    // Re-check remaining active branches under parent business
+    const allBranchesSnap = await bizRef.collection("branches").get();
+    let remainingActiveCount = 0;
+    let remainingGraceCount = 0;
+    for (const bDoc of allBranchesSnap.docs) {
+      if (bDoc.id === branchId) continue;
+      const bStatus = bDoc.data().subscription_status;
+      if (bStatus === "active") remainingActiveCount++;
+      else if (bStatus === "grace_period") remainingGraceCount++;
+    }
+
+    if (remainingActiveCount === 0 && remainingGraceCount === 0) {
+      // All branches are now pending_payment -> revert parent business
+      batch.update(bizRef, {
+        subscription_status: "pending_payment",
+        payment_mode: "pending",
+        setup_fee_paid: 0,
+        amount_paid: 0,
+        active_branches_count: 0,
+        has_inactive_branches: true,
+        cash_payment_confirmed_at: FieldValue.delete(),
+        cash_confirmed_by_admin: FieldValue.delete(),
+        activated_at: FieldValue.delete(),
+        reverted_at: now,
+        reverted_by: request.auth.uid,
+        revert_reason: reason || null,
+      });
+    } else {
+      // Multi-branch with remaining active branches: decrement paid amounts accordingly
+      const bizData = bizSnap.data() || {};
+      const currentAmountPaid = (bizData.amount_paid as number) || 0;
+      const currentSetupPaid = (bizData.setup_fee_paid as number) || 0;
+      batch.update(bizRef, {
+        active_branches_count: remainingActiveCount,
+        has_inactive_branches: true,
+        amount_paid: Math.max(0, currentAmountPaid - 1999),
+        setup_fee_paid: Math.max(0, currentSetupPaid - 1999),
+      });
+    }
+
+    // Cancel / Revert commissions for this specific branch
     const commSnap = await db
       .collection("employee_commissions")
+      .where("business_id", "==", businessId)
       .where("branch_id", "==", branchId)
-      .where("status", "==", "pending")
       .get();
 
-    for (const commDoc of commSnap.docs) {
-      const commData = commDoc.data();
+    const firstCommRef = db
+      .collection("employee_commissions")
+      .doc(`comm_${businessId}_${branchId}_first_activation`);
+    const firstCommSnap = await firstCommRef.get();
+    const allCommDocs: DocumentSnapshot[] = [...commSnap.docs];
+    if (firstCommSnap.exists && !allCommDocs.some((d) => d.id === firstCommRef.id)) {
+      allCommDocs.push(firstCommSnap);
+    }
+
+    for (const commDoc of allCommDocs) {
+      const commData = commDoc.data() || {};
+      if (commData.status === "cancelled" || commData.status === "reverted") continue;
       const empId = commData.employee_id as string;
+      const commAmount = (commData.amount as number) || EMPLOYEE_COMMISSION_AMOUNT;
+      const wasPaid = commData.status === "paid";
+
       batch.update(commDoc.ref, {
-        status: "cancelled",
+        status: wasPaid ? "reverted" : "cancelled",
         cancelled_at: now,
         cancelled_by: request.auth.uid,
         cancel_reason: reason || "Branch activation reverted by admin",
@@ -935,11 +1112,26 @@ export const adminRevertBranchActivation = onCall(
       if (empId) {
         const empRef = db.collection("employees").doc(empId);
         batch.update(empRef, {
-          total_commissions_earned: FieldValue.increment(-EMPLOYEE_COMMISSION_AMOUNT),
+          total_commissions_earned: FieldValue.increment(-commAmount),
           total_enrollments: FieldValue.increment(-1),
           this_month_enrollments: FieldValue.increment(-1),
         });
       }
+    }
+
+    // Update commission_records audit trail
+    const commRecordsSnap = await db
+      .collection("commission_records")
+      .where("business_id", "==", businessId)
+      .where("branch_id", "==", branchId)
+      .get();
+
+    for (const recDoc of commRecordsSnap.docs) {
+      batch.update(recDoc.ref, {
+        status: "reverted",
+        reverted_at: now,
+        revert_reason: reason || "Branch activation reverted by admin",
+      });
     }
 
     await batch.commit();

@@ -41,6 +41,7 @@ import 'screens/business_detail/business_detail_screen.dart';
 import 'screens/business_detail/business_edit_screen.dart';
 import 'screens/commission/commission_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'widgets/app_splash_screen.dart';
 import 'models/business_model.dart';
 
 void main() async {
@@ -263,6 +264,13 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
         theme: AppTheme.light,
         routerConfig: _router,
         debugShowCheckedModeBanner: false,
+        builder: (context, child) {
+          final auth = context.watch<AppAuthProvider>();
+          if (auth.status == AuthStatus.unknown) {
+            return const AppSplashScreen(message: 'Loading AppNexa…');
+          }
+          return child ?? const SizedBox.shrink();
+        },
       ),
     );
   }

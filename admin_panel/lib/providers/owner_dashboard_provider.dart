@@ -41,6 +41,7 @@ class OwnerDashboardProvider extends ChangeNotifier {
   bool get isSingleBranch => _branches.length <= 1;
   bool get isActive => _business?.subscriptionStatus == 'active';
   bool get isGracePeriod => _business?.subscriptionStatus == 'grace_period';
+  bool get isSuspended => _business?.subscriptionStatus == 'suspended';
   bool get isDeleted => _business?.subscriptionStatus == 'deleted';
   bool get isPendingPayment => _business?.subscriptionStatus == 'pending_payment';
 
@@ -150,8 +151,8 @@ class OwnerDashboardProvider extends ChangeNotifier {
         _renewalNotifications = [];
       }
 
-      // 5. Fetch and group historical scans for monthly performance reporting
-      await _fetchAndIndexMonthlyScans(_business!.id);
+      // 5. Index pre-aggregated monthly branch stats for performance reporting (O(1) memory index, no raw scan fetch)
+      _fetchAndIndexMonthlyScans(_business!.id);
 
       _loading = false;
       notifyListeners();
@@ -162,64 +163,16 @@ class OwnerDashboardProvider extends ChangeNotifier {
     }
   }
 
-  /// Populates monthly performance buckets directly from pre-aggregated branch documents (O(1) read, no 1000 scan cap)
-  Future<void> _fetchAndIndexMonthlyScans(String businessId) async {
+  /// Populates monthly performance buckets directly from pre-aggregated branch documents (O(1) read, no raw scan fetch)
+  void _fetchAndIndexMonthlyScans(String businessId) {
     _monthlyBranchStats.clear();
-    bool hasMonthlyData = false;
 
     for (final branch in _branches) {
       if (branch.monthlyStats.isNotEmpty) {
-        hasMonthlyData = true;
         branch.monthlyStats.forEach((monthKey, stats) {
           _monthlyBranchStats.putIfAbsent(monthKey, () => {});
           _monthlyBranchStats[monthKey]![branch.id] = Map<String, dynamic>.from(stats);
         });
-      }
-    }
-
-    // Fallback for legacy accounts without monthly_stats on branches
-    if (!hasMonthlyData) {
-      try {
-        final scansSnap = await _db
-            .collection('businesses')
-            .doc(businessId)
-            .collection('scans')
-            .orderBy('timestamp', descending: true)
-            .get();
-
-        for (final doc in scansSnap.docs) {
-          final d = doc.data();
-          final ts = d['timestamp'] as Timestamp?;
-          final date = ts?.toDate() ?? DateTime.now();
-          final monthKey = '${date.year}-${date.month.toString().padLeft(2, '0')}';
-          final branchId = (d['branch_id'] as String?) ?? 'default';
-          final star = (d['star_rating'] as num?)?.toInt() ?? 5;
-          final action = d['action_taken'] as String? ?? '';
-
-          _monthlyBranchStats.putIfAbsent(monthKey, () => {});
-          final monthMap = _monthlyBranchStats[monthKey]!;
-          monthMap.putIfAbsent(branchId, () => {
-            'total_scans': 0,
-            'google_reviews_opened': 0,
-            'private_issues': 0,
-            'star_distribution': {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0},
-          });
-
-          final branchStats = monthMap[branchId]!;
-          branchStats['total_scans'] = (branchStats['total_scans'] as int) + 1;
-
-          if (action == 'google_maps' || action == 'google') {
-            branchStats['google_reviews_opened'] = (branchStats['google_reviews_opened'] as int) + 1;
-          } else if (action == 'whatsapp' || action == 'feedback_submitted' || action == 'low_skip') {
-            branchStats['private_issues'] = (branchStats['private_issues'] as int) + 1;
-          }
-
-          final stars = branchStats['star_distribution'] as Map<String, int>;
-          final starKey = star.clamp(1, 5).toString();
-          stars[starKey] = (stars[starKey] ?? 0) + 1;
-        }
-      } catch (_) {
-        // Best-effort in offline/emulator mode
       }
     }
   }

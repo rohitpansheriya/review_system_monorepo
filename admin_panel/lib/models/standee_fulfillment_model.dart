@@ -18,6 +18,19 @@ class StandeeFulfillmentModel {
   final String? qrCodeId;
   final String? plainQrStoragePath;
 
+  // Enrolling employee info (for batch delivery to employee)
+  final String? enrolledBy;
+  String? enrolledByName;
+  String? enrolledByPhone;
+  String? enrolledByAddress;
+
+  // Courier & Delivery details
+  String? courierName;
+  String? courierAwb;
+  DateTime? shippedAt;
+  DateTime? deliveredAt;
+  String? deliveredVia; // 'first_scan_detected' | 'manual_admin'
+
   StandeeFulfillmentModel({
     required this.businessId,
     required this.businessName,
@@ -31,6 +44,15 @@ class StandeeFulfillmentModel {
     this.standeeStatusUpdatedAt,
     this.qrCodeId,
     this.plainQrStoragePath,
+    this.enrolledBy,
+    this.enrolledByName,
+    this.enrolledByPhone,
+    this.enrolledByAddress,
+    this.courierName,
+    this.courierAwb,
+    this.shippedAt,
+    this.deliveredAt,
+    this.deliveredVia,
   });
 
   factory StandeeFulfillmentModel.fromDoc({
@@ -39,9 +61,15 @@ class StandeeFulfillmentModel {
     required String categoryType,
     String? ownerPhone,
     String? ownerEmail,
+    String? enrolledBy,
+    String? enrolledByName,
+    String? enrolledByPhone,
+    String? enrolledByAddress,
     required DocumentSnapshot branchDoc,
   }) {
     final d = branchDoc.data() as Map<String, dynamic>? ?? {};
+    final branchEnrolledBy = d['enrolled_by'] as String? ?? enrolledBy;
+
     return StandeeFulfillmentModel(
       businessId: businessId,
       businessName: businessName,
@@ -51,10 +79,19 @@ class StandeeFulfillmentModel {
       branchId: branchDoc.id,
       branchName: d['branch_name'] as String? ?? businessName,
       address: d['address'] as String? ?? '',
-      standeeStatus: d['standee_status'] as String? ?? AppConstants.standeeNotOrdered,
+      standeeStatus: d['standee_status'] as String? ?? AppConstants.standeeOrdered,
       standeeStatusUpdatedAt: (d['standee_status_updated_at'] as Timestamp?)?.toDate(),
       qrCodeId: d['qr_code_id'] as String?,
       plainQrStoragePath: d['plain_qr_storage_path'] as String?,
+      enrolledBy: branchEnrolledBy,
+      enrolledByName: enrolledByName,
+      enrolledByPhone: enrolledByPhone,
+      enrolledByAddress: enrolledByAddress,
+      courierName: d['courier_name'] as String?,
+      courierAwb: d['courier_awb'] as String?,
+      shippedAt: (d['shipped_at'] as Timestamp?)?.toDate(),
+      deliveredAt: (d['delivered_at'] as Timestamp?)?.toDate(),
+      deliveredVia: d['delivered_via'] as String?,
     );
   }
 }

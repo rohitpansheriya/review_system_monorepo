@@ -301,6 +301,12 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "scans",
+      "fieldPath": "expire_at",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "branches",
       "fieldPath": "place_id",
       "indexes": [

@@ -66,8 +66,11 @@ export const onScanCreated = onDocumentCreated(
     }
 
     const branchData = branchSnap.data();
-    if (branchData?.subscription_status === "deleted") {
-      logger.info("onScanCreated: branch is deleted, skipping aggregation", {
+    if (
+      branchData?.subscription_status === "suspended" ||
+      branchData?.subscription_status === "deleted"
+    ) {
+      logger.info("onScanCreated: branch is suspended/deleted, skipping aggregation", {
         businessId,
         branchId,
         scanId,
@@ -124,9 +127,11 @@ export const onScanCreated = onDocumentCreated(
 
       if (actionTaken === "google_maps") {
         statsUpdates["stats_summary.total_reviews_redirected"] = FieldValue.increment(1);
+        statsUpdates["stats_summary.google_reviews_opened"] = FieldValue.increment(1);
         statsUpdates[`monthly_stats.${monthKey}.google_reviews_opened`] = FieldValue.increment(1);
         statsUpdates[`monthly_stats.${monthKey}.total_reviews_redirected`] = FieldValue.increment(1);
       } else if (actionTaken === "whatsapp" || actionTaken === "feedback_submitted" || actionTaken === "low_skip") {
+        statsUpdates["stats_summary.private_issues"] = FieldValue.increment(1);
         statsUpdates[`monthly_stats.${monthKey}.private_issues`] = FieldValue.increment(1);
       }
 
@@ -137,9 +142,34 @@ export const onScanCreated = onDocumentCreated(
         statsUpdates[`monthly_stats.${monthKey}.star_distribution.${starRating}`] = FieldValue.increment(1);
       }
 
-      await branchRef.update(statsUpdates);
+      const bizRef = db.doc(`businesses/${businessId}`);
 
-      logger.info("onScanCreated: successfully aggregated stats for branch", {
+      await Promise.all([
+        branchRef.set(statsUpdates, {merge: true}),
+        bizRef.set(statsUpdates, {merge: true}),
+      ]);
+
+      // ── 5. Auto-Promote Standee from 'shipped' to 'delivered' on Field Scan ──
+      if (branchData?.standee_status === "shipped") {
+        const shippedAt = branchData?.shipped_at as {toDate?: () => Date} | undefined;
+        const shippedDate = shippedAt?.toDate ? shippedAt.toDate() : null;
+        const isAfterDispatch = !shippedDate || (new Date() >= shippedDate);
+        if (isAfterDispatch) {
+          await branchRef.update({
+            standee_status: "delivered",
+            standee_status_updated_at: FieldValue.serverTimestamp(),
+            delivered_at: FieldValue.serverTimestamp(),
+            delivered_via: "first_scan_detected",
+          });
+          logger.info("onScanCreated: auto-promoted standee from shipped to delivered on live scan", {
+            businessId,
+            branchId,
+            scanId,
+          });
+        }
+      }
+
+      logger.info("onScanCreated: successfully aggregated stats for branch and business rollup", {
         businessId,
         branchId,
         scanId,
@@ -148,7 +178,7 @@ export const onScanCreated = onDocumentCreated(
         actionTaken,
       });
     } catch (err) {
-      logger.error("onScanCreated: failed to update branch stats_summary", {
+      logger.error("onScanCreated: failed to update branch/business stats_summary", {
         businessId,
         branchId,
         scanId,

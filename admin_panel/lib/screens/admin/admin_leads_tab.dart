@@ -369,7 +369,6 @@ class _AdminLeadsTabState extends State<AdminLeadsTab> {
   }
 
   Widget _buildLeadTile(LeadModel lead, ColorScheme scheme) {
-    final statusCol = _statusColor(lead.status);
     final dateStr = DateFormat('MMM dd, yyyy • hh:mm a').format(lead.createdAt);
 
     return Padding(
@@ -460,10 +459,10 @@ class _AdminLeadsTabState extends State<AdminLeadsTab> {
             underline: const SizedBox.shrink(),
             borderRadius: BorderRadius.circular(12),
             items: [
-              _statusDropdownItem('lead', 'New Lead', const Color(0xFFEF4444)),
-              _statusDropdownItem('contacted', 'Contacted', const Color(0xFFF59E0B)),
-              _statusDropdownItem('converted', 'Converted', const Color(0xFF10B981)),
-              _statusDropdownItem('archived', 'Archived', const Color(0xFF64748B)),
+              _statusDropdownItem('lead', 'New Lead', _statusColor('lead')),
+              _statusDropdownItem('contacted', 'Contacted', _statusColor('contacted')),
+              _statusDropdownItem('converted', 'Converted', _statusColor('converted')),
+              _statusDropdownItem('archived', 'Archived', _statusColor('archived')),
             ],
             onChanged: (val) {
               if (val != null) _updateLeadStatus(lead.id, val);

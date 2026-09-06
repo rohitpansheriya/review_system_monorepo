@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/owner_dashboard_provider.dart';
 import '../../widgets/app_animated_loader.dart';
+import '../../widgets/app_splash_screen.dart';
 import '../../core/logout_helper.dart';
 import 'owner_home_tab.dart';
 import 'owner_categories_tab.dart';
@@ -79,12 +80,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_initialized) {
+    final auth = context.read<AppAuthProvider>();
+    if (!_initialized && auth.isOwner && auth.uid != null) {
       _initialized = true;
-      final auth = context.read<AppAuthProvider>();
-      if (auth.uid != null) {
-        context.read<OwnerDashboardProvider>().loadOwnerData(auth.uid!);
-      }
+      context.read<OwnerDashboardProvider>().loadOwnerData(auth.uid!);
     }
   }
 
@@ -94,6 +93,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final provider = context.watch<OwnerDashboardProvider>();
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    if (auth.status == AuthStatus.unknown || auth.loading) {
+      return const AppSplashScreen(message: 'Authenticating…');
+    }
 
     if (provider.loading) {
       return const Scaffold(
@@ -190,6 +193,41 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       );
     }
 
+    final Widget suspendedBanner = provider.isSuspended
+        ? Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: const Color(0xFFFEF2F2),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '⚠️ Subscription Suspended — Customer QR scans are currently paused. Renew for ₹999/year to restore live review redirection instantly.',
+                    style: TextStyle(
+                      color: Color(0xFF991B1B),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () => _onTabSelected(3),
+                  icon: const Icon(Icons.payment, size: 16),
+                  label: const Text('Renew Now (₹999)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : const SizedBox.shrink();
+
     final Widget pendingBanner = provider.isPendingPayment
         ? Container(
             width: double.infinity,
@@ -222,7 +260,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           )
         : const SizedBox.shrink();
 
-    // ── Active / Grace Period Dashboard Views ─────────────────────────────────
+    // ── Active / Grace Period / Suspended Dashboard Views ─────────────────────
     final tabs = [
       const OwnerHomeTab(),
       const OwnerCategoriesTab(),
@@ -233,7 +271,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     final isDesktop = MediaQuery.of(context).size.width > 800;
 
-    // Determine if renewal badge should show (≤30 days to renewal or in grace)
+    // Determine if renewal badge should show (≤30 days to renewal or in grace/suspended)
     final bool showRenewalBadge = _shouldShowRenewalBadge(provider);
 
     final currentTab = provider.selectedTabIndex;
@@ -263,6 +301,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       ),
       body: Column(
         children: [
+          suspendedBanner,
           pendingBanner,
           Expanded(
             child: isDesktop
@@ -364,8 +403,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final biz = provider.business;
     if (biz == null) return false;
 
-    // Always show badge during grace period
-    if (provider.isGracePeriod) return true;
+    // Always show badge during grace period or suspended status
+    if (provider.isGracePeriod || provider.isSuspended) return true;
 
     // Show badge when renewal is within 30 days
     final renewalDate = biz.renewalDate;

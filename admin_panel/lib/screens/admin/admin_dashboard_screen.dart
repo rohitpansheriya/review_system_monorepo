@@ -17,6 +17,7 @@ import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../enroll/enroll_screen.dart';
 import '../../widgets/app_animated_loader.dart';
+import '../../widgets/app_splash_screen.dart';
 import 'admin_platform_stats_tab.dart';
 import 'admin_employees_tab.dart';
 import 'admin_templates_tab.dart';
@@ -79,7 +80,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_initialized) {
+    final auth = context.read<AppAuthProvider>();
+    if (!_initialized && auth.isAdmin) {
       _initialized = true;
       context.read<AdminDashboardProvider>().loadAdminData();
     }
@@ -91,6 +93,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final provider = context.watch<AdminDashboardProvider>();
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    if (auth.status == AuthStatus.unknown || auth.loading) {
+      return const AppSplashScreen(message: 'Authenticating…');
+    }
 
     if (!auth.isAdmin) {
       return Scaffold(

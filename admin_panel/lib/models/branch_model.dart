@@ -26,6 +26,10 @@ class BranchModel {
   final String? cashConfirmedByAdmin;
   final double? amountPaid;
   final double? setupFeePaid;
+  final double? renewalAmountPaid;
+  final DateTime? renewalDate;
+  final DateTime? gracePeriodEnds;
+  final String? lastRenewalLinkUrl;
 
   // ── Pre-aggregated Stats Summary ───────────────────────────────────────────
   final int totalScans;
@@ -45,7 +49,7 @@ class BranchModel {
     this.qrCodeId,
     this.nfcTagId,
     this.plainQrStoragePath,
-    this.standeeStatus = AppConstants.standeeNotOrdered,
+    this.standeeStatus = AppConstants.standeeOrdered,
     this.standeeStatusUpdatedAt,
     this.whatsappMonitoredBy = '',
     this.subscriptionStatus = AppConstants.statusPendingPayment,
@@ -55,6 +59,10 @@ class BranchModel {
     this.cashConfirmedByAdmin,
     this.amountPaid,
     this.setupFeePaid,
+    this.renewalAmountPaid,
+    this.renewalDate,
+    this.gracePeriodEnds,
+    this.lastRenewalLinkUrl,
     this.totalScans = 0,
     this.googleReviewsOpened = 0,
     this.starDistribution = const {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0},
@@ -113,7 +121,7 @@ class BranchModel {
       nfcTagId:         d['nfc_tag_id']         as String?,
       plainQrStoragePath:     d['plain_qr_storage_path'] as String?,
       standeeStatus:          d['standee_status']        as String?
-                                  ?? AppConstants.standeeNotOrdered,
+                                  ?? AppConstants.standeeOrdered,
       standeeStatusUpdatedAt: (d['standee_status_updated_at'] as Timestamp?)?.toDate(),
       whatsappMonitoredBy:    d['whatsapp_monitored_by'] as String? ?? '',
       subscriptionStatus:     d['subscription_status'] as String? ?? AppConstants.statusPendingPayment,
@@ -123,6 +131,10 @@ class BranchModel {
       cashConfirmedByAdmin:   d['cash_confirmed_by_admin'] as String?,
       amountPaid:             (d['amount_paid'] as num?)?.toDouble(),
       setupFeePaid:           (d['setup_fee_paid'] as num?)?.toDouble(),
+      renewalAmountPaid:      (d['renewal_amount_paid'] as num?)?.toDouble(),
+      renewalDate:            (d['renewal_date'] as Timestamp?)?.toDate(),
+      gracePeriodEnds:        (d['grace_period_ends'] as Timestamp?)?.toDate(),
+      lastRenewalLinkUrl:     d['last_renewal_link_url'] as String?,
       totalScans:             (stats['total_scans'] as num? ?? 0).toInt(),
       googleReviewsOpened:    (stats['total_reviews_redirected'] as num? ?? stats['monthly_google_reviews'] as num? ?? 0).toInt(),
       starDistribution:       starsMap,
@@ -138,6 +150,10 @@ class BranchModel {
     String? standeeStatus,
     String? subscriptionStatus,
     String? paymentMode,
+    DateTime? renewalDate,
+    DateTime? gracePeriodEnds,
+    double? renewalAmountPaid,
+    String? lastRenewalLinkUrl,
   }) {
     return BranchModel(
       id: id,
@@ -159,6 +175,12 @@ class BranchModel {
       enrolledBy: enrolledBy,
       cashConfirmedAt: cashConfirmedAt,
       cashConfirmedByAdmin: cashConfirmedByAdmin,
+      amountPaid: amountPaid,
+      setupFeePaid: setupFeePaid,
+      renewalAmountPaid: renewalAmountPaid ?? this.renewalAmountPaid,
+      renewalDate: renewalDate ?? this.renewalDate,
+      gracePeriodEnds: gracePeriodEnds ?? this.gracePeriodEnds,
+      lastRenewalLinkUrl: lastRenewalLinkUrl ?? this.lastRenewalLinkUrl,
       totalScans: totalScans,
       googleReviewsOpened: googleReviewsOpened,
       starDistribution: starDistribution,

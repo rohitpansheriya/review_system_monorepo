@@ -56,9 +56,11 @@ class OwnerHomeTab extends StatelessWidget {
       // Aggregate true counts across each individual branch according to that branch's own routing config
       for (final branch in provider.branches) {
         final bRouting = branch.starRoutingConfig;
-        final bStats = branch.starDistribution;
+        final bStats = provider.selectedMonth == 'all'
+            ? branch.starDistribution
+            : (branch.monthlyStats[provider.selectedMonth]?['star_distribution'] as Map<String, dynamic>?) ?? {};
         for (final star in ['1', '2', '3', '4', '5']) {
-          final count = bStats[star] ?? 0;
+          final count = (bStats[star] as num? ?? 0).toInt();
           final action = bRouting[star] ?? (int.parse(star) >= 4 ? 'google' : 'whatsapp');
           if (action == 'google') {
             googleReviews += count;

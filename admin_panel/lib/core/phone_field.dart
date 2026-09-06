@@ -54,7 +54,13 @@ class IndianPhoneNumberFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    var text = newValue.text;
+    if (text.startsWith('+91')) {
+      text = text.substring(3);
+    } else if (text.startsWith('+')) {
+      text = text.substring(1);
+    }
+    var digits = text.replaceAll(RegExp(r'\D'), '');
     if (digits.startsWith('91') && digits.length > 10) {
       digits = digits.substring(2);
     } else if (digits.startsWith('0') && digits.length > 10) {
@@ -79,7 +85,13 @@ class _PhoneFieldState extends State<PhoneField> {
   static final RegExp _validDigits = RegExp(r'^[6-9]\d{9}$');
 
   static String _cleanDigits(String raw) {
-    var digits = raw.replaceAll(RegExp(r'\D'), '');
+    var s = raw.trim();
+    if (s.startsWith('+91')) {
+      s = s.substring(3);
+    } else if (s.startsWith('+')) {
+      s = s.substring(1);
+    }
+    var digits = s.replaceAll(RegExp(r'\D'), '');
     if (digits.startsWith('91') && digits.length > 10) {
       digits = digits.substring(2);
     } else if (digits.startsWith('0') && digits.length > 10) {
@@ -104,7 +116,7 @@ class _PhoneFieldState extends State<PhoneField> {
         if (_ctrl.text != current) {
           _ctrl.text = current;
         }
-        _onInputChanged(current);
+        _validate(current);
       }
     });
   }
@@ -114,9 +126,13 @@ class _PhoneFieldState extends State<PhoneField> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialValue != oldWidget.initialValue) {
       final clean = _cleanDigits(widget.initialValue);
-      if (_ctrl.text != clean) {
-        _ctrl.text = clean;
-        _onInputChanged(clean);
+      final currentInCtrl = _cleanDigits(_ctrl.text);
+      if (currentInCtrl != clean) {
+        _ctrl.value = TextEditingValue(
+          text: clean,
+          selection: TextSelection.collapsed(offset: clean.length),
+        );
+        _validate(clean);
       }
     }
   }
@@ -128,8 +144,7 @@ class _PhoneFieldState extends State<PhoneField> {
     super.dispose();
   }
 
-  void _onInputChanged(String digits) {
-    final clean = _cleanDigits(digits);
+  void _validate(String clean) {
     String? err;
     if (clean.isEmpty) {
       err = null;
@@ -139,6 +154,11 @@ class _PhoneFieldState extends State<PhoneField> {
       err = 'Enter a valid 10-digit number starting with 6–9';
     }
     setState(() => _validationError = err);
+  }
+
+  void _onInputChanged(String digits) {
+    final clean = _cleanDigits(digits);
+    _validate(clean);
     // Emit E.164 (+91XXXXXXXXXX) when present, or empty string when blank
     widget.onChanged(clean.isEmpty ? '' : _prefix + clean);
   }

@@ -10,8 +10,6 @@ import 'package:provider/provider.dart';
 import '../../core/constants.dart';
 import '../../core/string_utils.dart';
 import '../../providers/admin_dashboard_provider.dart';
-import '../../widgets/category_template_visualizer.dart';
-import '../../widgets/app_animated_loader.dart';
 
 class AdminTemplatesTab extends StatefulWidget {
   const AdminTemplatesTab({super.key});
@@ -22,31 +20,6 @@ class AdminTemplatesTab extends StatefulWidget {
 
 class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
   String? _selectedTemplateId;
-
-  void _showLivePreviewModal(
-    BuildContext context,
-    String templateId,
-    String businessType,
-    List<String> categoryNames,
-    Map<String, List<String>> cachedPhrases,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          child: CategoryTemplateLiveVisualizer(
-            templateId: templateId,
-            businessType: businessType,
-            categoryNames: categoryNames,
-            cachedPhrases: cachedPhrases,
-          ),
-        ),
-      ),
-    );
-  }
 
   // ── Create New Template Dialog (With Bulk Phrases) ─────────────────────────
   void _showCreateTemplateDialog(
@@ -495,18 +468,6 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
         [];
 
     final templateId = currentTemplate['id'] as String;
-    final businessType = currentTemplate['business_type'] as String? ?? 'Business';
-
-    final Map<String, List<String>> cachedPhrases = {};
-    for (final cat in categoryNames) {
-      final list = provider.getCachedCategoryPhrases(templateId, cat);
-      if (list != null && list.isNotEmpty) {
-        cachedPhrases[cat] = list;
-      }
-    }
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWide = screenWidth >= 1150;
 
     final editorSection = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,7 +487,7 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Manage review phrase pools. Live interactive visualizer previews customer flow.',
+                    'Manage review phrase pools and categories for each industry.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -534,21 +495,6 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
                 ],
               ),
             ),
-            if (!isWide)
-              FilledButton.icon(
-                onPressed: () => _showLivePreviewModal(
-                  context,
-                  templateId,
-                  businessType,
-                  categoryNames,
-                  cachedPhrases,
-                ),
-                icon: const Icon(Icons.phone_iphone, size: 18),
-                label: const Text('Live Phone Preview'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
-                ),
-              ),
           ],
         ),
         const SizedBox(height: 20),
@@ -647,62 +593,7 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
-      child: isWide
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: editorSection),
-                const SizedBox(width: 32),
-                SizedBox(
-                  width: 380,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.phone_iphone, color: Color(0xFF4F46E5), size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Live Customer Preview',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.refresh, size: 18),
-                            tooltip: 'Reset Preview',
-                            onPressed: () => setState(() {}),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Interactive smartphone frame. Click tags or stars to test live review synthesis.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Center(
-                        child: CategoryTemplateLiveVisualizer(
-                          key: ValueKey('${templateId}_${cachedPhrases.length}'),
-                          templateId: templateId,
-                          businessType: businessType,
-                          categoryNames: categoryNames,
-                          cachedPhrases: cachedPhrases,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          : editorSection,
+      child: editorSection,
     );
   }
 

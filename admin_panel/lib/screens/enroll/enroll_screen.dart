@@ -276,9 +276,21 @@ class _EnrollScreenState extends State<EnrollScreen> {
             _brandNameError = error;
           } else if (error.toLowerCase().contains('owner name')) {
             _ownerNameError = error;
+          } else if (error.toLowerCase().contains('phone')) {
+            _ownerPhoneError = error;
           }
         });
         _focusFirstError(error);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       } else {
         // Navigate to payment page for this draft — user pays or defers there.
         final bizId = enroll.successBizId!;
@@ -303,8 +315,17 @@ class _EnrollScreenState extends State<EnrollScreen> {
         // Reset provider AFTER navigation to ensure clean state for next enrollment
         enroll.reset();
       }
-    } catch (_) {
-      if (mounted) setState(() => _isSubmitting = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Enrollment failed: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -499,7 +520,11 @@ class _EnrollScreenState extends State<EnrollScreen> {
                       helperText:  'Used for payment and WhatsApp contact',
                       initialValue: enroll.ownerPhone,
                       showError:   _showErrors,
-                      onChanged:   (e164) => enroll.ownerPhone = e164,
+                      errorText:   _ownerPhoneError,
+                      onChanged:   (e164) {
+                        if (_ownerPhoneError != null) setState(() => _ownerPhoneError = null);
+                        enroll.ownerPhone = e164;
+                      },
                     ),
                   ],
                 ),
@@ -592,6 +617,8 @@ class _EnrollScreenState extends State<EnrollScreen> {
                             draft:         enroll.branchAt(i),
                             showBranchName: enroll.isMulti,
                             showError:     _showErrors,
+                            ownerPhone:    enroll.ownerPhone,
+                            ownerName:     enroll.ownerName,
                             onChanged:     enroll.notifyBranchChanged,
                             onRemove:      enroll.isMulti && enroll.branches.length > 1
                                 ? () => enroll.removeBranch(i)

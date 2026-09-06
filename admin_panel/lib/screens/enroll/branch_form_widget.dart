@@ -37,6 +37,8 @@ class BranchFormWidget extends StatefulWidget {
   final bool showError;        // true after submit attempt
   final VoidCallback? onRemove; // null = remove button hidden
   final VoidCallback onChanged; // call when any field changes
+  final String? ownerPhone;
+  final String? ownerName;
 
   const BranchFormWidget({
     super.key,
@@ -46,6 +48,8 @@ class BranchFormWidget extends StatefulWidget {
     required this.onChanged,
     this.showError = false,
     this.onRemove,
+    this.ownerPhone,
+    this.ownerName,
   });
 
   @override
@@ -254,8 +258,6 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // Watch for searching/candidates changes
-    context.watch<EnrollProvider>();
     final draft = widget.draft;
 
     return Container(
@@ -331,17 +333,29 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
               icon: const Icon(Icons.copy_outlined, size: 14),
               label: const Text('Same as Owner WhatsApp & Contact', style: TextStyle(fontSize: 12)),
               onPressed: () {
-                final enroll = context.read<EnrollProvider>();
-                if (enroll.ownerPhone.isNotEmpty) {
-                  draft.whatsappNumber = enroll.ownerPhone;
+                String phone = widget.ownerPhone ?? '';
+                String name = widget.ownerName ?? '';
+                if (phone.isEmpty && context.mounted) {
+                  try {
+                    final enroll = context.read<EnrollProvider>();
+                    phone = enroll.ownerPhone;
+                    if (name.isEmpty) name = enroll.ownerName;
+                  } catch (_) {}
                 }
-                final monitorName = enroll.ownerName.isNotEmpty
-                    ? '${enroll.ownerName} (Owner)'
+                if (phone.isNotEmpty) {
+                  var clean = phone.replaceAll(RegExp(r'\D'), '');
+                  if (clean.startsWith('91') && clean.length > 10) clean = clean.substring(2);
+                  if (clean.startsWith('0') && clean.length > 10) clean = clean.substring(1);
+                  if (clean.length > 10) clean = clean.substring(0, 10);
+                  draft.whatsappNumber = clean.isNotEmpty ? '+91$clean' : '';
+                }
+                final monitorName = name.trim().isNotEmpty
+                    ? '${name.trim()} (Owner)'
                     : 'Owner';
                 draft.whatsappMonitoredBy = monitorName;
                 _whatsappMonitoredByCtrl.text = monitorName;
                 widget.onChanged();
-                setState(() {});
+                if (mounted) setState(() {});
               },
             ),
           ),

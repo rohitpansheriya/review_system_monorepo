@@ -24,6 +24,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../core/constants.dart';
 import '../../widgets/app_animated_loader.dart';
+import '../../widgets/app_splash_screen.dart';
 import '../../core/logout_helper.dart';
 import '../../models/business_model.dart';
 import '../../providers/auth_provider.dart';
@@ -73,6 +74,10 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
     final commProvider = context.watch<CommissionProvider>();
     final employee = auth.employee;
     final scheme   = Theme.of(context).colorScheme;
+
+    if (auth.status == AuthStatus.unknown || auth.loading) {
+      return const AppSplashScreen(message: 'Authenticating…');
+    }
 
     // Calculate live earnings this month for employee
     final currentMonthStr = DateFormat('yyyy-MM').format(DateTime.now());

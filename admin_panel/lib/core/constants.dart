@@ -30,10 +30,12 @@ class AppConstants {
   static const String fnSearchPlaces                 = 'searchPlaces';
   static const String fnGenerateBranchQr             = 'generateBranchQr';
   static const String fnResendPaymentLink            = 'resendPaymentLink';
+  static const String fnGenerateRenewalPaymentLink   = 'generateRenewalPaymentLink';
   static const String fnSendCashPaymentVerification  = 'sendCashPaymentVerification'; // LEGACY
   static const String fnConfirmCashPaymentAdmin      = 'confirmCashPaymentAdmin';
   static const String fnMarkCommissionsPaidBulk      = 'markCommissionsPaidBulk';
   static const String fnDeleteBusinessAdmin          = 'deleteBusinessAdmin';
+  static const String fnDeleteBranchAdmin            = 'deleteBranchAdmin';
 
   // ── Star routing option values ──────────────────────────────────────────────
   static const String routingThankyou = 'thankyou';
@@ -44,17 +46,16 @@ class AppConstants {
   static const String statusPendingPayment = 'pending_payment';
   static const String statusActive         = 'active';
   static const String statusGracePeriod    = 'grace_period';
+  static const String statusSuspended      = 'suspended';
   static const String statusDeleted        = 'deleted';
 
   // ── Standee fulfillment statuses ────────────────────────────────────────────
-  static const String standeeNotOrdered = 'not_ordered';
   static const String standeeOrdered    = 'ordered';
   static const String standeePrinted    = 'printed';
   static const String standeeShipped    = 'shipped';
   static const String standeeDelivered  = 'delivered';
 
   static const List<String> standeeStatuses = [
-    standeeNotOrdered,
     standeeOrdered,
     standeePrinted,
     standeeShipped,
@@ -62,7 +63,6 @@ class AppConstants {
   ];
 
   static const Map<String, String> standeeStatusLabels = {
-    standeeNotOrdered: 'Not ordered',
     standeeOrdered:    'Ordered',
     standeePrinted:    'Printed',
     standeeShipped:    'Shipped',

@@ -67,11 +67,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _branchName = '';
   String _branchAddress = '';
   int _branchCount = 1;
-  bool   _paying     = false;
+  bool   _paying = false;
   bool   _cashActivating = false;
-  bool   _sharingLink = false;
+  bool   _sharingWhatsApp = false;
+  bool   _copyingLink = false;
+  bool   _deferring = false;
   String? _shortUrl;
   String? _payError;
+
+  bool get _isProcessing => _paying || _cashActivating || _sharingWhatsApp || _copyingLink || _deferring;
 
   bool get isBranchPayment => widget.branchId != null && widget.branchId!.isNotEmpty;
   int get setupFeeRupees => isBranchPayment ? 1999 : (_branchCount * 1999);
@@ -117,7 +121,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
             .collection(AppConstants.colBranches)
             .get();
         if (mounted && branchesSnap.docs.isNotEmpty) {
-          _branchCount = branchesSnap.docs.length;
+          final pendingBranches = branchesSnap.docs.where((d) {
+            final s = d.data()['subscription_status'] as String?;
+            return s == AppConstants.statusPendingPayment || s == null;
+          }).toList();
+          _branchCount = pendingBranches.isNotEmpty ? pendingBranches.length : branchesSnap.docs.length;
         }
       }
 
@@ -129,7 +137,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ── Razorpay checkout (Dart → JS interop) ───────────────────────────────────
   Future<void> _launchRazorpay() async {
-    if (_paying || _cashActivating || _sharingLink) return;
+    if (_isProcessing) return;
     setState(() { _paying = true; _payError = null; });
 
     if (!js.context.hasProperty('Razorpay')) {
@@ -214,7 +222,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ── Admin Cash Activate (Admin only) ───────────────────────────────────────
   Future<void> _adminCashActivate() async {
-    if (_cashActivating || _paying || _sharingLink) return;
+    if (_isProcessing) return;
     setState(() { _cashActivating = true; _payError = null; });
 
     final auth = context.read<AppAuthProvider>();
@@ -269,9 +277,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ── Instant WhatsApp Share of Payment Link ──────────────────────────────
   Future<void> _sendWhatsAppPaymentLink() async {
-    if (_sharingLink || _paying || _cashActivating) return;
+    if (_isProcessing) return;
     setState(() {
-      _sharingLink = true;
+      _sharingWhatsApp = true;
       _payError = null;
     });
 
@@ -323,15 +331,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (e) {
       if (mounted) setState(() => _payError = 'Failed to generate link: $e');
     } finally {
-      if (mounted) setState(() => _sharingLink = false);
+      if (mounted) setState(() => _sharingWhatsApp = false);
     }
   }
 
   // ── Generate / Share Payment Link ──────────────────────────────────────────
   Future<void> _sharePaymentLink() async {
-    if (_sharingLink || _paying || _cashActivating) return;
+    if (_isProcessing) return;
     setState(() {
-      _sharingLink = true;
+      _copyingLink = true;
       _payError = null;
     });
 
@@ -366,12 +374,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (e) {
       if (mounted) setState(() => _payError = 'Failed to generate link: $e');
     } finally {
-      if (mounted) setState(() => _sharingLink = false);
+      if (mounted) setState(() => _copyingLink = false);
     }
   }
 
   // ── Defer (Owner will pay online later) ──────────────────────────────────────
   Future<void> _defer() async {
+    if (_isProcessing) return;
+    setState(() {
+      _deferring = true;
+      _payError = null;
+    });
+
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
       final svc = context.read<FirestoreService>();
@@ -392,6 +406,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
     } catch (e) {
       // Non-blocking fallback
+    } finally {
+      if (mounted) {
+        setState(() => _deferring = false);
+      }
     }
 
     if (mounted) {
@@ -438,10 +456,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
       appBar: AppBar(
         title: Text(isBranchPayment ? 'Collect Branch Payment' : 'Collect Payment'),
         leading: BackButton(
-          onPressed: () => isBranchPayment
-              ? context.go('/business/${widget.businessId}')
-              : context.go(_homeRoute(context)),
+          onPressed: _isProcessing
+              ? null
+              : () => isBranchPayment
+                  ? context.go('/business/${widget.businessId}')
+                  : context.go(_homeRoute(context)),
         ),
+        bottom: _isProcessing
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(4),
+                child: LinearProgressIndicator(minHeight: 4),
+              )
+            : null,
       ),
       body: Center(
         child: ConstrainedBox(
@@ -575,9 +601,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     // ── Admin-only: Cash Activate button ──────────────────────
                     if (isAdmin) ...[
                       FilledButton.icon(
-                        onPressed: (_paying || _cashActivating || _sharingLink)
-                            ? null
-                            : _adminCashActivate,
+                        onPressed: _isProcessing ? null : _adminCashActivate,
                         icon: _cashActivating
                             ? SizedBox(
                                 width: 18, height: 18,
@@ -604,10 +628,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     // ── WhatsApp Share Payment Link CTA ──────────────────────────────
                     FilledButton.icon(
-                      onPressed: (_paying || _cashActivating || _sharingLink)
-                          ? null
-                          : _sendWhatsAppPaymentLink,
-                      icon: _sharingLink
+                      onPressed: _isProcessing ? null : _sendWhatsAppPaymentLink,
+                      icon: _sharingWhatsApp
                           ? const SizedBox(
                               width: 18,
                               height: 18,
@@ -617,7 +639,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               ),
                             )
                           : const Icon(Icons.chat_bubble_outline, size: 20),
-                      label: const Text('Send Payment Link on WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(
+                        _sharingWhatsApp ? 'Opening WhatsApp…' : 'Send Payment Link on WhatsApp',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF25D366),
                         foregroundColor: Colors.white,
@@ -629,9 +654,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     // ── Primary CTA: Online payment ───────────────────────────
                     ElevatedButton.icon(
-                      onPressed: (_paying || _cashActivating || _sharingLink)
-                          ? null
-                          : _launchRazorpay,
+                      onPressed: _isProcessing ? null : _launchRazorpay,
                       icon: _paying
                           ? SizedBox(
                               width: 18, height: 18,
@@ -650,11 +673,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     // ── Copy Payment Link CTA ─────────────────────────────────
                     OutlinedButton.icon(
-                      onPressed: (_paying || _cashActivating || _sharingLink)
-                          ? null
-                          : _sharePaymentLink,
-                      icon: const Icon(Icons.copy_outlined, size: 18),
-                      label: const Text('Copy Payment Link to Clipboard'),
+                      onPressed: _isProcessing ? null : _sharePaymentLink,
+                      icon: _copyingLink
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.copy_outlined, size: 18),
+                      label: Text(
+                        _copyingLink ? 'Generating link…' : 'Copy Payment Link to Clipboard',
+                      ),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                       ),
@@ -664,9 +693,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                     // ── Defer CTA ───────────────────────────────────────────
                     TextButton.icon(
-                      onPressed: (_paying || _cashActivating || _sharingLink) ? null : _defer,
-                      icon: const Icon(Icons.schedule_outlined),
-                      label: const Text('Owner will pay online later (Defer)'),
+                      onPressed: _isProcessing ? null : _defer,
+                      icon: _deferring
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.schedule_outlined),
+                      label: Text(
+                        _deferring ? 'Saving & sending link…' : 'Owner will pay online later (Defer)',
+                      ),
                       style: TextButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                       ),

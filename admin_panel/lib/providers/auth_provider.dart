@@ -129,9 +129,24 @@ class AppAuthProvider extends ChangeNotifier {
         return result.error;
       }
 
-      // On success: _loading stays true until _onAuthStateChanged fires and
-      // sets it to false after loading the employee doc and setting status.
-      // This prevents a flash of the login form before navigation completes.
+      _role    = result.role ?? _role;
+      _status  = AuthStatus.authenticated;
+      _loading = false;
+      _error   = null;
+
+      // Load employee Firestore doc if employee role
+      if (_role == AppConstants.roleEmployee && _employee == null) {
+        final currentUid = uid ?? user?.uid;
+        if (currentUid != null) {
+          try {
+            _employee = await _firestoreService.getEmployee(currentUid);
+          } catch (_) {
+            _employee = null;
+          }
+        }
+      }
+
+      notifyListeners();
       return null;
 
     } catch (e) {

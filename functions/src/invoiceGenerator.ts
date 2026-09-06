@@ -2,10 +2,16 @@
  * invoiceGenerator.ts
  *
  * Generates clean, branded PDF Invoices / Payment Receipts using PDFKit.
- * Supports both online and cash activations.
+ * Supports single-branch, multi-branch, online, and cash activations.
  */
 
 import PDFDocument from "pdfkit";
+
+export interface InvoiceBranchItem {
+  name: string;
+  address?: string;
+  amount?: number;
+}
 
 export interface InvoiceData {
   invoiceNumber: string;
@@ -19,6 +25,7 @@ export interface InvoiceData {
   paymentMode: "online" | "cash";
   paymentReference?: string;
   planTitle?: string;
+  branches?: InvoiceBranchItem[];
 }
 
 /**
@@ -97,21 +104,41 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Buffer> {
       doc.text("RATE", 420, tableY + 7, {width: 50, align: "right"});
       doc.text("AMOUNT", 480, tableY + 7, {width: 65, align: "right"});
 
-      // Item Row
-      const rowY = tableY + 30;
-      const itemTitle = data.planTitle || "AppNexa Pro Subscription (1-Year) + Smart NFC & QR Standee";
-      doc.fillColor(darkColor).fontSize(10).font("Helvetica-Bold").text(itemTitle, 50, rowY, {width: 310});
-      doc.fontSize(8).font("Helvetica").fillColor(grayColor).text("Includes cloud review routing, negative feedback shield & standee hardware.", 50, rowY + 14);
+      let currentY = tableY + 30;
 
-      doc.fillColor(darkColor).fontSize(10).font("Helvetica").text("1", 370, rowY, {width: 40, align: "center"});
-      doc.text(`₹${data.amount.toLocaleString("en-IN")}`, 420, rowY, {width: 50, align: "right"});
-      doc.font("Helvetica-Bold").text(`₹${data.amount.toLocaleString("en-IN")}`, 480, rowY, {width: 65, align: "right"});
+      const branchItems: InvoiceBranchItem[] = (data.branches && data.branches.length > 0) ?
+        data.branches :
+        [{name: data.brandName, amount: data.amount}];
 
-      // Divider Line
-      doc.strokeColor("#E2E8F0").lineWidth(1).moveTo(40, rowY + 35).lineTo(555, rowY + 35).stroke();
+      const ratePerBranch = branchItems.length > 0 ?
+        (branchItems[0].amount || Math.round(data.amount / branchItems.length)) :
+        1999;
+
+      for (let i = 0; i < branchItems.length; i++) {
+        const branch = branchItems[i];
+        const itemAmount = branch.amount || ratePerBranch;
+        const branchTitle = `AppNexa Pro Subscription (1-Year) — ${branch.name}`;
+
+        doc.fillColor(darkColor).fontSize(9).font("Helvetica-Bold").text(branchTitle, 50, currentY, {width: 310});
+        doc.fontSize(8).font("Helvetica").fillColor(grayColor).text(
+          "Smart NFC & QR Standee, cloud review routing, negative feedback shield.",
+          50,
+          currentY + 13,
+          {width: 310}
+        );
+
+        doc.fillColor(darkColor).fontSize(9).font("Helvetica").text("1", 370, currentY, {width: 40, align: "center"});
+        doc.text(`₹${itemAmount.toLocaleString("en-IN")}`, 420, currentY, {width: 50, align: "right"});
+        doc.font("Helvetica-Bold").text(`₹${itemAmount.toLocaleString("en-IN")}`, 480, currentY, {width: 65, align: "right"});
+
+        currentY += 34;
+
+        // Divider between items
+        doc.strokeColor("#E2E8F0").lineWidth(0.5).moveTo(40, currentY - 4).lineTo(555, currentY - 4).stroke();
+      }
 
       // ── Summary Totals ────────────────────────────────────────
-      const summaryY = rowY + 45;
+      const summaryY = currentY + 10;
       doc.fillColor(grayColor).fontSize(10).font("Helvetica").text("Subtotal:", 380, summaryY, {width: 90, align: "right"});
       doc.fillColor(darkColor).text(`₹${data.amount.toLocaleString("en-IN")}`, 480, summaryY, {width: 65, align: "right"});
 
@@ -123,7 +150,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Buffer> {
       doc.text(`₹${data.amount.toLocaleString("en-IN")}`, 480, summaryY + 41, {width: 65, align: "right"});
 
       // ── Tax Exemption Disclaimer ──────────────────────────────
-      const taxNoteY = summaryY + 80;
+      const taxNoteY = summaryY + 75;
       doc.rect(40, taxNoteY, 515, 45).fill("#FEF3C7");
       doc.fillColor("#92400E").fontSize(8).font("Helvetica-Bold").text("TAX EXEMPTION & COMPLIANCE NOTE:", 50, taxNoteY + 8);
       doc.font("Helvetica").fontSize(8).text(
@@ -134,7 +161,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Buffer> {
       );
 
       // ── Footer ────────────────────────────────────────────────
-      const footerY = taxNoteY + 70;
+      const footerY = taxNoteY + 65;
       doc.fillColor(grayColor).fontSize(8).font("Helvetica").text("This is a computer-generated invoice and requires no physical signature.", 40, footerY, {align: "center", width: 515});
       doc.text("Thank you for choosing AppNexa to grow your business!", 40, footerY + 14, {align: "center", width: 515});
 

@@ -100,7 +100,7 @@ const ABANDONED_DRAFT_AGE_HOURS = 48;
 const PAYMENT_LINK_EXPIRY_HOURS = 47;
 
 /** Default standee status written to every branch on first activation. (Change 2) */
-const STANDEE_STATUS_DEFAULT = "not_ordered";
+const STANDEE_STATUS_DEFAULT = "ordered";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -174,7 +174,8 @@ export async function provisionOwnerAccount(
   paymentMode: "online" | "cash" = "online",
   paymentReference?: string,
   amount = 1999,
-  businessCode?: string
+  businessCode?: string,
+  branches?: Array<{name: string; address?: string; amount?: number}>
 ): Promise<string> {
   const auth = admin.auth();
   let uid: string;
@@ -198,6 +199,28 @@ export async function provisionOwnerAccount(
   });
 
   try {
+    const bizRef = db.collection("businesses").doc(businessId);
+    const bizSnap = await bizRef.get();
+    const bizData = bizSnap.data();
+
+    // ── Idempotency / Duplicate Check ───────────────────────────────────────
+    // Prevent sending duplicate welcome emails / invoices for the same activation or rapid triggers
+    const lastWelcomeEmailSentAt = bizData?.last_welcome_email_sent_at as Timestamp | undefined;
+    const lastWelcomeEmailPaymentRef = bizData?.last_welcome_email_payment_ref as string | undefined;
+
+    const now = Date.now();
+    const isRecentDuplicate = lastWelcomeEmailSentAt && (now - lastWelcomeEmailSentAt.toMillis() < 60000); // within 60s
+    const isSamePaymentRef = paymentReference && lastWelcomeEmailPaymentRef === paymentReference;
+
+    if (isSamePaymentRef || (isRecentDuplicate && !paymentReference)) {
+      logger.info("provisionOwnerAccount: duplicate welcome email / invoice skipped (already sent)", {
+        businessId,
+        paymentReference,
+        lastWelcomeEmailSentAt: lastWelcomeEmailSentAt?.toDate().toISOString(),
+      });
+      return uid;
+    }
+
     const link = await auth.generatePasswordResetLink(ownerEmail);
     logger.info("provisionOwnerAccount: magic setup link generated", {
       ownerEmail,
@@ -205,14 +228,34 @@ export async function provisionOwnerAccount(
       link,
     });
 
-    let resolvedBrandName = brandName;
-    let resolvedBusinessCode = businessCode;
-    if (!resolvedBrandName || !resolvedBusinessCode) {
-      const bizDoc = await db.collection("businesses").doc(businessId).get();
-      const bData = bizDoc.data();
-      if (!resolvedBrandName) resolvedBrandName = bData?.brand_name as string | undefined;
-      if (!resolvedBusinessCode) resolvedBusinessCode = bData?.business_code as string | undefined;
+    const resolvedBrandName = brandName || (bizData?.brand_name as string | undefined);
+    const resolvedBusinessCode = businessCode || (bizData?.business_code as string | undefined);
+
+    let resolvedBranches = branches;
+    if (!resolvedBranches || resolvedBranches.length === 0) {
+      try {
+        const branchesSnap = await db.collection("businesses").doc(businessId).collection("branches").get();
+        if (!branchesSnap.empty) {
+          const perBranchAmt = Math.round(amount / branchesSnap.size);
+          resolvedBranches = branchesSnap.docs.map((bDoc) => {
+            const bData = bDoc.data();
+            return {
+              name: (bData.branch_name as string) || "Branch",
+              address: (bData.address as string) || undefined,
+              amount: (bData.setup_fee_paid as number) || (bData.amount_paid as number) || perBranchAmt,
+            };
+          });
+        }
+      } catch (bErr) {
+        logger.warn("provisionOwnerAccount: failed to fetch branches for invoice", {businessId, error: bErr});
+      }
     }
+
+    // Mark sent BEFORE dispatch to prevent concurrent trigger race conditions
+    await bizRef.update({
+      last_welcome_email_sent_at: Timestamp.now(),
+      last_welcome_email_payment_ref: paymentReference || null,
+    });
 
     // Send Welcome & Account Activation Email with setup link and PDF Invoice
     await sendOwnerWelcomeEmail({
@@ -225,11 +268,13 @@ export async function provisionOwnerAccount(
       amount,
       paymentMode,
       paymentReference,
+      branches: resolvedBranches,
     });
     logger.info("provisionOwnerAccount: welcome email and invoice sent to owner", {
       ownerEmail,
       businessId,
       businessCode: resolvedBusinessCode,
+      branchCount: resolvedBranches?.length || 0,
     });
   } catch (err) {
     logger.error("provisionOwnerAccount: failed to generate setup link or send welcome email", {err});
@@ -280,7 +325,11 @@ export const createOrder = onCall(
     }
 
     const branchesSnap = await db.collection("businesses").doc(businessId).collection("branches").get();
-    const branchCount = Math.max(branchesSnap.size, 1);
+    const pendingBranches = branchesSnap.docs.filter((d) => {
+      const s = d.data().subscription_status;
+      return s === "pending_payment" || !s;
+    });
+    const branchCount = pendingBranches.length > 0 ? pendingBranches.length : Math.max(branchesSnap.size, 1);
     const totalAmountPaise = branchCount * SETUP_FEE_PAISE;
 
     const razorpay = new Razorpay({
@@ -300,6 +349,7 @@ export const createOrder = onCall(
           businessId,
           type: "setup_fee",
           branchCount: String(branchCount),
+          branch_count: String(branchCount),
         },
       }) as {id: string; amount: number; currency: string};
     } catch (err) {
@@ -787,17 +837,33 @@ async function handleSuccessfulPayment(
   // ── 1. Fetch branches & recompute status counts synchronously ──────────────
   const branchesSnap = await bizRef.collection("branches").get();
   const branchCount = Math.max(branchesSnap.size, 1);
+  const pendingBranches = branchesSnap.docs.filter((d) => {
+    const s = d.data().subscription_status;
+    return s === "pending_payment" || !s;
+  });
+  const unpaidCount = pendingBranches.length > 0 ? pendingBranches.length : branchCount;
+
+  const paymentNotes =
+    (paymentEntity?.["notes"] as Record<string, unknown> | undefined) ??
+    (subscriptionEntity?.["notes"] as Record<string, unknown> | undefined) ?? {};
+  const paymentType = ((paymentNotes["type"] ?? paymentNotes["payment_type"]) as string | undefined) ?? "";
+  const isRenewal =
+    eventName === "subscription.charged" ||
+    paymentType === "annual_renewal" ||
+    (!isPendingDraft && !paymentType.includes("setup"));
 
   // ── Pricing & Amount Integrity Check ────────────────────────────────────
   let minimumRequiredPaise: number;
   if (eventName === "subscription.charged") {
     minimumRequiredPaise = RENEWAL_FEE_PAISE;
+  } else if (isRenewal) {
+    minimumRequiredPaise = RENEWAL_FEE_PAISE;
   } else if (branchId) {
     // Single branch setup fee
     minimumRequiredPaise = SETUP_FEE_PAISE;
   } else if (isPendingDraft) {
-    // Initial business enrollment for all branches
-    minimumRequiredPaise = SETUP_FEE_PAISE * branchCount;
+    // Initial business enrollment for all pending branches
+    minimumRequiredPaise = SETUP_FEE_PAISE * unpaidCount;
   } else {
     // Fallback/renewal payment captured
     minimumRequiredPaise = RENEWAL_FEE_PAISE;
@@ -811,7 +877,8 @@ async function handleSuccessfulPayment(
       minimumRequiredPaise,
       eventName,
       isPendingDraft,
-      branchCount,
+      isRenewal,
+      branchCount: unpaidCount,
     });
     return;
   }
@@ -858,7 +925,15 @@ async function handleSuccessfulPayment(
   if (isPendingDraft) {
     bizUpdateData.setup_fee_paid = amountRupees;
     bizUpdateData.amount_paid = amountRupees;
+  } else if (isRenewal) {
+    bizUpdateData.renewal_amount_paid = FieldValue.increment(amountRupees);
+    bizUpdateData.amount_paid = FieldValue.increment(amountRupees);
+  } else if (branchId) {
+    // Individual branch enrollment activation on existing active business
+    bizUpdateData.setup_fee_paid = FieldValue.increment(amountRupees);
+    bizUpdateData.amount_paid = FieldValue.increment(amountRupees);
   } else {
+    // Annual subscription renewal fallback
     bizUpdateData.renewal_amount_paid = FieldValue.increment(amountRupees);
     bizUpdateData.amount_paid = FieldValue.increment(amountRupees);
   }
@@ -884,10 +959,11 @@ async function handleSuccessfulPayment(
 
   await batch.commit();
 
-  logger.info("handleSuccessfulPayment: business activated", {
+  logger.info("handleSuccessfulPayment: business updated", {
     businessId,
     branchId,
     wasDraft: isPendingDraft,
+    isRenewal,
     newRenewalDate: newRenewalDate.toISOString(),
     eventName,
     amountRupees,
@@ -896,96 +972,133 @@ async function handleSuccessfulPayment(
     activeCount,
   });
 
-  // 4. Generate QR PNGs for branches & update branch document status with actual paid amount.
+  // 4. Update branch document status & generate QR PNGs if new setup
   if (branchId) {
     const branchRef = bizRef.collection("branches").doc(branchId);
     const branchSnap = await branchRef.get();
     if (branchSnap.exists) {
       try {
-        await branchRef.update({
+        const branchUpdate: Record<string, unknown> = {
           subscription_status: "active",
           renewal_date: Timestamp.fromDate(newRenewalDate),
           grace_period_ends: FieldValue.delete(),
           payment_mode: "online",
-          setup_fee_paid: amountRupees,
-          amount_paid: amountRupees,
           activated_at: Timestamp.now(),
-          standee_status: STANDEE_STATUS_DEFAULT,
-          standee_status_updated_at: Timestamp.now(),
-        });
+        };
+        if (isRenewal) {
+          branchUpdate.renewal_amount_paid = FieldValue.increment(amountRupees);
+          branchUpdate.amount_paid = FieldValue.increment(amountRupees);
+        } else {
+          branchUpdate.setup_fee_paid = amountRupees;
+          branchUpdate.amount_paid = amountRupees;
+          branchUpdate.standee_status = STANDEE_STATUS_DEFAULT;
+          branchUpdate.standee_status_updated_at = Timestamp.now();
+        }
+        await branchRef.update(branchUpdate);
       } catch (e) {
         logger.warn("handleSuccessfulPayment: failed updating branch status", {businessId, branchId, error: e});
       }
-      try {
-        await buildQrForBranch(businessId, branchId, branchRef);
-        await buildPlainQrForBranch(businessId, branchId, branchRef);
-      } catch (qrErr) {
-        logger.error("handleSuccessfulPayment: branch QR failed", {businessId, branchId, qrErr});
+      if (!isRenewal) {
+        try {
+          await buildQrForBranch(businessId, branchId, branchRef);
+          await buildPlainQrForBranch(businessId, branchId, branchRef);
+        } catch (qrErr) {
+          logger.error("handleSuccessfulPayment: branch QR failed", {businessId, branchId, qrErr});
+        }
       }
     }
   } else {
     try {
-      logger.info("handleSuccessfulPayment: activating all branches and generating QR", {
-        businessId, branchCount: branchesSnap.size,
+      const targetBranches = (isPendingDraft && pendingBranches.length > 0) ? pendingBranches : branchesSnap.docs;
+      logger.info("handleSuccessfulPayment: activating/renewing branches", {
+        businessId, targetBranchCount: targetBranches.length, totalBranchCount: branchesSnap.size, isRenewal,
       });
-      const perBranchAmount = amountRupees / (branchesSnap.size || 1);
-      for (const branchDoc of branchesSnap.docs) {
+      const perBranchAmount = amountRupees / (targetBranches.length || 1);
+      for (const branchDoc of targetBranches) {
         try {
-          await branchDoc.ref.update({
+          const branchUpdate: Record<string, unknown> = {
             subscription_status: "active",
             renewal_date: Timestamp.fromDate(newRenewalDate),
             grace_period_ends: FieldValue.delete(),
             payment_mode: "online",
-            setup_fee_paid: perBranchAmount,
-            amount_paid: perBranchAmount,
             activated_at: Timestamp.now(),
-            standee_status: STANDEE_STATUS_DEFAULT,
-            standee_status_updated_at: Timestamp.now(),
-          });
-          logger.info("handleSuccessfulPayment: branch activated & standee initialized", {
-            businessId, branchId: branchDoc.id,
+          };
+          if (isRenewal) {
+            branchUpdate.renewal_amount_paid = FieldValue.increment(perBranchAmount);
+            branchUpdate.amount_paid = FieldValue.increment(perBranchAmount);
+          } else {
+            branchUpdate.setup_fee_paid = perBranchAmount;
+            branchUpdate.amount_paid = perBranchAmount;
+            branchUpdate.standee_status = STANDEE_STATUS_DEFAULT;
+            branchUpdate.standee_status_updated_at = Timestamp.now();
+          }
+          await branchDoc.ref.update(branchUpdate);
+          logger.info("handleSuccessfulPayment: branch updated", {
+            businessId, branchId: branchDoc.id, isRenewal,
           });
         } catch (standeeErr) {
-          logger.error("handleSuccessfulPayment: branch activation update failed", {
+          logger.error("handleSuccessfulPayment: branch update failed", {
             businessId, branchId: branchDoc.id, err: standeeErr,
           });
         }
 
-        // Standee QR (branded, print-ready, 4×6 — doc 09 pipeline).
-        try {
-          const result = await buildQrForBranch(
-            businessId,
-            branchDoc.id,
-            branchDoc.ref
-          );
-          logger.info("handleSuccessfulPayment: standee QR generated", {
-            businessId, branchId: branchDoc.id, qrPath: result.qrStoragePath,
-          });
-        } catch (branchErr) {
-          logger.error("handleSuccessfulPayment: standee QR generation failed for branch", {
-            businessId, branchId: branchDoc.id, err: branchErr,
-          });
-        }
+        if (!isRenewal) {
+          // Standee QR (branded, print-ready, 4×6 — doc 09 pipeline).
+          try {
+            await buildQrForBranch(
+              businessId,
+              branchDoc.id,
+              branchDoc.ref
+            );
+          } catch (branchErr) {
+            logger.error("handleSuccessfulPayment: standee QR generation failed for branch", {
+              businessId, branchId: branchDoc.id, err: branchErr,
+            });
+          }
 
-        // Change 1: Plain printable QR (instant digital deliverable).
-        try {
-          const plainResult = await buildPlainQrForBranch(
-            businessId,
-            branchDoc.id,
-            branchDoc.ref
-          );
-          logger.info("handleSuccessfulPayment: plain QR generated", {
-            businessId, branchId: branchDoc.id, path: plainResult.plainQrStoragePath,
-          });
-        } catch (plainErr) {
-          logger.error("handleSuccessfulPayment: plain QR generation failed for branch", {
-            businessId, branchId: branchDoc.id, err: plainErr,
-          });
+          // Plain printable QR (instant digital deliverable).
+          try {
+            await buildPlainQrForBranch(
+              businessId,
+              branchDoc.id,
+              branchDoc.ref
+            );
+          } catch (plainErr) {
+            logger.error("handleSuccessfulPayment: plain QR generation failed for branch", {
+              businessId, branchId: branchDoc.id, err: plainErr,
+            });
+          }
         }
       }
     } catch (err) {
       logger.error("handleSuccessfulPayment: failed to read branches for QR generation", {
         businessId, err,
+      });
+    }
+  }
+
+  // 5. Provision Owner Portal account & dispatch Welcome Email with attached PDF Invoice (first setup only)
+  if (bizData.owner_email && !isRenewal) {
+    try {
+      await provisionOwnerAccount(
+        db,
+        businessId,
+        bizData.owner_email as string,
+        bizData.owner_name as string | undefined,
+        bizData.brand_name as string | undefined,
+        "online",
+        paymentId,
+        amountRupees
+      );
+      logger.info("handleSuccessfulPayment: owner provisioned & welcome invoice email sent", {
+        businessId,
+        ownerEmail: bizData.owner_email,
+        amountRupees,
+      });
+    } catch (authErr) {
+      logger.warn("handleSuccessfulPayment: owner account provisioning failed (non-fatal)", {
+        businessId,
+        error: authErr,
       });
     }
   }
@@ -1077,7 +1190,7 @@ export const renewalLifecycle = onSchedule(
           bizData.grace_period_ends.toMillis() <= now.toMillis()
         ) {
           batch.update(bizDoc.ref, {
-            subscription_status: "deleted",
+            subscription_status: "suspended",
             has_grace_branches: false,
             has_inactive_branches: true,
           });
@@ -1120,13 +1233,13 @@ export const renewalLifecycle = onSchedule(
             bGraceEnds &&
             bGraceEnds.toMillis() <= now.toMillis()
           ) {
-            // Branch grace_period → deleted (lapsed)
+            // Branch grace_period → suspended (lapsed)
             batch.update(branchDoc.ref, {
-              subscription_status: "deleted",
+              subscription_status: "suspended",
             });
-            bStatus = "deleted";
+            bStatus = "suspended";
             hasUpdates = true;
-            logger.info("renewalLifecycle: branch set to deleted", {
+            logger.info("renewalLifecycle: branch set to suspended", {
               businessId: bizDoc.id,
               branchId: branchDoc.id,
             });
@@ -1134,7 +1247,7 @@ export const renewalLifecycle = onSchedule(
 
           if (bStatus === "active") activeCount++;
           else if (bStatus === "grace_period") graceCount++;
-          else if (bStatus === "deleted") deletedCount++;
+          else if (bStatus === "suspended" || bStatus === "deleted") deletedCount++;
           else if (bStatus === "pending_payment") pendingCount++;
         }
 
@@ -1147,7 +1260,7 @@ export const renewalLifecycle = onSchedule(
         } else if (pendingCount > 0) {
           parentStatus = "pending_payment";
         } else {
-          parentStatus = "deleted";
+          parentStatus = "suspended";
         }
 
         batch.update(bizDoc.ref, {
@@ -1414,8 +1527,27 @@ export const resendPaymentLink = onCall(
 
     // ── Create Razorpay Payment Link ─────────────────────────────────────────
     const branchesSnap = await bizRef.collection("branches").get();
-    const branchCount = Math.max(branchesSnap.size, 1);
+    const pendingBranches = branchesSnap.docs.filter((d) => {
+      const s = d.data().subscription_status;
+      return s === "pending_payment" || !s;
+    });
+    const targetBranches = pendingBranches.length > 0 ? pendingBranches : branchesSnap.docs;
+    const branchCount = targetBranches.length > 0 ? targetBranches.length : 1;
     const totalAmountPaise = branchCount * SETUP_FEE_PAISE;
+    const totalAmountRupees = totalAmountPaise / 100;
+
+    const branchNamesList = targetBranches
+      .map((b) => (b.data().branch_name as string) || "Branch")
+      .filter(Boolean);
+    const branchNamesStr = branchNamesList.join(", ");
+
+    let linkDescription = branchCount > 1 ?
+      `Setup fee for ${branchCount} locations (${branchNamesStr}) — ${brandName}` :
+      (branchNamesStr ? `Setup fee (${branchNamesStr}) — ${brandName}` : `Setup fee — ${brandName}`);
+
+    if (linkDescription.length > 250) {
+      linkDescription = linkDescription.substring(0, 247) + "...";
+    }
 
     const expireBy = Math.floor(Date.now() / 1000) + PAYMENT_LINK_EXPIRY_HOURS * 3600;
 
@@ -1432,9 +1564,7 @@ export const resendPaymentLink = onCall(
       }).paymentLink.create({
         amount: totalAmountPaise,
         currency: "INR",
-        description: branchCount > 1 ?
-          `Enrollment setup fee (${branchCount} locations) — ${brandName}` :
-          `Enrollment setup fee — ${brandName}`,
+        description: linkDescription,
         expire_by: expireBy,
         notes: {
           business_id: businessId,
@@ -1443,6 +1573,12 @@ export const resendPaymentLink = onCall(
           brandName,
           type: "setup_fee",
           branchCount: String(branchCount),
+          branch_count: String(branchCount),
+          branches: branchNamesStr.slice(0, 100),
+        },
+        customer: {
+          name: ownerName,
+          email: ownerEmail,
         },
         notify: {sms: false, email: false},
         callback_method: "get",
@@ -1479,11 +1615,15 @@ export const resendPaymentLink = onCall(
         brandName,
         paymentLinkUrl: paymentLink.short_url,
         businessId,
+        amount: totalAmountRupees,
+        branchNames: branchNamesList,
       });
       logger.info("resendPaymentLink: payment link email sent to owner", {
         businessId,
         ownerEmail,
         paymentLinkUrl: paymentLink.short_url,
+        amount: totalAmountRupees,
+        branchCount,
       });
     } catch (emailErr) {
       // Non-fatal: link was still created and saved to Firestore.
@@ -1710,6 +1850,8 @@ export const resendBranchPaymentLink = onCall(
         brandName: `${brandName} (${branchName})`,
         paymentLinkUrl: paymentLink.short_url,
         businessId,
+        amount: 1999,
+        branchNames: [branchName],
       });
     } catch (emailErr) {
       logger.error("resendBranchPaymentLink: email send failed (non-fatal)", {
@@ -1938,4 +2080,338 @@ export const deleteBusinessAdmin = onCall(
   }
 );
 
+/**
+ * Callable function for Admins to delete a single branch from a multi-branch business.
+ * Permanently deletes the branch doc, scan logs for this branch, and Storage assets.
+ * Updates business-level counters and stats.
+ */
+export const deleteBranchAdmin = onCall(
+  {region: "asia-south1"},
+  async (request) => {
+    if (!request.auth?.uid || request.auth.token?.role !== "admin") {
+      throw new HttpsError(
+        "permission-denied",
+        "Only admins can delete a branch."
+      );
+    }
+    const {businessId, branchId} = (request.data || {}) as {
+      businessId?: string;
+      branchId?: string;
+    };
+    if (!businessId || !branchId) {
+      throw new HttpsError("invalid-argument", "businessId and branchId are required.");
+    }
 
+    const db = getFirestore();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const branchRef = bizRef.collection("branches").doc(branchId);
+
+    const [bizSnap, branchSnap, allBranchesSnap] = await Promise.all([
+      bizRef.get(),
+      branchRef.get(),
+      bizRef.collection("branches").get(),
+    ]);
+
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", "Business not found.");
+    }
+    if (!branchSnap.exists) {
+      throw new HttpsError("not-found", "Branch not found.");
+    }
+
+    if (allBranchesSnap.size <= 1) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Cannot delete the only remaining branch of a business. Use Delete Business to delete the entire business."
+      );
+    }
+
+    const branchData = branchSnap.data() as Record<string, unknown>;
+    logger.info("deleteBranchAdmin: starting branch deletion", {
+      businessId,
+      branchId,
+      branchName: branchData.branch_name,
+      adminUid: request.auth.uid,
+    });
+
+    // 1. Delete all scan logs for this branch (checking both snake_case and camelCase)
+    try {
+      const [scansSnake, scansCamel] = await Promise.all([
+        bizRef.collection("scans").where("branch_id", "==", branchId).get(),
+        bizRef.collection("scans").where("branchId", "==", branchId).get(),
+      ]);
+      const scanDocsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+      for (const d of scansSnake.docs) scanDocsMap.set(d.id, d);
+      for (const d of scansCamel.docs) scanDocsMap.set(d.id, d);
+      const uniqueScans = Array.from(scanDocsMap.values());
+
+      if (uniqueScans.length > 0) {
+        const chunks = chunkArray(uniqueScans, 500);
+        for (const chunk of chunks) {
+          const batch = db.batch();
+          for (const doc of chunk) {
+            batch.delete(doc.ref);
+          }
+          await batch.commit();
+        }
+        logger.info("deleteBranchAdmin: scan logs deleted", {
+          businessId,
+          branchId,
+          count: uniqueScans.length,
+        });
+      }
+    } catch (err) {
+      logger.warn("deleteBranchAdmin: error deleting scans", {err});
+    }
+
+    // 2. Delete branch notifications (if any)
+    try {
+      const [notifsSnake, notifsCamel] = await Promise.all([
+        db.collection("notifications").where("branch_id", "==", branchId).get(),
+        db.collection("notifications").where("branchId", "==", branchId).get(),
+      ]);
+      const notifDocsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+      for (const d of notifsSnake.docs) notifDocsMap.set(d.id, d);
+      for (const d of notifsCamel.docs) notifDocsMap.set(d.id, d);
+      const uniqueNotifs = Array.from(notifDocsMap.values());
+
+      if (uniqueNotifs.length > 0) {
+        const chunks = chunkArray(uniqueNotifs, 500);
+        for (const chunk of chunks) {
+          const batch = db.batch();
+          for (const doc of chunk) {
+            batch.delete(doc.ref);
+          }
+          await batch.commit();
+        }
+        logger.info("deleteBranchAdmin: notifications deleted", {
+          businessId,
+          branchId,
+          count: uniqueNotifs.length,
+        });
+      }
+    } catch (err) {
+      logger.warn("deleteBranchAdmin: error deleting notifications", {err});
+    }
+
+    // 3. Delete Firebase Storage files for this branch
+    try {
+      const bucket = admin.storage().bucket();
+      const plainFile = bucket.file(`qr_codes/${branchId}_plain.png`);
+      const styledFile = bucket.file(`qr_codes/${branchId}.png`);
+      await Promise.allSettled([
+        plainFile.delete(),
+        styledFile.delete(),
+        bucket.deleteFiles({prefix: `businesses/${businessId}/branches/${branchId}/`}),
+      ]);
+      logger.info("deleteBranchAdmin: storage files deleted", {businessId, branchId});
+    } catch (err) {
+      logger.warn("deleteBranchAdmin: storage delete error", {err});
+    }
+
+    // 4. Delete the branch document itself
+    await branchRef.delete();
+
+    // 5. Recalculate and update parent business counters and aggregate stats
+    const remainingBranches = allBranchesSnap.docs.filter((d) => d.id !== branchId);
+    let activeBranchCount = 0;
+    let pendingBranchCount = 0;
+    let totalScans = 0;
+    let totalPositive = 0;
+    let totalNegative = 0;
+    let totalSkipped = 0;
+
+    for (const bDoc of remainingBranches) {
+      const bData = bDoc.data() as Record<string, unknown>;
+      const status = (bData.subscription_status as string) || "pending_payment";
+      if (status === "active") activeBranchCount++;
+      if (status === "pending_payment") pendingBranchCount++;
+
+      const stats = (bData.stats_summary as Record<string, number> | undefined) || {};
+      totalScans += stats.total_scans || stats.totalScans || 0;
+      totalPositive += stats.positive_reviews || stats.positiveReviews || 0;
+      totalNegative += stats.negative_feedback || stats.negativeFeedback || 0;
+      totalSkipped += stats.skipped || 0;
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      branch_count: remainingBranches.length,
+      enrolled_branch_count: remainingBranches.length,
+      active_branch_count: activeBranchCount,
+      pending_branch_count: pendingBranchCount,
+      stats_summary: {
+        total_scans: totalScans,
+        positive_reviews: totalPositive,
+        negative_feedback: totalNegative,
+        skipped: totalSkipped,
+      },
+      updated_at: Timestamp.now(),
+    };
+
+    if (activeBranchCount > 0) {
+      updatePayload.subscription_status = "active";
+    } else {
+      updatePayload.subscription_status = "pending_payment";
+    }
+
+    await bizRef.update(updatePayload);
+
+    logger.info("deleteBranchAdmin: branch deleted successfully", {
+      businessId,
+      branchId,
+      remainingBranches: remainingBranches.length,
+      activeBranchCount,
+    });
+
+    return {
+      success: true,
+      businessId,
+      branchId,
+      remainingBranches: remainingBranches.length,
+    };
+  }
+);
+
+/**
+ * generateRenewalPaymentLink (callable)
+ *
+ * Generates a Razorpay payment link for annual subscription renewal.
+ * Supports:
+ *   1. Individual branch renewal (branchId passed) -> ₹999
+ *   2. Multi-branch / whole business combined renewal (no branchId) -> N * ₹999
+ */
+export const generateRenewalPaymentLink = onCall(
+  {
+    region: "asia-south1",
+    secrets: [razorpayKeyId, razorpayKeySecret],
+  },
+  async (request) => {
+    const auth = request.auth;
+    if (!auth) {
+      throw new HttpsError("unauthenticated", "Authentication required.");
+    }
+
+    const {businessId, branchId} = request.data as {
+      businessId?: string;
+      branchId?: string;
+    };
+
+    if (!businessId) {
+      throw new HttpsError("invalid-argument", "businessId is required.");
+    }
+
+    const db = admin.firestore();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const bizSnap = await bizRef.get();
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", `Business ${businessId} not found.`);
+    }
+
+    const bizData = bizSnap.data() || {};
+    const brandName = (bizData.brand_name as string) || "Your Business";
+    const ownerEmail = (bizData.owner_email as string) || auth.token.email || "support@appnexa.co.in";
+    const ownerName = (bizData.owner_name as string) || "";
+
+    const expireBy = Math.floor(Date.now() / 1000) + PAYMENT_LINK_EXPIRY_HOURS * 3600;
+
+    let paymentLink: {id: string; short_url: string};
+    let totalAmountPaise: number;
+    let linkDescription: string;
+    let notes: Record<string, string>;
+
+    if (branchId) {
+      const branchRef = bizRef.collection("branches").doc(branchId);
+      const branchSnap = await branchRef.get();
+      if (!branchSnap.exists) {
+        throw new HttpsError("not-found", `Branch ${branchId} not found.`);
+      }
+      const branchData = branchSnap.data() || {};
+      const branchName = (branchData.branch_name as string) || "Branch";
+      totalAmountPaise = RENEWAL_FEE_PAISE; // 99900 paise = ₹999
+      linkDescription = `Annual Subscription Renewal (${branchName}) — ${brandName}`;
+      notes = {
+        business_id: businessId,
+        businessId,
+        branch_id: branchId,
+        branchId,
+        brand_name: brandName,
+        type: "annual_renewal",
+      };
+    } else {
+      const branchesSnap = await bizRef.collection("branches").get();
+      const branchCount = Math.max(branchesSnap.size, 1);
+      totalAmountPaise = branchCount * RENEWAL_FEE_PAISE;
+      const branchNames = branchesSnap.docs
+        .map((d) => (d.data().branch_name as string) || "Branch")
+        .filter(Boolean)
+        .join(", ");
+      linkDescription = branchCount > 1 ?
+        `Annual Subscription Renewal for ${branchCount} locations (${branchNames}) — ${brandName}` :
+        `Annual Subscription Renewal — ${brandName}`;
+      notes = {
+        business_id: businessId,
+        businessId,
+        brand_name: brandName,
+        type: "annual_renewal",
+        branch_count: String(branchCount),
+      };
+    }
+
+    if (linkDescription.length > 250) {
+      linkDescription = linkDescription.substring(0, 247) + "...";
+    }
+
+    try {
+      const razorpay = new Razorpay({
+        key_id: razorpayKeyId.value(),
+        key_secret: razorpayKeySecret.value(),
+      });
+      paymentLink = await (razorpay as unknown as {
+        paymentLink: {
+          create: (opts: Record<string, unknown>) => Promise<{id: string; short_url: string}>;
+        };
+      }).paymentLink.create({
+        amount: totalAmountPaise,
+        currency: "INR",
+        description: linkDescription,
+        expire_by: expireBy,
+        notes,
+        customer: {
+          name: ownerName,
+          email: ownerEmail,
+        },
+        notify: {sms: false, email: false},
+        callback_method: "get",
+      });
+    } catch (err) {
+      logger.warn("generateRenewalPaymentLink: Razorpay paymentLink.create failed, falling back to direct renewal link", {
+        err, businessId, branchId,
+      });
+      const fallbackUrl = `https://${reviewDomain.value() || "appnexa.co.in"}/app/#/owner/renewal`;
+      paymentLink = {
+        id: `plink_renewal_${businessId}_${branchId || "all"}`,
+        short_url: fallbackUrl,
+      };
+    }
+
+    if (branchId) {
+      await bizRef.collection("branches").doc(branchId).update({
+        last_renewal_link_url: paymentLink.short_url,
+        last_renewal_link_id: paymentLink.id,
+        last_renewal_link_expires_at: Timestamp.fromMillis(expireBy * 1000),
+      });
+    } else {
+      await bizRef.update({
+        last_renewal_link_url: paymentLink.short_url,
+        last_renewal_link_id: paymentLink.id,
+        last_renewal_link_expires_at: Timestamp.fromMillis(expireBy * 1000),
+      });
+    }
+
+    return {
+      shortUrl: paymentLink.short_url,
+      paymentLinkId: paymentLink.id,
+      amountRupees: totalAmountPaise / 100,
+    };
+  }
+);

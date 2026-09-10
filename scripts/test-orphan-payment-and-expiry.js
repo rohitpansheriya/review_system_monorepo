@@ -26,11 +26,11 @@ async function runTests() {
   console.log('🧪 Running Test Suite: Payment Link Expiry & Orphan Payment Sentinel...\n');
 
   // ──────────────────────────────────────────────────────────────────────────
-  // TEST 1: Expiry Window Mathematics
+  // TEST 1: Expiry Window Mathematics (7 Days / 168h Retention)
   // ──────────────────────────────────────────────────────────────────────────
   console.log('--- TEST 1: Expiry Window Timing ---');
-  const DRAFT_CLEANUP_HOURS = 48;
-  const PAYMENT_LINK_EXPIRY_HOURS = 47;
+  const DRAFT_CLEANUP_HOURS = 168; // 7 days
+  const PAYMENT_LINK_EXPIRY_HOURS = 167; // 7 days minus 1 hour
   
   const now = Math.floor(Date.now() / 1000);
   const linkExpiryTimestamp = now + (PAYMENT_LINK_EXPIRY_HOURS * 3600);
@@ -40,8 +40,8 @@ async function runTests() {
   const bufferHours = bufferSeconds / 3600;
 
   if (linkExpiryTimestamp < draftCleanupTimestamp && bufferHours === 1) {
-    console.log(`✅ SUCCESS: Link expires at 47h (${bufferHours}h BEFORE the 48h draft cleanup).`);
-    console.log(`   Link can never outlive its draft: link dies at t+47h, draft purged at t+48h.`);
+    console.log(`✅ SUCCESS: Link expires at 167h (${bufferHours}h BEFORE the 168h / 7-day draft cleanup).`);
+    console.log(`   Link can never outlive its draft: link dies at t+167h, draft purged at t+168h (7 days).`);
   } else {
     throw new Error(`❌ FAIL: Timing mismatch: bufferHours=${bufferHours}`);
   }

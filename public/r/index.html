@@ -1179,9 +1179,13 @@
       <div class="card thank-you-card">
         <div class="big-icon">✅</div>
         <div class="screen-title" id="lbl-posted-title">Almost there!</div>
-        <p class="screen-sub" id="lbl-posted-sub">Your review has been copied. Google Maps should open — just paste and post!</p>
-        <div class="divider"></div>
-        <p class="screen-sub" style="font-size:13px; line-height:1.5;">Can't see Google Maps? Open it manually and paste your review.</p>
+        <p class="screen-sub" id="lbl-posted-sub">Your review has been copied. Opening Google Maps — just paste and post!</p>
+        <div style="margin-top:20px;">
+          <a id="btn-reopen-google" href="#" class="btn btn-google" style="text-decoration:none; display:inline-flex; justify-content:center; align-items:center; gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            <span id="lbl-reopen-google">Open Google Maps</span>
+          </a>
+        </div>
       </div>
     </div>
 
@@ -1227,7 +1231,8 @@
         reviewPlaceholder: "Write your review here, or tap categories above for suggestions…",
         googlePost: "Copy & Open Google Maps",
         postedTitle: "Almost there!",
-        postedSub: "Your review has been copied. Google Maps should open — just paste and post!",
+        postedSub: "Your review has been copied. Opening Google Maps — just paste and post!",
+        reopenGoogle: "Open Google Maps",
         waTitle: "Sorry to hear that",
         waSub: "Please tell us what went wrong so we can make it right.",
         waPlaceholder: "Describe your experience…",
@@ -1260,6 +1265,7 @@
         googlePost: "कॉपी करें और गूगल मैप्स खोलें",
         postedTitle: "बस एक कदम दूर!",
         postedSub: "आपकी समीक्षा कॉपी हो गई है। गूगल मैप्स खुलेगा — बस पेस्ट करें और पोस्ट करें!",
+        reopenGoogle: "गूगल मैप्स खोलें",
         waTitle: "हमें खेद है",
         waSub: "कृपया हमें बताएं कि क्या समस्या हुई ताकि हम इसे सुधार सकें।",
         waPlaceholder: "अपना अनुभव लिखें…",
@@ -1292,6 +1298,7 @@
         googlePost: "કોપી કરો અને ગુગલ મેપ્સ ખોલો",
         postedTitle: "બસ એક પગલું દૂર!",
         postedSub: "તમારી સમીક્ષા કોપી થઈ ગઈ છે. ગુગલ મેપ્સ ખુલશે — બસ પેસ્ટ કરો અને પોસ્ટ કરો!",
+        reopenGoogle: "ગુગલ મેપ્સ ખોલો",
         waTitle: "અમને દિલગીરી છે",
         waSub: "કૃપા કરીને અમને જણાવો કે શું મુશ્કેલી પડી જેથી અમે તેને સુધારી શકીએ.",
         waPlaceholder: "તમારો અનુભવ લખો…",
@@ -1442,6 +1449,7 @@
       $('lbl-google-post').textContent = dict.googlePost;
       $('lbl-posted-title').textContent = dict.postedTitle;
       $('lbl-posted-sub').textContent = dict.postedSub;
+      if ($('lbl-reopen-google')) $('lbl-reopen-google').textContent = dict.reopenGoogle || "Open Google Maps";
       $('lbl-wa-title').textContent = dict.waTitle;
       $('lbl-wa-sub').textContent = dict.waSub;
       $('wa-text').placeholder = dict.waPlaceholder;
@@ -2018,7 +2026,7 @@
       showScreen('done');
     });
 
-    // ─── Google Maps / Copy button with Confetti & Countdown ───────────────────
+    // ─── Google Maps / Copy button with Confetti & Direct Navigation ───────────
     $('btn-google-post').addEventListener('click', async () => {
       if (state.isPosting) return;
       state.isPosting = true;
@@ -2029,12 +2037,19 @@
       const btn = $('btn-google-post');
       const reviewText = $('review-text').value.trim();
 
+      // Robust clipboard copying for iOS Safari, WebViews & modern mobile browsers
       if (reviewText) {
         try {
-          await navigator.clipboard.writeText(reviewText);
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(reviewText);
+          } else {
+            throw new Error('Fallback needed');
+          }
         } catch {
           const ta = $('review-text');
+          ta.focus();
           ta.select();
+          ta.setSelectionRange(0, 99999);
           document.execCommand('copy');
         }
       }
@@ -2051,7 +2066,8 @@
         </div>
       `;
 
-      await logScan({ actionTaken: 'google_maps' });
+      // Log scan in background without blocking navigation
+      logScan({ actionTaken: 'google_maps' }).catch(() => {});
       markSubmitted(state.branchId);
 
       const placeId = (state.branch && state.branch.place_id) ? state.branch.place_id.trim() : '';
@@ -2064,22 +2080,25 @@
       if (customReviewLink) {
         targetUrl = customReviewLink;
       } else if (placeId) {
-        const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-        targetUrl = isMobile 
-          ? `https://search.google.com/local/writereview/mobile?placeid=${encodeURIComponent(placeId)}`
-          : `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
+        targetUrl = `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
       } else {
         // Graceful fallback: Search on Google Maps by business brand + branch + address
         const searchQuery = [brandName, branchName, address].filter(Boolean).join(' ');
         targetUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery || 'Google Review')}`;
       }
 
+      const reopenBtn = $('btn-reopen-google');
+      if (reopenBtn && targetUrl) {
+        reopenBtn.href = targetUrl;
+      }
+
       setTimeout(() => {
-        if (targetUrl) {
-          window.open(targetUrl, '_blank', 'noopener');
-        }
         showScreen('posted');
-      }, 1250);
+        if (targetUrl) {
+          // Direct navigation: never blocked by iOS Safari / Camera QR scanner pop-up blockers
+          window.location.href = targetUrl;
+        }
+      }, 650);
     });
 
     // ─── Expandable Terms of Service / Integrity Policy Accordion ────────────

@@ -30,7 +30,7 @@
  *                            NEVER reads pending_payment docs (query-level filter).
  *                            NEVER deletes commission_records (financial audit).
  *   cleanupAbandonedDrafts — Deletes pending_payment businesses older than
- *                            ABANDONED_DRAFT_AGE_HOURS (48h default) + their
+ *                            ABANDONED_DRAFT_AGE_HOURS (168h / 7 days default) + their
  *                            branches. Keeps the DB clean.
  *
  * Secrets: RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET
@@ -88,16 +88,17 @@ const GRACE_PERIOD_DAYS = 30;
  * Age threshold in hours after which an unpaid draft (pending_payment) is
  * considered abandoned and eligible for cleanup.
  * Change this constant only — never scatter the value throughout the code.
+ * Set to 7 days (168 hours) to preserve unpaid enrollments for at least 7 days.
  */
-const ABANDONED_DRAFT_AGE_HOURS = 48;
+const ABANDONED_DRAFT_AGE_HOURS = 168; // 7 days (7 × 24h)
 
 /**
- * Payment link validity in hours (47h).
- * Strictly shorter than ABANDONED_DRAFT_AGE_HOURS (48h).
+ * Payment link validity in hours (167h / ~7 days).
+ * Strictly shorter than ABANDONED_DRAFT_AGE_HOURS (168h / 7 days).
  * Guarantees a payment link expires before the draft can be cleaned up,
  * completely eliminating the possibility of orphan payments.
  */
-const PAYMENT_LINK_EXPIRY_HOURS = 47;
+const PAYMENT_LINK_EXPIRY_HOURS = 167; // 7 days minus 1 hour
 
 /** Default standee status written to every branch on first activation. (Change 2) */
 const STANDEE_STATUS_DEFAULT = "ordered";
@@ -1628,8 +1629,8 @@ export const resendPaymentLink = onCall(
     }
 
     // Persist the payment link on the business doc so the panel can display it.
-    // Setting created_at: FieldValue.serverTimestamp() ensures the draft cleanup window (48h)
-    // resets to outlive the 47h payment link, so the link can never outlive its draft.
+    // Setting created_at: FieldValue.serverTimestamp() ensures the draft cleanup window (168h / 7 days)
+    // resets to outlive the 167h payment link, so the link can never outlive its draft.
     await bizRef.update({
       last_payment_link_url: paymentLink.short_url,
       last_payment_link_id: paymentLink.id,

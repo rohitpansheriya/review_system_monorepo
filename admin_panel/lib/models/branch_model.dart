@@ -135,8 +135,8 @@ class BranchModel {
       renewalDate:            (d['renewal_date'] as Timestamp?)?.toDate(),
       gracePeriodEnds:        (d['grace_period_ends'] as Timestamp?)?.toDate(),
       lastRenewalLinkUrl:     d['last_renewal_link_url'] as String?,
-      totalScans:             (stats['total_scans'] as num? ?? 0).toInt(),
-      googleReviewsOpened:    (stats['total_reviews_redirected'] as num? ?? stats['monthly_google_reviews'] as num? ?? 0).toInt(),
+      totalScans:             (stats['total_scans'] as num? ?? d['stats_summary.total_scans'] as num? ?? d['total_scans'] as num? ?? 0).toInt(),
+      googleReviewsOpened:    (stats['google_reviews_opened'] as num? ?? stats['total_reviews_redirected'] as num? ?? stats['monthly_google_reviews'] as num? ?? d['stats_summary.google_reviews_opened'] as num? ?? 0).toInt(),
       starDistribution:       starsMap,
       monthlyStats:           parsedMonthly,
     );

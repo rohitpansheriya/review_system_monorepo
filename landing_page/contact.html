@@ -58,21 +58,39 @@
       --primary-light: rgba(59, 130, 246, 0.15);
       --primary-glow: rgba(59, 130, 246, 0.25);
       --accent: #60a5fa;
+      --gold: #fbbf24;
+      --gold-bg: rgba(245, 158, 11, 0.15);
+      --success: #34d399;
+      --success-bg: rgba(16, 185, 129, 0.15);
+      --warning: #fbbf24;
+      --warning-bg: rgba(245, 158, 11, 0.15);
       --bg-body: #070e1e;
       --bg-surface: #0d172e;
       --bg-card: #0e1a34;
       --bg-card-hover: #16264d;
       --text-primary: #f8fafc;
       --text-secondary: #cbd5e1;
-      --text-muted: #64748b;
+      --text-muted: #94a3b8;
       --border-color: #1e293b;
       --border-focus: #3b82f6;
     }
 
-    * {
+    *,
+    *::before,
+    *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-tap-highlight-color: transparent !important;
+    }
+
+    button,
+    a,
+    input,
+    select,
+    textarea {
+      -webkit-tap-highlight-color: transparent !important;
+      outline: none;
     }
 
     html {
@@ -370,6 +388,8 @@
     .form-input,
     .form-textarea {
       width: 100%;
+      height: 48px;
+      box-sizing: border-box;
       padding: 12px 16px;
       border-radius: var(--radius-sm);
       border: 1px solid var(--border-color);
@@ -377,7 +397,12 @@
       color: var(--text-primary);
       font-family: inherit;
       font-size: 0.95rem;
+      line-height: 1.4;
       transition: all 0.2s;
+    }
+
+    .form-textarea {
+      height: auto;
     }
 
     .form-input:focus,
@@ -385,6 +410,49 @@
       outline: none;
       border-color: var(--border-focus);
       background: var(--bg-surface);
+    }
+
+    .phone-input-group {
+      display: flex;
+      align-items: stretch;
+      position: relative;
+      width: 100%;
+      height: 48px;
+      box-sizing: border-box;
+    }
+
+    .phone-prefix-addon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 0 14px;
+      height: 48px;
+      box-sizing: border-box;
+      background: var(--bg-surface-elevated, #f3f4f6);
+      border: 1px solid var(--border-color);
+      border-right: none;
+      border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+      color: var(--text-primary);
+      font-weight: 700;
+      font-size: 0.92rem;
+      user-select: none;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    [data-theme="dark"] .phone-prefix-addon {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .phone-input-group .form-input {
+      flex: 1;
+      min-width: 0;
+      width: 100%;
+      height: 48px;
+      box-sizing: border-box;
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
     }
 
     .honeypot-hp {
@@ -624,11 +692,14 @@
                   placeholder="e.g. Sharma Sweets / Royal Dental Clinic" required maxlength="150">
               </div>
 
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start;">
                 <div class="form-group">
                   <label class="form-label" for="phone">Phone / WhatsApp *</label>
-                  <input type="tel" id="phone" name="phone" class="form-input" placeholder="+91 9876543210" required
-                    maxlength="20">
+                  <div class="phone-input-group">
+                    <span class="phone-prefix-addon">🇮🇳 +91</span>
+                    <input type="tel" id="phone" name="phone" class="form-input" placeholder="98765 43210" required
+                      maxlength="10" inputmode="numeric" pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9">
+                  </div>
                 </div>
                 <div class="form-group">
                   <label class="form-label" for="city">City *</label>
@@ -653,7 +724,7 @@
 
               <div id="formSuccess"
                 style="display:none; background:var(--success-bg); color:var(--success); padding:16px; border-radius:var(--radius-sm); font-weight:700; margin-top:16px;">
-                ✅ Thank you! Your message has been received. Our team will contact you shortly.
+                ✅ Thank you! Your message has been received. Our team will contact you within 24 hours.
               </div>
             </form>
           </div>
@@ -696,7 +767,6 @@
         <div class="footer-col">
           <h4>Portals</h4>
           <ul>
-            <li><a href="/app/login">Admin Sign In</a></li>
             <li><a href="/app/login">Employee Login</a></li>
             <li><a href="/app/login">Business Owner Portal</a></li>
           </ul>
@@ -759,6 +829,43 @@
     const successBox = document.getElementById('formSuccess');
     const submitBtn = document.getElementById('btnSubmitContact');
 
+    const phoneInput = document.getElementById('phone');
+    if (phoneInput) {
+      phoneInput.addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length === 12 && val.startsWith('91')) val = val.slice(2);
+        else if (val.length === 11 && val.startsWith('0')) val = val.slice(1);
+        if (val.length > 10) val = val.slice(0, 10);
+        e.target.value = val;
+
+        if (val.length === 0) {
+          phoneInput.setCustomValidity('Phone number is required.');
+        } else if (!/^[6-9]/.test(val)) {
+          phoneInput.setCustomValidity('Mobile numbers must start with 6, 7, 8, or 9.');
+        } else if (val.length < 10) {
+          phoneInput.setCustomValidity(`Please enter all 10 digits (${val.length}/10 entered).`);
+        } else if (/^(\d)\1{9}$/.test(val)) {
+          phoneInput.setCustomValidity('Please enter a valid mobile number (repeated digits not allowed).');
+        } else {
+          phoneInput.setCustomValidity('');
+        }
+      });
+    }
+
+    function validateIndianMobile(rawPhone) {
+      let digits = String(rawPhone || '').replace(/\D/g, '');
+      if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+      else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+
+      if (!/^[6-9]\d{9}$/.test(digits)) {
+        return { valid: false, message: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.' };
+      }
+      if (/^(\d)\1{9}$/.test(digits)) {
+        return { valid: false, message: 'Please enter a valid active mobile number.' };
+      }
+      return { valid: true, cleanPhone: `+91 ${digits}` };
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (form.company_website && form.company_website.value.trim() !== '') return;
@@ -774,6 +881,15 @@
         return;
       }
 
+      const phoneValidation = validateIndianMobile(phone);
+      if (!phoneValidation.valid) {
+        form.phone.setCustomValidity(phoneValidation.message);
+        form.phone.reportValidity();
+        form.phone.focus();
+        return;
+      }
+      form.phone.setCustomValidity('');
+
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<span>Submitting...</span>';
 
@@ -782,7 +898,7 @@
           await addDoc(collection(db, 'leads'), {
             name: name,
             business_name: business,
-            phone: phone,
+            phone: phoneValidation.cleanPhone,
             city: city,
             message: message || '',
             source: 'contact_page',
@@ -800,12 +916,6 @@
       successBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   </script>
-</body>
-
-</html>
-successBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-});
-</script>
 </body>
 
 </html>

@@ -475,7 +475,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : ListView(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: MediaQuery.of(context).size.width > 600 ? 24 : 12,
+                    vertical: 20,
+                  ),
                   children: [
                     // ── Header ────────────────────────────────────────────────
                     Icon(Icons.receipt_long_outlined,

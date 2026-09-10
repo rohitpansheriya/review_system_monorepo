@@ -1420,7 +1420,40 @@ async function deleteBusiness(
     logger.warn("deleteBusiness: error deleting notifications", {err, businessId});
   }
 
-  // 5. Delete the business document itself.
+  // 5. Clean up Owner Firebase Auth user if one exists
+  try {
+    const bizData = (await bizRef.get()).data() as Record<string, unknown> | undefined;
+    if (bizData) {
+      const auth = admin.auth();
+      const uidsToDelete = new Set<string>();
+      const rawUid = (bizData.owner_auth_uid || bizData.owner_uid) as string | undefined;
+      if (rawUid && rawUid.trim().length > 0) {
+        uidsToDelete.add(rawUid.trim());
+      }
+      const rawEmail = (bizData.owner_email || bizData.ownerEmail || bizData.email) as string | undefined;
+      if (rawEmail && rawEmail.includes("@")) {
+        const cleanEmail = rawEmail.trim().toLowerCase();
+        try {
+          const user = await auth.getUserByEmail(cleanEmail);
+          if (user?.uid) uidsToDelete.add(user.uid);
+        } catch (e) {
+          logger.debug("deleteBusiness: user lookup by email not found", {cleanEmail, e});
+        }
+      }
+      for (const uid of uidsToDelete) {
+        try {
+          await auth.deleteUser(uid);
+          logger.info("deleteBusiness: cleaned up owner auth account", {businessId, uid});
+        } catch (e) {
+          logger.debug("deleteBusiness: auth deleteUser not found", {uid, e});
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn("deleteBusiness: auth cleanup error", {businessId, err});
+  }
+
+  // 6. Delete the business document itself.
   await bizRef.delete();
 
   logger.info("deleteBusiness: completed", {businessId});
@@ -2047,27 +2080,80 @@ export const deleteBusinessAdmin = onCall(
       logger.warn("deleteBusinessAdmin: storage delete error", {err});
     }
 
-    // 6. Delete Owner Firebase Auth user
+    // 6. Delete Owner Firebase Auth user(s)
     if (deleteOwnerAuth) {
       const auth = admin.auth();
-      if (bizData.owner_auth_uid) {
-        try {
-          await auth.deleteUser(bizData.owner_auth_uid);
-          logger.info("deleteBusinessAdmin: owner auth user deleted by UID", {
-            uid: bizData.owner_auth_uid,
-          });
-        } catch (authErr) {
-          logger.warn("deleteBusinessAdmin: auth delete by UID failed", {authErr});
+      const uidsToDelete = new Set<string>();
+
+      // 6a. Add direct UID candidates
+      const possibleUids = [
+        bizData.owner_auth_uid,
+        (bizData as Record<string, unknown>).owner_uid,
+        (bizData as Record<string, unknown>).ownerAuthUid,
+        (bizData as Record<string, unknown>).ownerUid,
+      ];
+      for (const u of possibleUids) {
+        if (u && typeof u === "string" && u.trim().length > 0) {
+          uidsToDelete.add(u.trim());
         }
-      } else if (bizData.owner_email) {
+      }
+
+      // 6b. Add email candidates (check clean lowercase and raw variations)
+      const possibleEmails = [
+        bizData.owner_email,
+        (bizData as Record<string, unknown>).ownerEmail,
+        (bizData as Record<string, unknown>).email,
+        ((bizData as Record<string, unknown>).profile as Record<string, unknown> | undefined)?.email,
+        (bizData as Record<string, unknown>).contact_email,
+      ];
+      for (const rawEmail of possibleEmails) {
+        if (rawEmail && typeof rawEmail === "string" && rawEmail.includes("@")) {
+          const cleanEmail = rawEmail.trim().toLowerCase();
+          try {
+            const user = await auth.getUserByEmail(cleanEmail);
+            if (user && user.uid) {
+              uidsToDelete.add(user.uid);
+            }
+          } catch (emailErr: unknown) {
+            const err = emailErr as {code?: string; message?: string};
+            if (rawEmail.trim() !== cleanEmail) {
+              try {
+                const userRaw = await auth.getUserByEmail(rawEmail.trim());
+                if (userRaw && userRaw.uid) {
+                  uidsToDelete.add(userRaw.uid);
+                }
+              } catch (rawErr) {
+                logger.debug("deleteBusinessAdmin: raw email lookup failed", {rawEmail, rawErr});
+              }
+            }
+            if (err?.code !== "auth/user-not-found") {
+              logger.warn("deleteBusinessAdmin: auth lookup by email warning", {
+                cleanEmail,
+                code: err?.code,
+                message: err?.message,
+              });
+            }
+          }
+        }
+      }
+
+      // 6c. Purge all resolved UIDs from Firebase Auth
+      for (const uid of uidsToDelete) {
         try {
-          const user = await auth.getUserByEmail(bizData.owner_email);
-          await auth.deleteUser(user.uid);
-          logger.info("deleteBusinessAdmin: owner auth user deleted by email", {
-            email: bizData.owner_email,
+          await auth.deleteUser(uid);
+          logger.info("deleteBusinessAdmin: owner auth user successfully deleted from Firebase Auth", {
+            businessId,
+            uid,
           });
-        } catch (authErr) {
-          logger.warn("deleteBusinessAdmin: auth delete by email failed", {authErr});
+        } catch (authErr: unknown) {
+          const err = authErr as {code?: string; message?: string};
+          if (err?.code !== "auth/user-not-found") {
+            logger.warn("deleteBusinessAdmin: failed to delete auth user", {
+              uid,
+              code: err?.code,
+              message: err?.message,
+            });
+          }
         }
       }
     }

@@ -992,7 +992,9 @@ export interface SendOwnerWelcomeEmailOpts {
 export async function sendOwnerWelcomeEmail(
   opts: SendOwnerWelcomeEmailOpts
 ): Promise<void> {
-  const {ownerEmail, ownerName, brandName, setupPasswordLink, businessId, businessCode} = opts;
+  const {ownerEmail, ownerName, brandName, businessId, businessCode} = opts;
+  const rawSetupLink = opts.setupPasswordLink;
+  const setupPasswordLink = formatCustomResetLink(rawSetupLink, reviewDomain.value() || "appnexa.co.in");
   const amount = opts.amount || 1999;
   const paymentMode = opts.paymentMode || "online";
   const branches = opts.branches || [];
@@ -1359,6 +1361,19 @@ export async function sendPaymentLinkEmail(
 // Password Reset Email Template (Universal AppNexa Theme)
 // ---------------------------------------------------------------------------
 
+/**
+ * Rewrites Firebase's default action link (which points to review-system-prod-49b7a.firebaseapp.com)
+ * to our custom-branded domain and password setup page (https://appnexa.co.in/reset-password?...)
+ */
+export function formatCustomResetLink(rawLink: string, domain = "appnexa.co.in"): string {
+  try {
+    const url = new URL(rawLink);
+    return `https://${domain}/reset-password${url.search}`;
+  } catch {
+    return rawLink;
+  }
+}
+
 function getPasswordResetEmailHtml(email: string, resetLink: string): string {
   return [
     "<!DOCTYPE html>",
@@ -1486,6 +1501,8 @@ export const sendCustomPasswordResetEmail = onCall(
         "Failed to generate password reset link. Please try again later."
       );
     }
+
+    resetLink = formatCustomResetLink(resetLink, reviewDomain.value() || "appnexa.co.in");
 
     const subject = "🔐 Reset Your AppNexa Account Password";
     const html = getPasswordResetEmailHtml(cleanEmail, resetLink);

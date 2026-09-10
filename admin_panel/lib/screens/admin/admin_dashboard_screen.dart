@@ -80,10 +80,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final auth = context.read<AppAuthProvider>();
+    final auth = Provider.of<AppAuthProvider>(context);
     if (!_initialized && auth.isAdmin) {
       _initialized = true;
-      context.read<AdminDashboardProvider>().loadAdminData();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<AdminDashboardProvider>().loadAdminData();
+        }
+      });
     }
   }
 
@@ -126,6 +130,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return const Scaffold(
         body: AppAnimatedLoader.fullScreen(
           message: 'Loading Platform Metrics & Directory…',
+        ),
+      );
+    }
+
+    if (provider.error != null && provider.allBusinesses.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Platform Admin Dashboard'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Log out',
+              onPressed: () => confirmAndSignOut(context),
+            ),
+          ],
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: colorScheme.error),
+                const SizedBox(height: 16),
+                Text(
+                  provider.error!,
+                  style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.error),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.read<AdminDashboardProvider>().loadAdminData(forceReload: true);
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry Loading Dashboard'),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -215,10 +259,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
-                Expanded(child: tabs[_selectedTabIndex]),
+                Expanded(
+                  child: IndexedStack(
+                    index: _selectedTabIndex,
+                    children: tabs,
+                  ),
+                ),
               ],
             )
-          : tabs[_selectedTabIndex],
+          : IndexedStack(
+              index: _selectedTabIndex,
+              children: tabs,
+            ),
       bottomNavigationBar: isDesktop
           ? null
           : BottomNavigationBar(

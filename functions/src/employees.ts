@@ -13,6 +13,7 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {getFirestore, Timestamp} from "firebase-admin/firestore";
 import {getAuth} from "firebase-admin/auth";
+import {formatCustomResetLink} from "./notifications";
 
 // ---------------------------------------------------------------------------
 // createEmployeeAccount — onCall (doc 04)
@@ -86,7 +87,8 @@ export const createEmployeeAccount = onCall(
     // 4. Generate password-set/reset link so employee sets their own password
     let resetLink: string | null = null;
     try {
-      resetLink = await auth.generatePasswordResetLink(email);
+      const rawLink = await auth.generatePasswordResetLink(email);
+      resetLink = formatCustomResetLink(rawLink);
       logger.info("createEmployeeAccount: password setup link generated", {
         employeeUid: userRecord.uid,
         email,

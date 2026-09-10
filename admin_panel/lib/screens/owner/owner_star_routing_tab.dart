@@ -116,8 +116,10 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
       orElse: () => branches.first,
     );
 
+    final isDesktop = MediaQuery.of(context).size.width > 700;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 640),
@@ -126,7 +128,7 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
             children: [
               Text(
                 'Star-Routing Configuration',
-                style: theme.textTheme.headlineMedium?.copyWith(
+                style: (isDesktop ? theme.textTheme.headlineMedium : theme.textTheme.titleLarge)?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -137,7 +139,7 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // Multi-branch selector if > 1 branch
               if (branches.length > 1) ...[
@@ -159,7 +161,7 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                       .toList(),
                   onChanged: _onBranchChanged,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
               ],
 
               // Reused StarRoutingWidget from enrollment
@@ -170,7 +172,7 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                   side: BorderSide(color: colorScheme.outlineVariant),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
                   child: Column(
                     children: [
                       if (_draft != null)

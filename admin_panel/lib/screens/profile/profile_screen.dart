@@ -18,6 +18,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../core/logout_helper.dart';
+import '../../core/phone_field.dart';
 import '../../models/employee_profile_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -190,11 +191,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final statusBg     = isVerified ? AppColors.activeBg : AppColors.pendingBg;
     final statusFg     = isVerified ? AppColors.activeFg : AppColors.pendingFg;
     final statusLabel  = isVerified ? 'Verified' : 'Pending Verification';
+    final isDesktop    = MediaQuery.of(context).size.width > 600;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile & Payout Details'),
-        leading: BackButton(onPressed: () => context.go('/businesses')),
+        leading: BackButton(onPressed: () {
+          final auth = context.read<AppAuthProvider>();
+          if (context.canPop()) {
+            context.pop();
+          } else if (auth.isAdmin) {
+            context.go('/admin');
+          } else if (auth.isOwner) {
+            context.go('/owner');
+          } else {
+            context.go('/businesses');
+          }
+        }),
         actions: [
           IconButton(
             icon:    const Icon(Icons.logout),
@@ -204,7 +217,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop ? AppSpacing.md : 12,
+          vertical: AppSpacing.md,
+        ),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
@@ -217,12 +233,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
                           isVerified
                               ? Icons.verified_user_outlined
                               : Icons.gavel_outlined,
-                          size: 32,
+                          size: 28,
                           color: statusFg,
                         ),
                         const SizedBox(width: AppSpacing.md),
@@ -230,7 +247,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
                                 children: [
                                   Text(
                                     'Account Status:',
@@ -239,7 +259,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         .titleSmall
                                         ?.copyWith(fontWeight: FontWeight.bold),
                                   ),
-                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 2),
@@ -314,9 +333,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: AppSpacing.sm),
                         TextFormField(
                           controller: _phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [IndianPhoneNumberFormatter()],
+                          maxLength: 10,
                           decoration: const InputDecoration(
                             labelText: 'Mobile Phone *',
                             prefixIcon: Icon(Icons.phone_outlined),
+                            counterText: '',
                           ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
@@ -334,14 +357,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: TextStyle(color: scheme.error, fontSize: 12)),
                         ],
                         const SizedBox(height: AppSpacing.md),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton.icon(
-                            onPressed: provider.isSaving ? null : _saveProfile,
-                            icon: const Icon(Icons.save_outlined),
-                            label: const Text('Save Personal Details'),
-                          ),
-                        ),
+                        isDesktop
+                            ? Align(
+                                alignment: Alignment.centerRight,
+                                child: ElevatedButton.icon(
+                                  onPressed: provider.isSaving ? null : _saveProfile,
+                                  icon: const Icon(Icons.save_outlined),
+                                  label: const Text('Save Personal Details'),
+                                ),
+                              )
+                            : SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: provider.isSaving ? null : _saveProfile,
+                                  icon: const Icon(Icons.save_outlined),
+                                  label: const Text('Save Personal Details'),
+                                ),
+                              ),
                       ],
                     ),
                   ),
@@ -371,25 +403,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: AppSpacing.sm),
                         const Divider(),
                         const SizedBox(height: AppSpacing.sm),
-                        SegmentedButton<PayoutMethod>(
-                          segments: const [
-                            ButtonSegment(
-                              value: PayoutMethod.bank,
-                              label: Text('Bank Transfer'),
-                              icon: Icon(Icons.account_balance_outlined),
-                            ),
-                            ButtonSegment(
-                              value: PayoutMethod.upi,
-                              label: Text('UPI Handle'),
-                              icon: Icon(Icons.qr_code_outlined),
-                            ),
-                          ],
-                          selected: {_selectedPayoutMethod},
-                          onSelectionChanged: (s) {
-                            if (s.isNotEmpty) {
-                              setState(() => _selectedPayoutMethod = s.first);
-                            }
-                          },
+                        SizedBox(
+                          width: double.infinity,
+                          child: SegmentedButton<PayoutMethod>(
+                            segments: const [
+                              ButtonSegment(
+                                value: PayoutMethod.bank,
+                                label: Text('Bank Transfer'),
+                                icon: Icon(Icons.account_balance_outlined),
+                              ),
+                              ButtonSegment(
+                                value: PayoutMethod.upi,
+                                label: Text('UPI Handle'),
+                                icon: Icon(Icons.qr_code_outlined),
+                              ),
+                            ],
+                            selected: {_selectedPayoutMethod},
+                            onSelectionChanged: (s) {
+                              if (s.isNotEmpty) {
+                                setState(() => _selectedPayoutMethod = s.first);
+                              }
+                            },
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.md),
                         if (_selectedPayoutMethod == PayoutMethod.bank) ...[
@@ -425,14 +460,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: TextStyle(color: scheme.error, fontSize: 12)),
                         ],
                         const SizedBox(height: AppSpacing.md),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton.icon(
-                            onPressed: provider.isSaving ? null : _savePayout,
-                            icon: const Icon(Icons.payment_outlined),
-                            label: const Text('Save Payout Details'),
-                          ),
-                        ),
+                        isDesktop
+                            ? Align(
+                                alignment: Alignment.centerRight,
+                                child: ElevatedButton.icon(
+                                  onPressed: provider.isSaving ? null : _savePayout,
+                                  icon: const Icon(Icons.payment_outlined),
+                                  label: const Text('Save Payout Details'),
+                                ),
+                              )
+                            : SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: provider.isSaving ? null : _savePayout,
+                                  icon: const Icon(Icons.payment_outlined),
+                                  label: const Text('Save Payout Details'),
+                                ),
+                              ),
                       ],
                     ),
                   ),
@@ -462,39 +506,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: AppSpacing.sm),
                         const Divider(),
                         const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: _selectedDocType,
-                                decoration: const InputDecoration(
-                                  labelText: 'Document Type',
-                                  isDense: true,
-                                ),
-                                items: _docTypes
-                                    .map((t) => DropdownMenuItem(
-                                          value: t,
-                                          child: Text(t),
-                                        ))
-                                    .toList(),
-                                onChanged: (v) {
-                                  if (v != null) setState(() => _selectedDocType = v);
-                                },
+                        isDesktop
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      value: _selectedDocType,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Document Type',
+                                        isDense: true,
+                                      ),
+                                      items: _docTypes
+                                          .map((t) => DropdownMenuItem(
+                                                value: t,
+                                                child: Text(t),
+                                              ))
+                                          .toList(),
+                                      onChanged: (v) {
+                                        if (v != null) setState(() => _selectedDocType = v);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  ElevatedButton.icon(
+                                    onPressed: provider.uploading ? null : _uploadDoc,
+                                    icon: provider.uploading
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2))
+                                        : const Icon(Icons.upload_file_outlined),
+                                    label: Text(provider.uploading ? 'Uploading…' : 'Upload Document'),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  DropdownButtonFormField<String>(
+                                    value: _selectedDocType,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Document Type',
+                                      isDense: true,
+                                    ),
+                                    items: _docTypes
+                                        .map((t) => DropdownMenuItem(
+                                              value: t,
+                                              child: Text(t),
+                                            ))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _selectedDocType = v);
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton.icon(
+                                    onPressed: provider.uploading ? null : _uploadDoc,
+                                    icon: provider.uploading
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2))
+                                        : const Icon(Icons.upload_file_outlined),
+                                    label: Text(provider.uploading ? 'Uploading…' : 'Upload Document'),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: AppSpacing.md),
-                            ElevatedButton.icon(
-                              onPressed: provider.uploading ? null : _uploadDoc,
-                              icon: provider.uploading
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2))
-                                  : const Icon(Icons.upload_file_outlined),
-                              label: Text(provider.uploading ? 'Uploading…' : 'Upload Document'),
-                            ),
-                          ],
-                        ),
                         if (_docMsg != null) ...[
                           const SizedBox(height: AppSpacing.sm),
                           Text(_docMsg!,
@@ -532,7 +609,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 title: Text(doc.documentType,
                                     style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text('Uploaded: $dateStr · ${doc.storagePath}'),
+                                subtitle: Text(
+                                  'Uploaded: $dateStr · ${doc.storagePath}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [

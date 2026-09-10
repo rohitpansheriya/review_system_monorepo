@@ -352,7 +352,10 @@ class _EnrollScreenState extends State<EnrollScreen> {
           constraints: const BoxConstraints(maxWidth: 720),
           child: ListView(
             controller: _scrollCtrl,
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.of(context).size.width > 600 ? AppSpacing.lg : 12,
+              vertical: AppSpacing.md,
+            ),
             children: [
               // ── Mode toggle ──────────────────────────────────────────────
               _FormSection(
@@ -360,24 +363,27 @@ class _EnrollScreenState extends State<EnrollScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SegmentedButton<EnrollMode>(
-                      segments: const [
-                        ButtonSegment(
-                          value: EnrollMode.single,
-                          label: Text('Single location'),
-                          icon:  Icon(Icons.storefront_outlined),
-                        ),
-                        ButtonSegment(
-                          value: EnrollMode.multi,
-                          label: Text('Multiple branches'),
-                          icon:  Icon(Icons.account_tree_outlined),
-                        ),
-                      ],
-                      selected: {enroll.mode},
-                      onSelectionChanged: (set) {
-                        if (set.isNotEmpty) enroll.setMode(set.first);
-                        setState(() => _showErrors = false);
-                      },
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<EnrollMode>(
+                        segments: const [
+                          ButtonSegment(
+                            value: EnrollMode.single,
+                            label: Text('Single location'),
+                            icon:  Icon(Icons.storefront_outlined),
+                          ),
+                          ButtonSegment(
+                            value: EnrollMode.multi,
+                            label: Text('Multiple branches'),
+                            icon:  Icon(Icons.account_tree_outlined),
+                          ),
+                        ],
+                        selected: {enroll.mode},
+                        onSelectionChanged: (set) {
+                          if (set.isNotEmpty) enroll.setMode(set.first);
+                          setState(() => _showErrors = false);
+                        },
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(

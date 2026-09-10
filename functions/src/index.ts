@@ -98,4 +98,4 @@ export {
   offboardEmployee,
   verifyEmployeeDocumentsAdmin,
 } from "./employees.js";
-export {onScanCreated} from "./scans.js";
+export {onScanCreated, reconcileBusinessStats} from "./scans.js";

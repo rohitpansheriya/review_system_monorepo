@@ -27,9 +27,23 @@ class AdminLeadsTab extends StatefulWidget {
   State<AdminLeadsTab> createState() => _AdminLeadsTabState();
 }
 
-class _AdminLeadsTabState extends State<AdminLeadsTab> {
+class _AdminLeadsTabState extends State<AdminLeadsTab>
+    with AutomaticKeepAliveClientMixin {
   String _searchQuery = '';
   String _statusFilter = 'all'; // 'all', 'lead', 'contacted', 'converted', 'archived'
+  late final Stream<QuerySnapshot> _leadsStream;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _leadsStream = FirebaseFirestore.instance
+        .collection('leads')
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+  }
 
   void _openWhatsApp(LeadModel lead) {
     var phone = lead.phone.replaceAll(RegExp(r'[^0-9]'), '');
@@ -137,16 +151,14 @@ class _AdminLeadsTabState extends State<AdminLeadsTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('leads')
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
+      stream: _leadsStream,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Center(child: AppAnimatedLoader.card(message: 'Loading Inbound Leads...'));
         }
 
@@ -177,6 +189,7 @@ class _AdminLeadsTabState extends State<AdminLeadsTab> {
         }).toList();
 
         return SingleChildScrollView(
+          key: const PageStorageKey<String>('admin_leads_scroll_view'),
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,24 +248,23 @@ class _AdminLeadsTabState extends State<AdminLeadsTab> {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                          decoration: InputDecoration(
-                            hintText: 'Search by business, name, phone, city...',
-                            prefixIcon: const Icon(Icons.search, size: 20),
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 700;
+                      final searchField = TextField(
+                        onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                        decoration: InputDecoration(
+                          hintText: 'Search by business, name, phone, city...',
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          isDense: true,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Wrap(
+                      );
+
+                      final filters = Wrap(
                         spacing: 8,
+                        runSpacing: 8,
                         children: [
                           _filterChip('all', 'All ($totalCount)'),
                           _filterChip('lead', 'New ($newCount)'),
@@ -260,8 +272,25 @@ class _AdminLeadsTabState extends State<AdminLeadsTab> {
                           _filterChip('converted', 'Converted ($convertedCount)'),
                           _filterChip('archived', 'Archived'),
                         ],
-                      ),
-                    ],
+                      );
+
+                      return isWide
+                          ? Row(
+                              children: [
+                                Expanded(flex: 2, child: searchField),
+                                const SizedBox(width: 16),
+                                Expanded(flex: 3, child: filters),
+                              ],
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                searchField,
+                                const SizedBox(height: 12),
+                                filters,
+                              ],
+                            );
+                    },
                   ),
                 ),
               ),
@@ -371,158 +400,178 @@ class _AdminLeadsTabState extends State<AdminLeadsTab> {
   Widget _buildLeadTile(LeadModel lead, ColorScheme scheme) {
     final dateStr = DateFormat('MMM dd, yyyy • hh:mm a').format(lead.createdAt);
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Business Avatar
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: const Color(0xFFEEF2FF),
-            child: const Icon(Icons.storefront, color: Color(0xFF4F46E5), size: 24),
-          ),
-          const SizedBox(width: 16),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 650;
 
-          // Core Lead Info
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      lead.businessName,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 8),
+        final coreInfo = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: const Color(0xFFEEF2FF),
+              child: const Icon(Icons.storefront, color: Color(0xFF4F46E5), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        lead.businessName,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          lead.city,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            lead.name,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.phone_outlined, size: 14, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            lead.phone,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (lead.message.isNotEmpty) ...[
+                    const SizedBox(height: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: Text(
-                        lead.city,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                        '“${lead.message}”',
+                        style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xFF64748B)),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.person_outline, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      lead.name,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-                    ),
-                    const SizedBox(width: 12),
-                    const Icon(Icons.phone_outlined, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      lead.phone,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-                    ),
-                  ],
-                ),
-                if (lead.message.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Text(
-                      '“${lead.message}”',
-                      style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xFF64748B)),
-                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Received: $dateStr • Source: ${lead.source}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
-                const SizedBox(height: 4),
-                Text(
-                  'Received: $dateStr • Source: ${lead.source}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
+          ],
+        );
 
-          // Status Badge / Dropdown
-          DropdownButton<String>(
-            value: lead.status,
-            underline: const SizedBox.shrink(),
-            borderRadius: BorderRadius.circular(12),
-            items: [
-              _statusDropdownItem('lead', 'New Lead', _statusColor('lead')),
-              _statusDropdownItem('contacted', 'Contacted', _statusColor('contacted')),
-              _statusDropdownItem('converted', 'Converted', _statusColor('converted')),
-              _statusDropdownItem('archived', 'Archived', _statusColor('archived')),
-            ],
-            onChanged: (val) {
-              if (val != null) _updateLeadStatus(lead.id, val);
-            },
-          ),
-          const SizedBox(width: 16),
+        final actions = Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            DropdownButton<String>(
+              value: lead.status,
+              underline: const SizedBox.shrink(),
+              borderRadius: BorderRadius.circular(12),
+              items: [
+                _statusDropdownItem('lead', 'New Lead', _statusColor('lead')),
+                _statusDropdownItem('contacted', 'Contacted', _statusColor('contacted')),
+                _statusDropdownItem('converted', 'Converted', _statusColor('converted')),
+                _statusDropdownItem('archived', 'Archived', _statusColor('archived')),
+              ],
+              onChanged: (val) {
+                if (val != null) _updateLeadStatus(lead.id, val);
+              },
+            ),
+            IconButton.filledTonal(
+              onPressed: () => _openWhatsApp(lead),
+              icon: const Icon(Icons.chat, size: 18),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFF25D366).withValues(alpha: 0.15),
+                foregroundColor: const Color(0xFF128C7E),
+              ),
+              tooltip: 'WhatsApp Lead',
+            ),
+            IconButton.filledTonal(
+              onPressed: () => _callPhone(lead),
+              icon: const Icon(Icons.phone, size: 18),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                foregroundColor: const Color(0xFF4F46E5),
+              ),
+              tooltip: 'Call Phone',
+            ),
+            FilledButton.icon(
+              onPressed: () => context.go('/admin?tab=enroll'),
+              icon: const Icon(Icons.add_business, size: 16),
+              label: const Text('Enroll'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              ),
+            ),
+            IconButton(
+              onPressed: () => _deleteLead(lead),
+              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey),
+              tooltip: 'Delete Lead',
+            ),
+          ],
+        );
 
-          // Action Buttons: WhatsApp, Call, Enroll, Delete
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // WhatsApp Button
-              IconButton.filledTonal(
-                onPressed: () => _openWhatsApp(lead),
-                icon: const Icon(Icons.chat, size: 18),
-                style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366).withValues(alpha: 0.15),
-                  foregroundColor: const Color(0xFF128C7E),
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: isWide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: coreInfo),
+                    const SizedBox(width: 16),
+                    actions,
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    coreInfo,
+                    const SizedBox(height: 12),
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
+                    actions,
+                  ],
                 ),
-                tooltip: 'WhatsApp Lead',
-              ),
-              const SizedBox(width: 8),
-
-              // Call Button
-              IconButton.filledTonal(
-                onPressed: () => _callPhone(lead),
-                icon: const Icon(Icons.phone, size: 18),
-                style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.12),
-                  foregroundColor: const Color(0xFF4F46E5),
-                ),
-                tooltip: 'Call Phone',
-              ),
-              const SizedBox(width: 8),
-
-              // 1-Click Enroll Button
-              FilledButton.icon(
-                onPressed: () {
-                  // Direct to Enroll tab with pre-fill info
-                  context.go('/admin?tab=enroll');
-                },
-                icon: const Icon(Icons.add_business, size: 16),
-                label: const Text('Enroll'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Delete button
-              IconButton(
-                onPressed: () => _deleteLead(lead),
-                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey),
-                tooltip: 'Delete Lead',
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

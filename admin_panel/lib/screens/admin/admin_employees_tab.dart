@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../core/phone_field.dart';
 import '../../models/employee_profile_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
 
@@ -19,14 +20,15 @@ class AdminEmployeesTab extends StatelessWidget {
   void _showCreateEmployeeDialog(BuildContext context, AdminDashboardProvider provider) {
     final emailCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
-    final phoneCtrl = TextEditingController();
     final addressCtrl = TextEditingController();
+    String rawPhone = '';
 
     showDialog(
       context: context,
       builder: (ctx) {
         String? nameError;
         String? emailError;
+        String? phoneError;
         bool isSubmitting = false;
 
         return StatefulBuilder(
@@ -80,10 +82,16 @@ class AdminEmployeesTab extends StatelessWidget {
                       },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: phoneCtrl,
-                      decoration: const InputDecoration(labelText: 'Phone Number (+91)'),
-                      keyboardType: TextInputType.phone,
+                    PhoneField(
+                      label: 'Phone / WhatsApp Number (+91)',
+                      initialValue: rawPhone,
+                      helperText: '10-digit Indian mobile number',
+                      showError: phoneError != null,
+                      errorText: phoneError,
+                      onChanged: (val) {
+                        rawPhone = val;
+                        if (phoneError != null) setDialogState(() => phoneError = null);
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -117,9 +125,23 @@ class AdminEmployeesTab extends StatelessWidget {
                             emailError = email.isEmpty
                                 ? 'Email Address is required.'
                                 : (!email.contains('@') ? 'Enter a valid email address.' : null);
+
+                            if (rawPhone.trim().isNotEmpty) {
+                              final cleanDigits = rawPhone.replaceAll(RegExp(r'\D'), '');
+                              final phoneDigits = cleanDigits.startsWith('91') && cleanDigits.length > 10
+                                  ? cleanDigits.substring(2)
+                                  : cleanDigits;
+                              if (phoneDigits.length != 10 || !RegExp(r'^[6-9]\d{9}$').hasMatch(phoneDigits)) {
+                                phoneError = 'Enter a valid 10-digit phone number starting with 6–9.';
+                              } else {
+                                phoneError = null;
+                              }
+                            } else {
+                              phoneError = null;
+                            }
                           });
 
-                          if (nameError != null || emailError != null) {
+                          if (nameError != null || emailError != null || phoneError != null) {
                             return;
                           }
 
@@ -128,7 +150,7 @@ class AdminEmployeesTab extends StatelessWidget {
                             await provider.createEmployee(
                               email: email,
                               displayName: name,
-                              phone: phoneCtrl.text.trim(),
+                              phone: rawPhone.trim(),
                               address: addressCtrl.text.trim(),
                             );
                             if (ctx.mounted) Navigator.of(ctx).pop();
@@ -185,41 +207,41 @@ class AdminEmployeesTab extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final employees = provider.employees;
+    final isDesktop = MediaQuery.of(context).size.width > 600;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.all(isDesktop ? 24.0 : 12.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Employee Management',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Employee Management',
+                    style: (isDesktop ? theme.textTheme.headlineMedium : theme.textTheme.titleLarge)?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Manage sales reps, track enrollments, review KYC, and offboarding.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Manage sales reps, track enrollments, review KYC, and offboarding.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () => _showCreateEmployeeDialog(context, provider),
                 icon: const Icon(Icons.person_add, size: 18),
-                label: const Text('Add'),
+                label: const Text('Add Employee'),
               ),
             ],
           ),
@@ -281,56 +303,62 @@ class AdminEmployeesTab extends StatelessWidget {
                     ),
                     children: [
                       Padding(
-                        padding: const EdgeInsets.all(20.0),
+                        padding: EdgeInsets.all(isDesktop ? 20.0 : 12.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Metrics row
-                            Row(
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
                               children: [
                                 _buildMetricBox(context, 'Total Enrollments', '${provider.employeeTotalEnrollments[emp.uid] ?? 0}'),
-                                const SizedBox(width: 12),
                                 _buildMetricBox(context, 'This Month', '${provider.employeeThisMonthEnrollments[emp.uid] ?? 0}'),
-                                const SizedBox(width: 12),
                                 _buildMetricBox(context, 'Managed', '${provider.employeeManagedCount[emp.uid] ?? 0}'),
-                                const SizedBox(width: 12),
-                                _buildMetricBox(context, 'Pending Commission', '₹${comms['pending']?.toStringAsFixed(0) ?? '0'}'),
-                                const SizedBox(width: 12),
-                                _buildMetricBox(context, 'Paid Commission', '₹${comms['paid']?.toStringAsFixed(0) ?? '0'}'),
+                                _buildMetricBox(context, 'Pending Comm.', '₹${comms['pending']?.toStringAsFixed(0) ?? '0'}'),
+                                _buildMetricBox(context, 'Paid Comm.', '₹${comms['paid']?.toStringAsFixed(0) ?? '0'}'),
                               ],
                             ),
                             const Divider(height: 32),
 
                             // Document & Payout Verification Action
-                            Row(
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
                               children: [
                                 Text(
                                   'KYC Document Status: ${emp.documentsVerified.toUpperCase()}',
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
-                                const Spacer(),
-                                OutlinedButton.icon(
-                                  onPressed: () async {
-                                    await provider.verifyEmployeeDocuments(
-                                      employeeUid: emp.uid,
-                                      status: 'rejected',
-                                    );
-                                  },
-                                  icon: const Icon(Icons.close, size: 16),
-                                  label: const Text('Reject KYC Docs'),
-                                  style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
-                                ),
-                                const SizedBox(width: 8),
-                                ElevatedButton.icon(
-                                  onPressed: () async {
-                                    await provider.verifyEmployeeDocuments(
-                                      employeeUid: emp.uid,
-                                      status: 'verified',
-                                    );
-                                  },
-                                  icon: const Icon(Icons.check, size: 16),
-                                  label: const Text('Verify KYC Docs'),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: () async {
+                                        await provider.verifyEmployeeDocuments(
+                                          employeeUid: emp.uid,
+                                          status: 'rejected',
+                                        );
+                                      },
+                                      icon: const Icon(Icons.close, size: 16),
+                                      label: const Text('Reject KYC Docs'),
+                                      style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
+                                    ),
+                                    ElevatedButton.icon(
+                                      onPressed: () async {
+                                        await provider.verifyEmployeeDocuments(
+                                          employeeUid: emp.uid,
+                                          status: 'verified',
+                                        );
+                                      },
+                                      icon: const Icon(Icons.check, size: 16),
+                                      label: const Text('Verify KYC Docs'),
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -365,20 +393,49 @@ class AdminEmployeesTab extends StatelessWidget {
 
                             const SizedBox(height: 24),
 
-                            // Offboarding / Deactivate Action
-                            if (emp.isActive)
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: () => _confirmOffboard(context, provider, emp),
-                                  icon: const Icon(Icons.person_off),
-                                  label: const Text('Offboard Employee'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: colorScheme.error,
-                                    side: BorderSide(color: colorScheme.error),
-                                  ),
+                            // Actions Row (Resend Password Setup Email + Offboard)
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 10,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    try {
+                                      await provider.sendPasswordResetLink(emp.email);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Password setup/reset email sent to ${emp.email}'),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Failed to send email: $e'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon: const Icon(Icons.lock_reset, size: 16),
+                                  label: const Text('Resend Password Setup Link'),
                                 ),
-                              ),
+                                if (emp.isActive)
+                                  OutlinedButton.icon(
+                                    onPressed: () => _confirmOffboard(context, provider, emp),
+                                    icon: const Icon(Icons.person_off, size: 16),
+                                    label: const Text('Offboard Employee'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: colorScheme.error,
+                                      side: BorderSide(color: colorScheme.error),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -395,21 +452,20 @@ class AdminEmployeesTab extends StatelessWidget {
   Widget _buildMetricBox(BuildContext context, String label, String value) {
     final theme = Theme.of(context);
 
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: theme.textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-            const SizedBox(height: 4),
-            Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          ],
-        ),
+    return Container(
+      constraints: const BoxConstraints(minWidth: 100),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: theme.textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
+          const SizedBox(height: 4),
+          Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }

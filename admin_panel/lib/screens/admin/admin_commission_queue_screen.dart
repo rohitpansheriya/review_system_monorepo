@@ -171,12 +171,16 @@ class _AdminCommissionQueueScreenState
                 Text('Export Bulk Payout CSV'),
               ],
             ),
-            content: SizedBox(
-              width: 480,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 480,
+                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -232,13 +236,14 @@ class _AdminCommissionQueueScreenState
                     onChanged: (v) => setDlgState(() => selectedFormat = v!),
                   ),
                   const Divider(height: 20),
-                  CheckboxListTile(
-                    value: onlyPending,
-                    title: const Text('Export ONLY Unpaid / Pending Records', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                    subtitle: const Text('Excludes commissions already marked as paid', style: TextStyle(fontSize: 11)),
-                    onChanged: (v) => setDlgState(() => onlyPending = v ?? true),
-                  ),
-                ],
+                    CheckboxListTile(
+                      value: onlyPending,
+                      title: const Text('Export ONLY Unpaid / Pending Records', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                      subtitle: const Text('Excludes commissions already marked as paid', style: TextStyle(fontSize: 11)),
+                      onChanged: (v) => setDlgState(() => onlyPending = v ?? true),
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -446,7 +451,7 @@ class _AdminCommissionQueueScreenState
     return StreamBuilder<List<EmployeeCommissionModel>>(
       stream: stream,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -570,12 +575,16 @@ class _AdminCommissionQueueScreenState
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDlgState) => AlertDialog(
           title: const Text('Bulk Payout — Mark All Pending as Paid'),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 400,
+              maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Text(
                   'Employee: ${_getEmployeeName(provider.employees, employeeId)}',
                   style: const TextStyle(fontWeight: FontWeight.bold),
@@ -602,7 +611,8 @@ class _AdminCommissionQueueScreenState
               ],
             ),
           ),
-          actions: [
+        ),
+        actions: [
             TextButton(
               onPressed: isProcessing ? null : () => Navigator.of(ctx).pop(),
               child: const Text('Cancel'),

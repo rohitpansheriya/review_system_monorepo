@@ -326,24 +326,10 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
     final activeBusinesses = provider.allBusinesses
         .where((b) => b.subscriptionStatus == AppConstants.statusActive)
         .length;
-    final totalActiveBranches = provider.businessBranchStats.values
-        .fold<int>(0, (sum, s) => sum + s.active);
-
-    // Unique cities
-    final citySet = <String>{};
-    for (final biz in provider.allBusinesses) {
-      final city = _extractCity(provider, biz);
-      if (city != '—') citySet.add(city.toLowerCase());
-    }
-
-    // Unique enrolled-by employees for filter dropdown
-    final enrolledByUids = <String>{};
-    for (final biz in provider.allBusinesses) {
-      if (biz.enrolledBy.isNotEmpty) enrolledByUids.add(biz.enrolledBy);
-    }
+    final isMobile = MediaQuery.of(context).size.width <= 600;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.all(isMobile ? 12.0 : 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -356,14 +342,14 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                   children: [
                     Text(
                       'Client & Location Directory',
-                      style: theme.textTheme.headlineMedium?.copyWith(
+                      style: (isMobile ? theme.textTheme.titleLarge : theme.textTheme.headlineMedium)?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Master list of all enrolled businesses. Search, filter, and open any business workspace.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -379,23 +365,23 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
           ),
           const SizedBox(height: 24),
 
-          // ── KPI Metric Cards ──────────────────────────────────────────────
+          // ── KPI Summary Cards ─────────────────────────────────────────────
           LayoutBuilder(
             builder: (context, constraints) {
-              final crossCount = constraints.maxWidth > 800
+              final crossAxisCount = constraints.maxWidth > 900
                   ? 4
-                  : (constraints.maxWidth > 500 ? 2 : 1);
+                  : (constraints.maxWidth > 600 ? 2 : 1);
               return GridView.count(
-                crossAxisCount: crossCount,
+                crossAxisCount: crossAxisCount,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 shrinkWrap: true,
-                childAspectRatio: 2.2,
+                childAspectRatio: constraints.maxWidth > 600 ? 1.6 : 2.2,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   _KpiCard(
-                    icon: Icons.store_rounded,
-                    label: 'Total Businesses',
+                    icon: Icons.business_rounded,
+                    label: 'Total Brands',
                     value: '$totalBusinesses',
                     color: AppColors.primary,
                   ),
@@ -408,13 +394,20 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                   _KpiCard(
                     icon: Icons.location_on_rounded,
                     label: 'Active Branches',
-                    value: '$totalActiveBranches',
+                    value: '${provider.businessBranchStats.values.fold<int>(0, (sum, s) => sum + s.active)}',
                     color: AppColors.secondary,
                   ),
                   _KpiCard(
                     icon: Icons.map_rounded,
                     label: 'Cities Covered',
-                    value: '${citySet.length}',
+                    value: '${(() {
+                      final citySet = <String>{};
+                      for (final biz in provider.allBusinesses) {
+                        final city = _extractCity(provider, biz);
+                        if (city != '—') citySet.add(city.toLowerCase());
+                      }
+                      return citySet.length;
+                    })()}',
                     color: AppColors.star,
                   ),
                 ],
@@ -424,7 +417,13 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
           const SizedBox(height: 24),
 
           // ── Search & Filter Bar ───────────────────────────────────────────
-          _buildSearchFilterBar(provider, enrolledByUids, theme, colorScheme),
+          _buildSearchFilterBar(provider, (() {
+            final enrolledByUids = <String>{};
+            for (final biz in provider.allBusinesses) {
+              if (biz.enrolledBy.isNotEmpty) enrolledByUids.add(biz.enrolledBy);
+            }
+            return enrolledByUids;
+          })(), theme, colorScheme),
           const SizedBox(height: 8),
 
           // ── Results count ─────────────────────────────────────────────────
@@ -463,7 +462,7 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
       children: [
         // Search field
         SizedBox(
-          width: 320,
+          width: MediaQuery.of(context).size.width > 500 ? 320 : double.infinity,
           child: TextField(
             onChanged: (v) => setState(() => _searchQuery = v),
             decoration: InputDecoration(

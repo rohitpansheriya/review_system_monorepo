@@ -29,9 +29,10 @@ class OwnerCategoriesTab extends StatelessWidget {
     final categories = (template['categories'] as List?) ?? [];
     final activeMap = biz.activeCategories;
     final isReadOnly = provider.isGracePeriod || provider.isDeleted;
+    final isDesktop = MediaQuery.of(context).size.width > 700;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -68,7 +69,7 @@ class OwnerCategoriesTab extends StatelessWidget {
 
           Text(
             'Category Management',
-            style: theme.textTheme.headlineMedium?.copyWith(
+            style: (isDesktop ? theme.textTheme.headlineMedium : theme.textTheme.titleLarge)?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),

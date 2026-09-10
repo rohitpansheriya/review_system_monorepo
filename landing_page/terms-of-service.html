@@ -57,12 +57,25 @@
       --bg-card-hover: #16264d;
       --text-primary: #f8fafc;
       --text-secondary: #cbd5e1;
-      --text-muted: #64748b;
+      --text-muted: #94a3b8;
       --border-color: #1e293b;
       --border-focus: #3b82f6;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent !important;
+    }
+
+    button,
+    a {
+      -webkit-tap-highlight-color: transparent !important;
+      outline: none;
+    }
     html { scroll-behavior: smooth; }
     body {
       font-family: var(--font-main);
@@ -369,7 +382,6 @@
         <div class="footer-col">
           <h4>Portals</h4>
           <ul>
-            <li><a href="/app/login">Admin Sign In</a></li>
             <li><a href="/app/login">Employee Login</a></li>
             <li><a href="/app/login">Business Owner Portal</a></li>
           </ul>

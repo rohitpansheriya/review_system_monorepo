@@ -127,6 +127,8 @@ class OwnerHomeTab extends StatelessWidget {
         ? ((positiveRatings / totalRated) * 100).toStringAsFixed(1)
         : (totalScans > 0 ? '100.0' : '0.0');
 
+    final isDesktop = MediaQuery.of(context).size.width > 700;
+
     return RefreshIndicator(
       onRefresh: () async {
         if (biz.ownerAuthUid != null) {
@@ -135,7 +137,7 @@ class OwnerHomeTab extends StatelessWidget {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -149,131 +151,126 @@ class OwnerHomeTab extends StatelessWidget {
             const SizedBox(height: 16),
 
             // ── 2. Header & Branch Switcher (Multi-branch support) ───────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          biz.brandName,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (biz.businessCode != null || biz.isTestAccount) ...[
-                          const SizedBox(width: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: biz.isTestAccount ? AppColors.warning.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: biz.isTestAccount ? AppColors.warning : AppColors.primary.withValues(alpha: 0.3),
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Text(
-                              biz.displayCode,
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: biz.isTestAccount ? AppColors.warning : AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
                     Text(
-                      'Overview & Customer Review Analytics',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                      biz.brandName,
+                      style: (isDesktop ? theme.textTheme.headlineMedium : theme.textTheme.titleLarge)?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        // Timeframe / Month Filter
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: colorScheme.outlineVariant),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: provider.selectedMonth,
-                              items: provider.availableMonths
-                                  .map((m) => DropdownMenuItem(
-                                        value: m.key,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.calendar_month_outlined, size: 16),
-                                            const SizedBox(width: 8),
-                                            Text(m.label),
-                                          ],
-                                        ),
-                                      ))
-                                  .toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  provider.setSelectedMonth(val);
-                                }
-                              },
-                            ),
+                    if (biz.businessCode != null || biz.isTestAccount)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: biz.isTestAccount ? AppColors.warning.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: biz.isTestAccount ? AppColors.warning : AppColors.primary.withValues(alpha: 0.3),
+                            width: 0.8,
                           ),
                         ),
-
-                        // Branch Switcher (Multi-branch)
-                        if (!provider.isSingleBranch)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: colorScheme.outlineVariant),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: provider.selectedBranchId,
-                                items: [
-                                  const DropdownMenuItem(
-                                    value: 'all',
+                        child: Text(
+                          biz.displayCode,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: biz.isTestAccount ? AppColors.warning : AppColors.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Overview & Customer Review Analytics',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // Timeframe / Month Filter
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: colorScheme.outlineVariant),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: provider.selectedMonth,
+                          items: provider.availableMonths
+                              .map((m) => DropdownMenuItem(
+                                    value: m.key,
                                     child: Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.storefront, size: 18),
-                                        SizedBox(width: 8),
-                                        Text('All Branches (Aggregated)',
-                                            style: TextStyle(fontWeight: FontWeight.bold)),
+                                        const Icon(Icons.calendar_month_outlined, size: 16),
+                                        const SizedBox(width: 8),
+                                        Text(m.label),
                                       ],
                                     ),
-                                  ),
-                                  ...provider.branches.map((b) => DropdownMenuItem(
-                                        value: b.id,
-                                        child: Text(b.branchName),
-                                      )),
-                                ],
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    provider.setSelectedBranch(val);
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                      ],
+                                  ))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              provider.setSelectedMonth(val);
+                            }
+                          },
+                        ),
+                      ),
                     ),
+
+                    // Branch Switcher (Multi-branch)
+                    if (!provider.isSingleBranch)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: colorScheme.outlineVariant),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: provider.selectedBranchId,
+                            items: [
+                              const DropdownMenuItem(
+                                value: 'all',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.storefront, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('All Branches (Aggregated)',
+                                        style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                              ...provider.branches.map((b) => DropdownMenuItem(
+                                    value: b.id,
+                                    child: Text(b.branchName),
+                                  )),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                provider.setSelectedBranch(val);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ],
@@ -355,34 +352,38 @@ class OwnerHomeTab extends StatelessWidget {
                 side: BorderSide(color: colorScheme.outlineVariant),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.bar_chart_rounded, color: AppColors.star, size: 26),
+                            const Icon(Icons.bar_chart_rounded, color: AppColors.star, size: 24),
                             const SizedBox(width: 8),
                             Text(
                               'Customer Rating Breakdown',
-                              style: theme.textTheme.titleLarge?.copyWith(
+                              style: (isDesktop ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFEF3C7),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: const Color(0xFFFCD34D)),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.star_rounded, color: Color(0xFFD97706), size: 18),
                               const SizedBox(width: 4),
@@ -391,7 +392,7 @@ class OwnerHomeTab extends StatelessWidget {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF92400E),
-                                  fontSize: 13,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
@@ -718,6 +719,7 @@ class OwnerHomeTab extends StatelessWidget {
   Widget _buildMonthlyTrendsCard(BuildContext context, OwnerDashboardProvider provider) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDesktop = MediaQuery.of(context).size.width > 700;
     final trends = provider.getMonthlyTrends();
     final maxScans = trends.map((t) => t.scans).fold<int>(1, (max, v) => v > max ? v : max);
 
@@ -728,21 +730,24 @@ class OwnerHomeTab extends StatelessWidget {
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.insights_rounded, color: AppColors.secondary, size: 24),
+                    const Icon(Icons.insights_rounded, color: AppColors.secondary, size: 22),
                     const SizedBox(width: 8),
                     Text(
-                      'Monthly Review Growth & Historical Performance',
-                      style: theme.textTheme.titleLarge?.copyWith(
+                      isDesktop ? 'Monthly Review Growth & Historical Performance' : 'Monthly Review Growth',
+                      style: (isDesktop ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -773,7 +778,7 @@ class OwnerHomeTab extends StatelessWidget {
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // Horizontal / stacked monthly comparison bars
             ...trends.map((t) {
@@ -782,9 +787,9 @@ class OwnerHomeTab extends StatelessWidget {
                   (provider.selectedMonth == 'all' && t.monthKey == trends.last.monthKey);
 
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                padding: const EdgeInsets.symmetric(vertical: 6.0),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: isCurrent
                         ? colorScheme.primaryContainer.withValues(alpha: 0.25)
@@ -800,32 +805,36 @@ class OwnerHomeTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 t.label,
                                 style: TextStyle(
                                   fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   color: isCurrent ? colorScheme.primary : null,
                                 ),
                               ),
                               if (isCurrent && provider.selectedMonth != 'all') ...[
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                   decoration: BoxDecoration(
                                     color: colorScheme.primary,
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text(
                                     'Viewing',
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 10,
+                                      fontSize: 9,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -834,27 +843,28 @@ class OwnerHomeTab extends StatelessWidget {
                             ],
                           ),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 '${t.scans} scans',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: AppColors.activeBg,
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  '+${t.reviews} Google Reviews',
+                                  '+${t.reviews} Reviews',
                                   style: const TextStyle(
                                     color: AppColors.activeFg,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                                    fontSize: 11,
                                   ),
                                 ),
                               ),

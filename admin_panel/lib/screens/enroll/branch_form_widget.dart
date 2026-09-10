@@ -392,52 +392,46 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
                   .labelLarge
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _searchNameCtrl,
-                  focusNode:  _searchNameFocus,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    hintText: 'Business name (e.g. Brew Bar)',
-                    prefixIcon: const Icon(Icons.store_outlined),
-                    errorText: _searchNameError,
-                    isDense: true,
-                  ),
-                  onChanged: (_) {
-                    if (_searchNameError != null) {
-                      setState(() => _searchNameError = null);
-                    }
-                  },
-                  onSubmitted: (_) => _search(),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 500;
+              final nameInput = TextField(
+                controller: _searchNameCtrl,
+                focusNode:  _searchNameFocus,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: 'Business name (e.g. Brew Bar)',
+                  prefixIcon: const Icon(Icons.store_outlined),
+                  errorText: _searchNameError,
+                  isDense: true,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 2,
-                child: TextField(
-                  controller: _searchCityCtrl,
-                  focusNode:  _searchCityFocus,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    hintText: 'City (e.g. Mumbai)',
-                    prefixIcon: const Icon(Icons.location_city_outlined),
-                    errorText: _searchCityError,
-                    isDense: true,
-                  ),
-                  onChanged: (_) {
-                    if (_searchCityError != null) {
-                      setState(() => _searchCityError = null);
-                    }
-                  },
-                  onSubmitted: (_) => _search(),
+                onChanged: (_) {
+                  if (_searchNameError != null) {
+                    setState(() => _searchNameError = null);
+                  }
+                },
+                onSubmitted: (_) => _search(),
+              );
+
+              final cityInput = TextField(
+                controller: _searchCityCtrl,
+                focusNode:  _searchCityFocus,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: 'City (e.g. Mumbai)',
+                  prefixIcon: const Icon(Icons.location_city_outlined),
+                  errorText: _searchCityError,
+                  isDense: true,
                 ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
+                onChanged: (_) {
+                  if (_searchCityError != null) {
+                    setState(() => _searchCityError = null);
+                  }
+                },
+                onSubmitted: (_) => _search(),
+              );
+
+              final searchBtn = ElevatedButton(
                 onPressed: draft.isSearching ? null : _search,
                 child: draft.isSearching
                     ? const SizedBox(
@@ -445,8 +439,34 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Search'),
-              ),
-            ],
+              );
+
+              return isWide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 3, child: nameInput),
+                        const SizedBox(width: 8),
+                        Expanded(flex: 2, child: cityInput),
+                        const SizedBox(width: 8),
+                        searchBtn,
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        nameInput,
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: cityInput),
+                            const SizedBox(width: 8),
+                            searchBtn,
+                          ],
+                        ),
+                      ],
+                    );
+            },
           ),
 
           // ── Candidates ──────────────────────────────────────────────────

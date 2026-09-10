@@ -71,6 +71,18 @@
         "destination": "/app/index.html"
       },
       {
+        "source": "/reset-password",
+        "destination": "/reset-password.html"
+      },
+      {
+        "source": "/auth/action",
+        "destination": "/reset-password.html"
+      },
+      {
+        "source": "/__/auth/action",
+        "destination": "/reset-password.html"
+      },
+      {
         "source": "/privacy-policy",
         "destination": "/privacy-policy.html"
       },

@@ -20,33 +20,36 @@ class AdminPlatformStatsTab extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final isDesktop = MediaQuery.of(context).size.width > 600;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.all(isDesktop ? 24.0 : 12.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Platform-Wide Analytics',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Platform-Wide Analytics',
+                    style: (isDesktop ? theme.textTheme.headlineMedium : theme.textTheme.titleLarge)?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Aggregated via Firestore count() queries (Scalability Rule #3). Excludes pending_payment drafts.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Aggregated via Firestore count() queries (Scalability Rule #3).',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               IconButton.filledTonal(
                 onPressed:
@@ -645,8 +648,11 @@ class _AllBusinessesTableSectionState
                   title: Text(
                     'Edit Business — ${biz.brandName.isNotEmpty ? biz.brandName : biz.id}',
                   ),
-                  content: SizedBox(
-                    width: 480,
+                  content: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 480,
+                      maxHeight: MediaQuery.of(context).size.height * 0.7,
+                    ),
                     child: SingleChildScrollView(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -787,12 +793,15 @@ class _AllBusinessesTableSectionState
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(MediaQuery.of(context).size.width > 600 ? 24.0 : 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
               children: [
                 Text(
                   'All Enrolled Businesses (${filtered.length})',
@@ -802,9 +811,11 @@ class _AllBusinessesTableSectionState
                 ),
                 Wrap(
                   spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     SizedBox(
-                      width: 220,
+                      width: MediaQuery.of(context).size.width > 500 ? 220 : double.infinity,
                       child: TextField(
                         decoration: const InputDecoration(
                           hintText: 'Search brand / email…',

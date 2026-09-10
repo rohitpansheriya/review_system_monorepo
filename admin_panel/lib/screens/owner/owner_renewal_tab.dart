@@ -327,9 +327,10 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
         : 'Not set';
 
     final isMultiBranch = branches.length > 1;
+    final isDesktop = MediaQuery.of(context).size.width > 700;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 800),
@@ -339,7 +340,7 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
               // Header
               Text(
                 'Subscription & Renewal',
-                style: theme.textTheme.headlineMedium?.copyWith(
+                style: (isDesktop ? theme.textTheme.headlineMedium : theme.textTheme.titleLarge)?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -478,73 +479,76 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
               const SizedBox(height: 32),
 
               // ════════════════════════════════════════════════════════════════
-              // INDIVIDUAL BRANCHES SECTION
+              // INDIVIDUAL BRANCHES SECTION (Multi-branch businesses only)
               // ════════════════════════════════════════════════════════════════
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Individual Branch Renewals',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+              if (isMultiBranch) ...[
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Individual Branch Renewals',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'View renewal dates and generate separate payment links for each location.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'View renewal dates and generate separate payment links for each location.',
-                        style: theme.textTheme.bodySmall?.copyWith(
+                      child: Text(
+                        '${branches.length} Branches',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      '${branches.length} ${branches.length == 1 ? "Branch" : "Branches"}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-              if (branches.isEmpty)
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: Center(
-                      child: Text(
-                        'No individual branches found for this account.',
-                        style: TextStyle(color: Colors.grey),
+                if (branches.isEmpty)
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Center(
+                        child: Text(
+                          'No individual branches found for this account.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                       ),
                     ),
-                  ),
-                )
-              else
-                ...branches.map((branch) => _buildIndividualBranchCard(
-                      context: context,
-                      biz: biz,
-                      branch: branch,
-                      allBranches: branches,
-                      dateFormat: dateFormat,
-                    )),
+                  )
+                else
+                  ...branches.map((branch) => _buildIndividualBranchCard(
+                        context: context,
+                        biz: biz,
+                        branch: branch,
+                        allBranches: branches,
+                        dateFormat: dateFormat,
+                      )),
+              ],
 
               const SizedBox(height: 24),
               Center(
@@ -581,6 +585,8 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
 
     final existingCombinedLink = _generatedLinks['all'] ?? biz.lastRenewalLinkUrl;
 
+    final isDesktop = MediaQuery.of(context).size.width > 700;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -599,14 +605,18 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
             ],
           ),
         ),
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -626,7 +636,7 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
                       children: [
                         Text(
                           isMultiBranch ? 'Combined Multi-Branch Renewal' : 'Annual Subscription Renewal',
-                          style: theme.textTheme.titleLarge?.copyWith(
+                          style: (isDesktop ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -677,76 +687,141 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
 
             const SizedBox(height: 24),
 
-            // Action Buttons Row
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: _paying
-                          ? null
-                          : () => _launchRazorpayRenewal(
-                                biz: biz,
-                                allBranches: branches,
-                              ),
-                      icon: isPayingAll
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.bolt_rounded, size: 20),
-                      label: Text(
-                        isPayingAll
-                            ? 'Opening Checkout...'
-                            : (isMultiBranch
-                                ? 'Pay ₹$totalRupees to Renew All ($count Branches)'
-                                : 'Pay ₹$totalRupees to Renew Subscription'),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            // Action Buttons Row / Column
+            isDesktop
+                ? Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: _paying
+                                ? null
+                                : () => _launchRazorpayRenewal(
+                                      biz: biz,
+                                      allBranches: branches,
+                                    ),
+                            icon: isPayingAll
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.bolt_rounded, size: 20),
+                            label: Text(
+                              isPayingAll
+                                  ? 'Opening Checkout...'
+                                  : (isMultiBranch
+                                      ? 'Pay ₹$totalRupees to Renew All ($count Branches)'
+                                      : 'Pay ₹$totalRupees to Renew Subscription'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: colorScheme.onPrimary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 1,
+                            ),
+                          ),
+                        ),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 1,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: SizedBox(
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            onPressed: isGeneratingAll
+                                ? null
+                                : () => _generateAndCopyPaymentLink(
+                                      context: context,
+                                      businessId: biz.id,
+                                    ),
+                            icon: isGeneratingAll
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.link_rounded, size: 20),
+                            label: Text(
+                              isGeneratingAll ? 'Generating...' : 'Payment Link',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              side: BorderSide(color: colorScheme.primary),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          onPressed: _paying
+                              ? null
+                              : () => _launchRazorpayRenewal(
+                                    biz: biz,
+                                    allBranches: branches,
+                                  ),
+                          icon: isPayingAll
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.bolt_rounded, size: 20),
+                          label: Text(
+                            isPayingAll
+                                ? 'Opening Checkout...'
+                                : (isMultiBranch
+                                    ? 'Pay ₹$totalRupees to Renew All ($count Branches)'
+                                    : 'Pay ₹$totalRupees to Renew Subscription'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 1,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 44,
+                        child: OutlinedButton.icon(
+                          onPressed: isGeneratingAll
+                              ? null
+                              : () => _generateAndCopyPaymentLink(
+                                    context: context,
+                                    businessId: biz.id,
+                                  ),
+                          icon: isGeneratingAll
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.link_rounded, size: 18),
+                          label: Text(
+                            isGeneratingAll ? 'Generating...' : 'Share / Copy Payment Link',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            side: BorderSide(color: colorScheme.primary),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: SizedBox(
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      onPressed: isGeneratingAll
-                          ? null
-                          : () => _generateAndCopyPaymentLink(
-                                context: context,
-                                businessId: biz.id,
-                              ),
-                      icon: isGeneratingAll
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.link_rounded, size: 20),
-                      label: Text(
-                        isGeneratingAll ? 'Generating...' : 'Payment Link',
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        side: BorderSide(color: colorScheme.primary),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
 
             if (existingCombinedLink != null && existingCombinedLink.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -799,6 +874,7 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDesktop = MediaQuery.of(context).size.width > 700;
     final isPayingThis = _paying && _payingTarget == branch.id;
     final isGeneratingThis = _generatingLinkId == branch.id;
 
@@ -857,102 +933,155 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
             const Divider(height: 24),
 
             // Branch Details Row
-            Row(
+            Wrap(
+              spacing: 20,
+              runSpacing: 10,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Renewal Date', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 11)),
-                      const SizedBox(height: 2),
-                      Text(branchRenewalStr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    ],
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Renewal Date', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 11)),
+                    const SizedBox(height: 2),
+                    Text(branchRenewalStr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  ],
                 ),
                 if (branchGraceStr != null)
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Grace Period Ends', style: TextStyle(color: Color(0xFFDC2626), fontSize: 11)),
-                        const SizedBox(height: 2),
-                        Text(branchGraceStr, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFDC2626), fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                Expanded(
-                  child: Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Annual Fee', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 11)),
+                      const Text('Grace Period Ends', style: TextStyle(color: Color(0xFFDC2626), fontSize: 11)),
                       const SizedBox(height: 2),
-                      const Text('₹999 / year', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF166534))),
+                      Text(branchGraceStr, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFDC2626), fontSize: 13)),
                     ],
                   ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Annual Fee', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 11)),
+                    const SizedBox(height: 2),
+                    const Text('₹999 / year', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF166534))),
+                  ],
                 ),
               ],
             ),
 
             const SizedBox(height: 16),
 
-            // Branch Actions Row
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _paying
-                        ? null
-                        : () => _launchRazorpayRenewal(
-                              biz: biz,
-                              branch: branch,
-                              allBranches: allBranches,
-                            ),
-                    icon: isPayingThis
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.payment, size: 16),
-                    label: Text(
-                      isPayingThis ? 'Processing...' : 'Pay ₹999 for this Branch',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                OutlinedButton.icon(
-                  onPressed: isGeneratingThis
-                      ? null
-                      : () => _generateAndCopyPaymentLink(
-                            context: context,
-                            businessId: biz.id,
-                            branch: branch,
+            // Branch Actions Row / Column
+            isDesktop
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _paying
+                              ? null
+                              : () => _launchRazorpayRenewal(
+                                    biz: biz,
+                                    branch: branch,
+                                    allBranches: allBranches,
+                                  ),
+                          icon: isPayingThis
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.payment, size: 16),
+                          label: Text(
+                            isPayingThis ? 'Processing...' : 'Pay ₹999 for this Branch',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                           ),
-                  icon: isGeneratingThis
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.link, size: 16),
-                  label: Text(
-                    isGeneratingThis ? 'Generating...' : 'Payment Link',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton.icon(
+                        onPressed: isGeneratingThis
+                            ? null
+                            : () => _generateAndCopyPaymentLink(
+                                  context: context,
+                                  businessId: biz.id,
+                                  branch: branch,
+                                ),
+                        icon: isGeneratingThis
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.link, size: 16),
+                        label: Text(
+                          isGeneratingThis ? 'Generating...' : 'Payment Link',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _paying
+                            ? null
+                            : () => _launchRazorpayRenewal(
+                                  biz: biz,
+                                  branch: branch,
+                                  allBranches: allBranches,
+                                ),
+                        icon: isPayingThis
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.payment, size: 16),
+                        label: Text(
+                          isPayingThis ? 'Processing...' : 'Pay ₹999 for this Branch',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: isGeneratingThis
+                            ? null
+                            : () => _generateAndCopyPaymentLink(
+                                  context: context,
+                                  businessId: biz.id,
+                                  branch: branch,
+                                ),
+                        icon: isGeneratingThis
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.link, size: 16),
+                        label: Text(
+                          isGeneratingThis ? 'Generating...' : 'Payment Link',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
                   ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              ],
-            ),
 
             if (existingLink != null && existingLink.isNotEmpty) ...[
               const SizedBox(height: 10),

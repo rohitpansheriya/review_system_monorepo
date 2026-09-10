@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../models/standee_fulfillment_model.dart';
+import '../../models/employee_profile_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
 
 class AdminStandeeTab extends StatefulWidget {
@@ -30,6 +31,19 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
   String _selectedStatusFilter = 'all';
   String _selectedEmployeeFilter = 'all';
   String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final provider = context.read<AdminDashboardProvider>();
+        if (provider.standeeItems.isEmpty && !provider.standeeLoading) {
+          provider.fetchStandeeFulfillments();
+        }
+      }
+    });
+  }
 
   String _formatTimeAgo(DateTime? date, String status) {
     if (date == null) return 'Never updated';
@@ -72,8 +86,8 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
       final empNameMatch = (item.enrolledByName ?? '').toLowerCase().contains(q);
       final awbMatch = (item.courierAwb ?? '').toLowerCase().contains(q);
       final phoneMatch = digitNeedle.isNotEmpty &&
-          ((item.ownerPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '').contains(digitNeedle) ||
-           (item.enrolledByPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '').contains(digitNeedle));
+          (((item.ownerPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '').contains(digitNeedle)) ||
+           ((item.enrolledByPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '').contains(digitNeedle)));
 
       return nameMatch || branchMatch || addressMatch || empNameMatch || awbMatch || phoneMatch;
     }).toList();
@@ -166,24 +180,66 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
     // Build unique enrolled employee list
     final employeeMap = <String, String>{};
     for (final item in allItems) {
-      if (item.enrolledBy != null && item.enrolledBy!.isNotEmpty) {
-        employeeMap[item.enrolledBy!] = item.enrolledByName ?? 'Employee (${item.enrolledBy!.substring(0, 6)})';
+      if (item.enrolledBy != null && item.enrolledBy!.trim().isNotEmpty) {
+        final uid = item.enrolledBy!.trim();
+        final name = (item.enrolledByName != null && item.enrolledByName!.trim().isNotEmpty)
+            ? item.enrolledByName!.trim()
+            : 'Employee (${uid.substring(0, uid.length > 6 ? 6 : uid.length)})';
+        employeeMap[uid] = name;
       }
     }
 
+    // Also include any employees from the provider's employee list if not yet mapped
+    for (final emp in provider.employees) {
+      if (!employeeMap.containsKey(emp.uid)) {
+        employeeMap[emp.uid] = emp.name.isNotEmpty ? emp.name : 'Employee (${emp.uid.substring(0, emp.uid.length > 6 ? 6 : emp.uid.length)})';
+      }
+    }
+
+    final safeEmployeeFilter = (employeeMap.containsKey(_selectedEmployeeFilter) || _selectedEmployeeFilter == 'all')
+        ? _selectedEmployeeFilter
+        : 'all';
+
     // Check if an employee is currently selected
-    final selectedEmpModel = _selectedEmployeeFilter != 'all'
-        ? provider.employees.where((e) => e.uid == _selectedEmployeeFilter).firstOrNull
+    EmployeeProfileModel? selectedEmpModel;
+    if (safeEmployeeFilter != 'all') {
+      for (final e in provider.employees) {
+        if (e.uid == safeEmployeeFilter) {
+          selectedEmpModel = e;
+          break;
+        }
+      }
+    }
+
+    final selectedEmpName = safeEmployeeFilter != 'all'
+        ? (employeeMap[safeEmployeeFilter] ?? selectedEmpModel?.name ?? 'Selected Employee')
         : null;
 
-    final selectedEmpName = _selectedEmployeeFilter != 'all'
-        ? (employeeMap[_selectedEmployeeFilter] ?? selectedEmpModel?.name ?? 'Selected Employee')
-        : null;
+    // Resolve employee address & phone safely
+    String employeeAddress = 'No delivery address saved in employee profile';
+    if (selectedEmpModel != null && selectedEmpModel.address.trim().isNotEmpty) {
+      employeeAddress = selectedEmpModel.address.trim();
+    } else {
+      final firstWithAddr = filtered.where((i) => i.enrolledByAddress != null && i.enrolledByAddress!.trim().isNotEmpty).firstOrNull;
+      if (firstWithAddr != null && firstWithAddr.enrolledByAddress != null && firstWithAddr.enrolledByAddress!.trim().isNotEmpty) {
+        employeeAddress = firstWithAddr.enrolledByAddress!.trim();
+      }
+    }
+
+    String employeePhone = 'No Phone';
+    if (selectedEmpModel != null && selectedEmpModel.phone.trim().isNotEmpty) {
+      employeePhone = selectedEmpModel.phone.trim();
+    } else {
+      final firstWithPhone = filtered.where((i) => i.enrolledByPhone != null && i.enrolledByPhone!.trim().isNotEmpty).firstOrNull;
+      if (firstWithPhone != null && firstWithPhone.enrolledByPhone != null && firstWithPhone.enrolledByPhone!.trim().isNotEmpty) {
+        employeePhone = firstWithPhone.enrolledByPhone!.trim();
+      }
+    }
 
     // Items for selected employee ready for dispatch
-    final empReadyItems = _selectedEmployeeFilter != 'all'
+    final empReadyItems = safeEmployeeFilter != 'all'
         ? allItems.where((i) =>
-            i.enrolledBy == _selectedEmployeeFilter &&
+            i.enrolledBy == safeEmployeeFilter &&
             (i.standeeStatus == AppConstants.standeeOrdered || i.standeeStatus == AppConstants.standeePrinted)).toList()
         : <StandeeFulfillmentModel>[];
 
@@ -245,7 +301,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
-                        value: _selectedEmployeeFilter,
+                        value: safeEmployeeFilter,
                         isDense: true,
                         style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                         items: [
@@ -318,20 +374,16 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
               const SizedBox(height: 20),
 
               // ── Employee Batch Shipping Card (Shown when employee filter active) ──
-              if (_selectedEmployeeFilter != 'all') ...[
+              if (safeEmployeeFilter != 'all') ...[
                 _buildEmployeeBatchCard(
                   context,
                   provider,
-                  employeeUid: _selectedEmployeeFilter,
+                  employeeUid: safeEmployeeFilter,
                   employeeName: selectedEmpName ?? 'Employee',
-                  employeePhone: selectedEmpModel?.phone ?? filtered.firstOrNull?.enrolledByPhone ?? 'No Phone',
-                  employeeAddress: selectedEmpModel?.address.trim().isNotEmpty == true
-                      ? selectedEmpModel!.address.trim()
-                      : (filtered.firstOrNull?.enrolledByAddress?.trim().isNotEmpty == true
-                          ? filtered.firstOrNull!.enrolledByAddress!.trim()
-                          : 'No delivery address saved in employee profile'),
+                  employeePhone: employeePhone,
+                  employeeAddress: employeeAddress,
                   readyCount: empReadyItems.length,
-                  totalForEmp: allItems.where((i) => i.enrolledBy == _selectedEmployeeFilter).length,
+                  totalForEmp: allItems.where((i) => i.enrolledBy == safeEmployeeFilter).length,
                 ),
                 const SizedBox(height: 24),
               ],
@@ -416,8 +468,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
     required int readyCount,
     required int totalForEmp,
   }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -462,36 +513,34 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
           const SizedBox(height: 14),
 
           // Address & Contact Block
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on, size: 16, color: Color(0xFF7C3AED)),
-                        const SizedBox(width: 6),
-                        const Text('Shipping Destination (Employee Address):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(employeeAddress, style: const TextStyle(fontSize: 13, height: 1.3)),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(Icons.phone, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text('Phone: $employeePhone', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 650;
+              final addressColumn = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.location_on, size: 16, color: Color(0xFF7C3AED)),
+                      SizedBox(width: 6),
+                      Text('Shipping Destination (Employee Address):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(employeeAddress, style: const TextStyle(fontSize: 13, height: 1.3)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text('Phone: $employeePhone', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ],
+              );
+
+              final actionButtons = Column(
+                crossAxisAlignment: isWide ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   OutlinedButton.icon(
                     onPressed: () {
@@ -533,8 +582,26 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                       label: Text('Ship Batch ($readyCount Ready)'),
                     ),
                 ],
-              ),
-            ],
+              );
+
+              return isWide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: addressColumn),
+                        const SizedBox(width: 16),
+                        actionButtons,
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        addressColumn,
+                        const SizedBox(height: 12),
+                        actionButtons,
+                      ],
+                    );
+            },
           ),
         ],
       ),
@@ -560,6 +627,10 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
     final isDeliveredViaScan = item.standeeStatus == AppConstants.standeeDelivered &&
         item.deliveredVia == 'first_scan_detected';
 
+    final initialChar = item.businessName.trim().isNotEmpty
+        ? item.businessName.trim()[0].toUpperCase()
+        : '?';
+
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
@@ -579,7 +650,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                   radius: 20,
                   backgroundColor: colorScheme.primaryContainer,
                   child: Text(
-                    item.businessName.isNotEmpty ? item.businessName[0].toUpperCase() : '?',
+                    initialChar,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -658,7 +729,8 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
             // Enrolled By (Employee Information)
             Padding(
               padding: const EdgeInsets.only(bottom: 6.0),
-              child: Row(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const Icon(Icons.person_pin_outlined, size: 14, color: AppColors.primary),
                   const SizedBox(width: 4),
@@ -703,6 +775,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                     ),
                     const SizedBox(width: 6),
                     InkWell(
+                      borderRadius: BorderRadius.circular(4),
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: item.courierAwb!));
                         ScaffoldMessenger.of(context).showSnackBar(

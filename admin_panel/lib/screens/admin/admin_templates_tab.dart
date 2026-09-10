@@ -41,8 +41,11 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
 
           return AlertDialog(
             title: const Text('Create New Category Template'),
-            content: SizedBox(
-              width: 520,
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 520,
+                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -182,8 +185,11 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
 
           return AlertDialog(
             title: const Text('Add New Category & Phrases'),
-            content: SizedBox(
-              width: 520,
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 520,
+                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -302,8 +308,11 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
 
           return AlertDialog(
             title: Text('Paste Phrases to "$categoryName"'),
-            content: SizedBox(
-              width: 520,
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 520,
+                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -592,7 +601,7 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
     );
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.all(MediaQuery.of(context).size.width > 600 ? 24.0 : 12.0),
       child: editorSection,
     );
   }

@@ -6,7 +6,6 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../core/constants.dart';
 import '../models/branch_model.dart';
@@ -70,7 +69,18 @@ class AdminDashboardProvider extends ChangeNotifier {
   // ── All Businesses List (for Subscription Overrides & Management) ────────
   List<BusinessModel> _allBusinesses = [];
   final Map<String, List<BranchModel>> _businessBranches = {};
-  final Map<String, ({int active, int grace, int suspended, int pending, int deleted, int total})> _businessBranchStats = {};
+  final Map<
+    String,
+    ({
+      int active,
+      int grace,
+      int suspended,
+      int pending,
+      int deleted,
+      int total,
+    })
+  >
+  _businessBranchStats = {};
 
   // ── Standee Fulfillment State ──────────────────────────────────────────────
   List<StandeeFulfillmentModel> _standeeItems = [];
@@ -114,16 +124,30 @@ class AdminDashboardProvider extends ChangeNotifier {
   }
 
   List<EmployeeProfileModel> get employees => _employees;
-  Map<String, List<BusinessModel>> get employeeBusinesses => _employeeBusinesses;
-  Map<String, Map<String, double>> get employeeCommissionSummaries => _employeeCommissionSummaries;
+  Map<String, List<BusinessModel>> get employeeBusinesses =>
+      _employeeBusinesses;
+  Map<String, Map<String, double>> get employeeCommissionSummaries =>
+      _employeeCommissionSummaries;
   Map<String, int> get employeeTotalEnrollments => _employeeTotalEnrollments;
-  Map<String, int> get employeeThisMonthEnrollments => _employeeThisMonthEnrollments;
+  Map<String, int> get employeeThisMonthEnrollments =>
+      _employeeThisMonthEnrollments;
   Map<String, int> get employeeManagedCount => _employeeManagedCount;
 
   List<Map<String, dynamic>> get templates => _templates;
   List<BusinessModel> get allBusinesses => _allBusinesses;
   Map<String, List<BranchModel>> get businessBranches => _businessBranches;
-  Map<String, ({int active, int grace, int suspended, int pending, int deleted, int total})> get businessBranchStats => _businessBranchStats;
+  Map<
+    String,
+    ({
+      int active,
+      int grace,
+      int suspended,
+      int pending,
+      int deleted,
+      int total,
+    })
+  >
+  get businessBranchStats => _businessBranchStats;
   List<StandeeFulfillmentModel> get standeeItems => _standeeItems;
   bool get standeeLoading => _standeeLoading;
   String? get standeeError => _standeeError;
@@ -132,12 +156,19 @@ class AdminDashboardProvider extends ChangeNotifier {
     FirebaseFirestore? firestore,
     FirestoreService? firestoreService,
     CategoryTemplateService? templateService,
-  })  : _db = firestore ?? FirebaseFirestore.instance,
-        _firestoreService = firestoreService ?? FirestoreService(db: firestore ?? FirebaseFirestore.instance),
-        _templateService = templateService ?? CategoryTemplateService(firestore: firestore ?? FirebaseFirestore.instance);
+  }) : _db = firestore ?? FirebaseFirestore.instance,
+       _firestoreService =
+           firestoreService ??
+           FirestoreService(db: firestore ?? FirebaseFirestore.instance),
+       _templateService =
+           templateService ??
+           CategoryTemplateService(
+             firestore: firestore ?? FirebaseFirestore.instance,
+           );
 
   /// Load initial admin overview & stats.
   Future<void> loadAdminData({bool forceReload = false}) async {
+    if (_loading && !forceReload) return;
     final isFirstLoad = _allBusinesses.isEmpty && _employees.isEmpty;
     if (isFirstLoad || forceReload) {
       _loading = true;
@@ -172,44 +203,100 @@ class AdminDashboardProvider extends ChangeNotifier {
     final d1 = Timestamp.fromDate(now.add(const Duration(days: 1)));
     final tNow = Timestamp.fromDate(now);
 
-    // Run all count aggregations and business revenue fetches concurrently in parallel
+    // Run all count aggregations concurrently in parallel
     final results = await Future.wait([
-      _db.collection('businesses').where('subscription_status', whereIn: ['active', 'grace_period', 'deleted']).count().get(),
-      _db.collection('businesses').where('subscription_status', isEqualTo: 'active').count().get(),
-      _db.collection('businesses').where('subscription_status', isEqualTo: 'grace_period').count().get(),
-      _db.collection('businesses').where('subscription_status', isEqualTo: 'pending_payment').count().get(),
+      _db
+          .collection('businesses')
+          .where(
+            'subscription_status',
+            whereIn: ['active', 'grace_period', 'deleted'],
+          )
+          .count()
+          .get(),
+      _db
+          .collection('businesses')
+          .where('subscription_status', isEqualTo: 'active')
+          .count()
+          .get(),
+      _db
+          .collection('businesses')
+          .where('subscription_status', isEqualTo: 'grace_period')
+          .count()
+          .get(),
+      _db
+          .collection('businesses')
+          .where('subscription_status', isEqualTo: 'pending_payment')
+          .count()
+          .get(),
       _db.collection('employees').count().get(),
-      _db.collection('businesses').where('subscription_status', isEqualTo: 'active').where('renewal_date', isGreaterThanOrEqualTo: tNow).where('renewal_date', isLessThanOrEqualTo: d30).count().get(),
-      _db.collection('businesses').where('subscription_status', isEqualTo: 'active').where('renewal_date', isGreaterThanOrEqualTo: tNow).where('renewal_date', isLessThanOrEqualTo: d15).count().get(),
-      _db.collection('businesses').where('subscription_status', isEqualTo: 'active').where('renewal_date', isGreaterThanOrEqualTo: tNow).where('renewal_date', isLessThanOrEqualTo: d7).count().get(),
-      _db.collection('businesses').where('subscription_status', isEqualTo: 'active').where('renewal_date', isGreaterThanOrEqualTo: tNow).where('renewal_date', isLessThanOrEqualTo: d1).count().get(),
-      fetchAllBusinesses(),
+      _db
+          .collection('businesses')
+          .where('subscription_status', isEqualTo: 'active')
+          .where('renewal_date', isGreaterThanOrEqualTo: tNow)
+          .where('renewal_date', isLessThanOrEqualTo: d30)
+          .count()
+          .get(),
+      _db
+          .collection('businesses')
+          .where('subscription_status', isEqualTo: 'active')
+          .where('renewal_date', isGreaterThanOrEqualTo: tNow)
+          .where('renewal_date', isLessThanOrEqualTo: d15)
+          .count()
+          .get(),
+      _db
+          .collection('businesses')
+          .where('subscription_status', isEqualTo: 'active')
+          .where('renewal_date', isGreaterThanOrEqualTo: tNow)
+          .where('renewal_date', isLessThanOrEqualTo: d7)
+          .count()
+          .get(),
+      _db
+          .collection('businesses')
+          .where('subscription_status', isEqualTo: 'active')
+          .where('renewal_date', isGreaterThanOrEqualTo: tNow)
+          .where('renewal_date', isLessThanOrEqualTo: d1)
+          .count()
+          .get(),
     ]);
 
-    _totalBusinessesCount = (results[0] as AggregateQuerySnapshot).count ?? 0;
-    _activeBusinessesCount = (results[1] as AggregateQuerySnapshot).count ?? 0;
-    _graceBusinessesCount = (results[2] as AggregateQuerySnapshot).count ?? 0;
-    _pendingDraftsCount = (results[3] as AggregateQuerySnapshot).count ?? 0;
-    _totalEmployeesCount = (results[4] as AggregateQuerySnapshot).count ?? 0;
+    _totalBusinessesCount = results[0].count ?? 0;
+    _activeBusinessesCount = results[1].count ?? 0;
+    _graceBusinessesCount = results[2].count ?? 0;
+    _pendingDraftsCount = results[3].count ?? 0;
+    _totalEmployeesCount = results[4].count ?? 0;
 
-    _renewalsDue30 = (results[5] as AggregateQuerySnapshot).count ?? 0;
-    _renewalsDue15 = (results[6] as AggregateQuerySnapshot).count ?? 0;
-    _renewalsDue7 = (results[7] as AggregateQuerySnapshot).count ?? 0;
-    _renewalsDue1 = (results[8] as AggregateQuerySnapshot).count ?? 0;
+    _renewalsDue30 = results[5].count ?? 0;
+    _renewalsDue15 = results[6].count ?? 0;
+    _renewalsDue7 = results[7].count ?? 0;
+    _renewalsDue1 = results[8].count ?? 0;
 
     notifyListeners();
   }
 
   /// Admin reverts a business from active back to pending_payment.
-  Future<void> revertBusinessActivation(String businessId, {String? reason}) async {
-    await _firestoreService.adminRevertBusinessActivation(businessId: businessId, reason: reason);
+  Future<void> revertBusinessActivation(
+    String businessId, {
+    String? reason,
+  }) async {
+    await _firestoreService.adminRevertBusinessActivation(
+      businessId: businessId,
+      reason: reason,
+    );
     await refreshPlatformStats();
     await fetchAllBusinesses();
   }
 
   /// Admin reverts a single branch from active back to pending_payment.
-  Future<void> revertBranchActivation(String businessId, String branchId, {String? reason}) async {
-    await _firestoreService.adminRevertBranchActivation(businessId: businessId, branchId: branchId, reason: reason);
+  Future<void> revertBranchActivation(
+    String businessId,
+    String branchId, {
+    String? reason,
+  }) async {
+    await _firestoreService.adminRevertBranchActivation(
+      businessId: businessId,
+      branchId: branchId,
+      reason: reason,
+    );
     await refreshPlatformStats();
     await fetchAllBusinesses();
   }
@@ -229,8 +316,14 @@ class AdminDashboardProvider extends ChangeNotifier {
       FirestoreService.employeeNameCache[emp.uid] = emp.name;
 
       final results = await Future.wait([
-        _db.collection('businesses').where('enrolled_by', isEqualTo: emp.uid).get(),
-        _db.collection('employee_commissions').where('employee_id', isEqualTo: emp.uid).get(),
+        _db
+            .collection('businesses')
+            .where('enrolled_by', isEqualTo: emp.uid)
+            .get(),
+        _db
+            .collection('employee_commissions')
+            .where('employee_id', isEqualTo: emp.uid)
+            .get(),
       ]);
 
       final enrolledSnap = results[0];
@@ -248,7 +341,8 @@ class AdminDashboardProvider extends ChangeNotifier {
       }
       _employeeThisMonthEnrollments[emp.uid] = thisMonth;
 
-      _employeeBusinesses[emp.uid] = enrolledSnap.docs.map(BusinessModel.fromDoc).toList();
+      _employeeBusinesses[emp.uid] =
+          enrolledSnap.docs.map(BusinessModel.fromDoc).toList();
       _employeeManagedCount[emp.uid] = enrolledSnap.docs.length;
 
       double pending = 0.0;
@@ -329,15 +423,24 @@ class AdminDashboardProvider extends ChangeNotifier {
       });
     }
 
-    // Trigger standard Firebase Auth password reset/set email directly to employee
+    // Trigger custom branded AppNexa password setup email directly to employee
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-    } catch (_) {
-      // Best-effort in emulator/testing environments
+      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1')
+          .httpsCallable('sendCustomPasswordResetEmail');
+      await fn.call({'email': email.trim().toLowerCase()});
+    } catch (e) {
+      debugPrint('Warning: Failed to send employee password setup email via Brevo: $e');
     }
 
     await fetchEmployees();
     return resultData;
+  }
+
+  /// Sends a branded password reset / setup link to any user email via AppNexa Universal Theme & Brevo.
+  Future<void> sendPasswordResetLink(String email) async {
+    final fn = FirebaseFunctions.instanceFor(region: 'asia-south1')
+        .httpsCallable('sendCustomPasswordResetEmail');
+    await fn.call({'email': email.trim().toLowerCase()});
   }
 
   /// Deactivate an employee. Disables login and marks profile inactive.
@@ -386,11 +489,19 @@ class AdminDashboardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool isCategoryPhrasesLoading(String templateId, String categoryName, {String version = AppConstants.defaultPoolVersion}) {
+  bool isCategoryPhrasesLoading(
+    String templateId,
+    String categoryName, {
+    String version = AppConstants.defaultPoolVersion,
+  }) {
     return _loadingCategories.contains('$templateId:$categoryName:$version');
   }
 
-  List<String>? getCachedCategoryPhrases(String templateId, String categoryName, {String version = AppConstants.defaultPoolVersion}) {
+  List<String>? getCachedCategoryPhrases(
+    String templateId,
+    String categoryName, {
+    String version = AppConstants.defaultPoolVersion,
+  }) {
     return _categoryPhrasesCache['$templateId:$categoryName:$version'];
   }
 
@@ -547,9 +658,7 @@ class AdminDashboardProvider extends ChangeNotifier {
         .doc(businessId)
         .collection('branches')
         .doc(branchId)
-        .update({
-      'category_override_id': overrideTemplateId,
-    });
+        .update({'category_override_id': overrideTemplateId});
   }
 
   // ── 4. SUBSCRIPTION / RENEWAL OVERRIDES & BUSINESS EDITING ─────────────────
@@ -570,13 +679,15 @@ class AdminDashboardProvider extends ChangeNotifier {
   }
 
   Future<void> fetchAllBusinesses() async {
-    final snap = await _db
-        .collection('businesses')
-        .orderBy('created_at', descending: true)
-        .limit(100)
-        .get();
+    final snap =
+        await _db
+            .collection('businesses')
+            .orderBy('created_at', descending: true)
+            .limit(100)
+            .get();
     _allBusinesses = snap.docs.map(BusinessModel.fromDoc).toList();
-    _allBusinessesRaw = snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+    _allBusinessesRaw =
+        snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
 
     _businessBranches.clear();
     _businessBranchStats.clear();
@@ -588,14 +699,18 @@ class AdminDashboardProvider extends ChangeNotifier {
     final branchTasks = snap.docs.map((doc) async {
       final bizData = doc.data();
       final isTest = bizData['is_test_account'] as bool? ?? false;
-      final bizStatus = bizData['subscription_status'] as String? ?? 'pending_payment';
+      final bizStatus =
+          bizData['subscription_status'] as String? ?? 'pending_payment';
       final bizPaymentMode = bizData['payment_mode'] as String? ?? 'pending';
-      final isBizDraft = bizStatus == 'pending_payment' || bizStatus == AppConstants.statusPendingPayment;
+      final isBizDraft =
+          bizStatus == 'pending_payment' ||
+          bizStatus == AppConstants.statusPendingPayment;
 
       final branchesSnap = await doc.reference.collection('branches').get();
-      final branches = branchesSnap.docs
-          .map((bDoc) => BranchModel.fromDoc(bDoc, businessId: doc.id))
-          .toList();
+      final branches =
+          branchesSnap.docs
+              .map((bDoc) => BranchModel.fromDoc(bDoc, businessId: doc.id))
+              .toList();
 
       int bActive = 0;
       int bGrace = 0;
@@ -644,10 +759,14 @@ class AdminDashboardProvider extends ChangeNotifier {
       // Compute revenue for this business if active/grace and not a test account
       _BusinessRevenueEntry? revEntry;
 
-      if (!isBizDraft && !isTest && (bizStatus == 'active' || bizStatus == 'grace_period')) {
-        final bizSetupFeePaid = (bizData['setup_fee_paid'] as num?)?.toDouble() ??
+      if (!isBizDraft &&
+          !isTest &&
+          (bizStatus == 'active' || bizStatus == 'grace_period')) {
+        final bizSetupFeePaid =
+            (bizData['setup_fee_paid'] as num?)?.toDouble() ??
             (bizData['amount_paid'] as num?)?.toDouble();
-        final bizRenewalAmountPaid = (bizData['renewal_amount_paid'] as num?)?.toDouble();
+        final bizRenewalAmountPaid =
+            (bizData['renewal_amount_paid'] as num?)?.toDouble();
 
         // 1. Setup Revenue & branch count calculation
         // Sum setup fees from active/grace branches directly
@@ -673,7 +792,10 @@ class AdminDashboardProvider extends ChangeNotifier {
           setupCount = activeBranchesWithFees;
         } else if (bizSetupFeePaid != null && bizSetupFeePaid > 0) {
           setupAmount = bizSetupFeePaid;
-          setupCount = (bizSetupFeePaid / 1999.0).round().clamp(1, bActive > 0 ? bActive : 1);
+          setupCount = (bizSetupFeePaid / 1999.0).round().clamp(
+            1,
+            bActive > 0 ? bActive : 1,
+          );
         } else {
           setupCount = bActive > 0 ? bActive : 1;
           setupAmount = setupCount * 1999.0;
@@ -693,13 +815,15 @@ class AdminDashboardProvider extends ChangeNotifier {
             if (daysDiff > 370) {
               final extraYears = ((daysDiff - 365) / 365).ceil();
               renewalsCount = extraYears;
-              renewalsAmount = extraYears * (999.0 * (bActive > 0 ? bActive : 1));
+              renewalsAmount =
+                  extraYears * (999.0 * (bActive > 0 ? bActive : 1));
             }
           }
         }
 
         // Derive payment/enrollment month
-        final dt = (bizData['cash_payment_confirmed_at'] as Timestamp?)?.toDate() ??
+        final dt =
+            (bizData['cash_payment_confirmed_at'] as Timestamp?)?.toDate() ??
             (bizData['activated_at'] as Timestamp?)?.toDate() ??
             (bizData['created_at'] as Timestamp?)?.toDate() ??
             DateTime.now();
@@ -769,7 +893,8 @@ class AdminDashboardProvider extends ChangeNotifier {
     int renewalsCount = 0;
 
     for (final entry in _revenueEntries) {
-      if (_selectedRevenueMonth != null && entry.month != _selectedRevenueMonth) {
+      if (_selectedRevenueMonth != null &&
+          entry.month != _selectedRevenueMonth) {
         continue;
       }
       if (entry.paymentMode == 'cash') {
@@ -804,9 +929,14 @@ class AdminDashboardProvider extends ChangeNotifier {
     required String subscriptionStatus,
   }) async {
     final cleanEmail = ownerEmail.trim().toLowerCase();
-    final isDup = await _firestoreService.ownerEmailExistsForEdit(cleanEmail, businessId);
+    final isDup = await _firestoreService.ownerEmailExistsForEdit(
+      cleanEmail,
+      businessId,
+    );
     if (isDup) {
-      throw Exception('Owner email "$cleanEmail" is already registered to another business.');
+      throw Exception(
+        'Owner email "$cleanEmail" is already registered to another business.',
+      );
     }
 
     if (subscriptionStatus == 'pending_payment') {
@@ -839,9 +969,7 @@ class AdminDashboardProvider extends ChangeNotifier {
     String? reason,
     String? paymentMode,
   }) async {
-    final updateData = <String, dynamic>{
-      'subscription_status': newStatus,
-    };
+    final updateData = <String, dynamic>{'subscription_status': newStatus};
     if (paymentMode != null) {
       updateData['payment_mode'] = paymentMode;
     }
@@ -857,11 +985,14 @@ class AdminDashboardProvider extends ChangeNotifier {
     await _db.collection('businesses').doc(businessId).update(updateData);
 
     // Also update all branch subcollection documents
-    final branchesSnap = await _db.collection('businesses').doc(businessId).collection('branches').get();
+    final branchesSnap =
+        await _db
+            .collection('businesses')
+            .doc(businessId)
+            .collection('branches')
+            .get();
     for (final bDoc in branchesSnap.docs) {
-      final bUpdate = <String, dynamic>{
-        'subscription_status': newStatus,
-      };
+      final bUpdate = <String, dynamic>{'subscription_status': newStatus};
       if (paymentMode != null) {
         bUpdate['payment_mode'] = paymentMode;
       }
@@ -873,8 +1004,12 @@ class AdminDashboardProvider extends ChangeNotifier {
       'business_id': businessId,
       'new_status': newStatus,
       'payment_mode': paymentMode,
-      'renewal_date': newRenewalDate != null ? Timestamp.fromDate(newRenewalDate) : null,
-      'grace_period_ends': newGracePeriodEnds != null ? Timestamp.fromDate(newGracePeriodEnds) : null,
+      'renewal_date':
+          newRenewalDate != null ? Timestamp.fromDate(newRenewalDate) : null,
+      'grace_period_ends':
+          newGracePeriodEnds != null
+              ? Timestamp.fromDate(newGracePeriodEnds)
+              : null,
       'overridden_by': adminUid,
       'reason': reason ?? 'Admin manual override',
       'timestamp': FieldValue.serverTimestamp(),
@@ -933,52 +1068,66 @@ class AdminDashboardProvider extends ChangeNotifier {
       }
       final empMap = {for (final e in _employees) e.uid: e};
 
-      final bizSnap = await _db
-          .collection(AppConstants.colBusinesses)
-          .where('subscription_status', whereIn: ['active', 'grace_period', 'due_soon', 'deleted'])
-          .get();
+      final bizSnap =
+          await _db
+              .collection(AppConstants.colBusinesses)
+              .where(
+                'subscription_status',
+                whereIn: ['active', 'grace_period', 'due_soon', 'deleted'],
+              )
+              .get();
 
       final List<StandeeFulfillmentModel> items = [];
 
-      for (final doc in bizSnap.docs) {
+      final bizTasks = bizSnap.docs.map((doc) async {
         final bizData = doc.data();
         final bizId = doc.id;
-        final brandName = bizData['brand_name'] as String? ?? 'Untitled Business';
+        final brandName =
+            bizData['brand_name'] as String? ?? 'Untitled Business';
         final categoryType = bizData['category_type'] as String? ?? '';
         final ownerPhone = bizData['owner_phone'] as String?;
         final ownerEmail = bizData['owner_email'] as String?;
         final bizEnrolledBy = bizData['enrolled_by'] as String?;
 
-        final branchesSnap = await _db
-            .collection(AppConstants.colBusinesses)
-            .doc(bizId)
-            .collection(AppConstants.colBranches)
-            .get();
+        final branchesSnap =
+            await _db
+                .collection(AppConstants.colBusinesses)
+                .doc(bizId)
+                .collection(AppConstants.colBranches)
+                .get();
 
-        for (final bDoc in branchesSnap.docs) {
+        return branchesSnap.docs.map((bDoc) {
           final bData = bDoc.data();
-          final enrolledByUid = (bData['enrolled_by'] as String?) ?? bizEnrolledBy;
+          final enrolledByUid =
+              (bData['enrolled_by'] as String?) ?? bizEnrolledBy;
           final emp = enrolledByUid != null ? empMap[enrolledByUid] : null;
 
-          items.add(StandeeFulfillmentModel.fromDoc(
+          return StandeeFulfillmentModel.fromDoc(
             businessId: bizId,
             businessName: brandName,
             categoryType: categoryType,
             ownerPhone: ownerPhone,
             ownerEmail: ownerEmail,
             enrolledBy: enrolledByUid,
-            enrolledByName: emp != null && emp.fullName.trim().isNotEmpty
-                ? emp.fullName.trim()
-                : emp?.email,
+            enrolledByName:
+                emp != null && emp.fullName.trim().isNotEmpty
+                    ? emp.fullName.trim()
+                    : emp?.email,
             enrolledByPhone: emp?.phone,
             enrolledByAddress: emp?.address,
             branchDoc: bDoc,
-          ));
-        }
+          );
+        }).toList();
+      });
+
+      final nestedItems = await Future.wait(bizTasks);
+      for (final list in nestedItems) {
+        items.addAll(list);
       }
 
       items.sort((a, b) {
-        if (a.standeeStatusUpdatedAt == null && b.standeeStatusUpdatedAt == null) {
+        if (a.standeeStatusUpdatedAt == null &&
+            b.standeeStatusUpdatedAt == null) {
           return a.businessName.compareTo(b.businessName);
         }
         if (a.standeeStatusUpdatedAt == null) return 1;
@@ -1047,7 +1196,10 @@ class AdminDashboardProvider extends ChangeNotifier {
         item.shippedAt = now;
         item.courierName = courierName;
         item.courierAwb = courierAwb;
-        branchesToShip.add((businessId: item.businessId, branchId: item.branchId));
+        branchesToShip.add((
+          businessId: item.businessId,
+          branchId: item.branchId,
+        ));
       }
     }
     notifyListeners();
@@ -1143,4 +1295,3 @@ class _BusinessRevenueEntry {
     required this.activeBranches,
   });
 }
-

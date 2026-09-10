@@ -433,11 +433,17 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
       ),
       body: _branchesLoading || _templatesLoading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                controller: _scrollCtrl,
-                padding: const EdgeInsets.all(20),
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    controller: _scrollCtrl,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: MediaQuery.of(context).size.width > 600 ? 20 : 12,
+                      vertical: 16,
+                    ),
                 children: [
                   // ── Status banner ──────────────────────────────────────
                   if (isPending)
@@ -645,6 +651,8 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                 ],
               ),
             ),
+          ),
+        ),
     );
   }
 }

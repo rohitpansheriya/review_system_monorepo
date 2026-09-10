@@ -132,8 +132,8 @@ class BusinessModel {
       renewalAmountPaid:          (d['renewal_amount_paid'] as num?)?.toDouble(),
       lastPaymentLinkUrl:         d['last_payment_link_url'] as String?,
       lastRenewalLinkUrl:         d['last_renewal_link_url'] as String?,
-      totalScans:                 (stats['total_scans'] as num? ?? 0).toInt(),
-      googleReviewsOpened:        (stats['total_reviews_redirected'] as num? ?? stats['google_reviews_opened'] as num? ?? 0).toInt(),
+      totalScans:                 (stats['total_scans'] as num? ?? d['stats_summary.total_scans'] as num? ?? d['total_scans'] as num? ?? 0).toInt(),
+      googleReviewsOpened:        (stats['google_reviews_opened'] as num? ?? stats['total_reviews_redirected'] as num? ?? stats['monthly_google_reviews'] as num? ?? d['stats_summary.google_reviews_opened'] as num? ?? 0).toInt(),
       starDistribution:           starsMap,
       monthlyStats:               parsedMonthly,
     );

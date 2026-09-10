@@ -19,6 +19,7 @@ import 'dart:html' as html;
 import 'dart:js' as js;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -121,8 +122,11 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
           title: Text('Add New Branch to "${_business.brandName}"'),
-          content: SizedBox(
-            width: 580,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 580,
+              maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+            ),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,7 +634,81 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                   label: 'Category',
                   value: biz.categoryType.isEmpty ? '—' : biz.categoryType,
                 ),
-                _InfoRow(label: 'Owner email',  value: biz.ownerEmail ?? '—'),
+                _InfoRow(
+                  label: 'Owner email',
+                  value: biz.ownerEmail ?? '—',
+                  trailing: (biz.ownerEmail != null && biz.ownerEmail!.isNotEmpty)
+                      ? Tooltip(
+                          message: 'Send branded password reset email to owner',
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(4),
+                            onTap: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (c) => AlertDialog(
+                                  title: const Text('Send Password Reset Email?'),
+                                  content: Text(
+                                    'This will send a branded AppNexa password reset email to:\n${biz.ownerEmail}',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(c, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(c, true),
+                                      child: const Text('Send Email'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true && context.mounted) {
+                                try {
+                                  final fn = FirebaseFunctions.instanceFor(region: 'asia-south1')
+                                      .httpsCallable('sendCustomPasswordResetEmail');
+                                  await fn.call({'email': biz.ownerEmail!.trim()});
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Password reset email sent to ${biz.ownerEmail}'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Failed to send email: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
+                              }
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.lock_reset, size: 16, color: Colors.blueAccent),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Reset Link',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blueAccent,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
                 _InfoRow(label: 'Renewal date', value: renewalStr),
                 _InfoRow(
                   label: 'Payment status',
@@ -1752,8 +1830,8 @@ class _BranchCardState extends State<_BranchCard> {
           const Divider(height: 1),
           const SizedBox(height: AppSpacing.sm + 4),
 
-          // ── Branch Payment Panel (when pending payment) ───────────────
-          if (branch.isPendingPayment)
+          // ── Branch Payment Panel (shown only for multi-branch businesses when pending) ───
+          if (branch.isPendingPayment && widget.totalBranchCount > 1)
             _BranchPaymentPanel(
               branch: branch,
               businessId: widget.businessId,
@@ -2350,10 +2428,12 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
   final bool   mono;
+  final Widget? trailing;
   const _InfoRow({
     required this.label,
     required this.value,
     this.mono = false,
+    this.trailing,
   });
 
   @override
@@ -2383,6 +2463,7 @@ class _InfoRow extends StatelessWidget {
                 ),
               ),
             ),
+            if (trailing != null) trailing!,
           ],
         ),
       );

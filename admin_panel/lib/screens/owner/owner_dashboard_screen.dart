@@ -80,10 +80,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final auth = context.read<AppAuthProvider>();
+    final auth = Provider.of<AppAuthProvider>(context);
     if (!_initialized && auth.isOwner && auth.uid != null) {
       _initialized = true;
-      context.read<OwnerDashboardProvider>().loadOwnerData(auth.uid!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<OwnerDashboardProvider>().loadOwnerData(auth.uid!);
+        }
+      });
     }
   }
 
@@ -193,38 +197,74 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       );
     }
 
+    final isDesktop = MediaQuery.of(context).size.width > 800;
+
     final Widget suspendedBanner = provider.isSuspended
         ? Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             color: const Color(0xFFFEF2F2),
-            child: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    '⚠️ Subscription Suspended — Customer QR scans are currently paused. Renew for ₹999/year to restore live review redirection instantly.',
-                    style: TextStyle(
-                      color: Color(0xFF991B1B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
+            child: isDesktop
+                ? Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          '⚠️ Subscription Suspended — Customer QR scans are currently paused. Renew for ₹999/year to restore live review redirection instantly.',
+                          style: TextStyle(
+                            color: Color(0xFF991B1B),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => _onTabSelected(3),
+                        icon: const Icon(Icons.payment, size: 16),
+                        label: const Text('Renew Now (₹999)'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '⚠️ Subscription Suspended — Customer QR scans are paused. Renew for ₹999/year to restore live reviews.',
+                              style: TextStyle(
+                                color: Color(0xFF991B1B),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        onPressed: () => _onTabSelected(3),
+                        icon: const Icon(Icons.payment, size: 16),
+                        label: const Text('Renew Now (₹999)'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () => _onTabSelected(3),
-                  icon: const Icon(Icons.payment, size: 16),
-                  label: const Text('Renew Now (₹999)'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFDC2626),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
-                ),
-              ],
-            ),
           )
         : const SizedBox.shrink();
 
@@ -243,6 +283,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     style: TextStyle(
                       color: colorScheme.onErrorContainer,
                       fontWeight: FontWeight.w600,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -269,8 +310,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       const GoogleReplyStubScreen(),
     ];
 
-    final isDesktop = MediaQuery.of(context).size.width > 800;
-
     // Determine if renewal badge should show (≤30 days to renewal or in grace/suspended)
     final bool showRenewalBadge = _shouldShowRenewalBadge(provider);
 
@@ -278,7 +317,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(provider.business?.brandName ?? 'Owner Dashboard'),
+        title: Text(
+          provider.business?.brandName ?? 'Owner Dashboard',
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline_rounded),
@@ -288,17 +330,26 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           _buildLogoutButton(context),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openWhatsAppSupport(provider),
-        backgroundColor: const Color(0xFF25D366),
-        foregroundColor: Colors.white,
-        elevation: 4,
-        icon: const Icon(Icons.chat_rounded, size: 20),
-        label: const Text(
-          'WhatsApp Support',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        ),
-      ),
+      floatingActionButton: isDesktop
+          ? FloatingActionButton.extended(
+              onPressed: () => _openWhatsAppSupport(provider),
+              backgroundColor: const Color(0xFF25D366),
+              foregroundColor: Colors.white,
+              elevation: 4,
+              icon: const Icon(Icons.chat_rounded, size: 20),
+              label: const Text(
+                'WhatsApp Support',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            )
+          : FloatingActionButton(
+              onPressed: () => _openWhatsAppSupport(provider),
+              backgroundColor: const Color(0xFF25D366),
+              foregroundColor: Colors.white,
+              elevation: 4,
+              tooltip: 'WhatsApp Support',
+              child: const Icon(Icons.chat_rounded, size: 22),
+            ),
       body: Column(
         children: [
           suspendedBanner,

@@ -42,23 +42,31 @@ class MyBusinessesScreen extends StatefulWidget {
 class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
   late final ScrollController _scrollCtrl;
 
+  bool _initialized = false;
+
   @override
   void initState() {
     super.initState();
     _scrollCtrl = ScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = context.read<AppAuthProvider>();
-      final uid = auth.uid;
-      if (uid != null) {
-        // Admin enrollments store enrolled_by='admin' (not the admin's UID),
-        // so the query must use 'admin' to match.
-        final queryId = auth.isAdmin ? 'admin' : uid;
-        context.read<MyBusinessesProvider>().loadFirst(queryId);
-        if (!auth.isAdmin) {
-          context.read<CommissionProvider>().startListening(uid);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = Provider.of<AppAuthProvider>(context);
+    final uid = auth.uid;
+    if (!_initialized && uid != null && auth.status == AuthStatus.authenticated) {
+      _initialized = true;
+      final queryId = auth.isAdmin ? 'admin' : uid;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<MyBusinessesProvider>().loadFirst(queryId);
+          if (!auth.isAdmin) {
+            context.read<CommissionProvider>().startListening(uid);
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   @override
@@ -115,9 +123,9 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
       appBar: AppBar(
         title: const Text('My Enrolled Businesses'),
         actions: [
-          if (employee != null)
+          if (employee != null && MediaQuery.of(context).size.width > 480)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Chip(
                 avatar: Icon(Icons.person_outline,
                     size: 16, color: scheme.onPrimary),
@@ -166,24 +174,36 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
                   end:   Alignment.bottomRight,
                 ),
               ),
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+              padding: EdgeInsets.symmetric(
+                horizontal: MediaQuery.of(context).size.width > 600 ? 20 : 12,
+                vertical: 12,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
-                      _StatChip(
-                        icon:  Icons.business_outlined,
-                        label: 'Total enrolled',
-                        value: '${employee.totalEnrollments}',
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _StatChip(
+                            icon:  Icons.business_outlined,
+                            label: 'Total enrolled',
+                            value: '${employee.totalEnrollments}',
+                          ),
+                          _StatChip(
+                            icon:  Icons.calendar_month_outlined,
+                            label: 'This month',
+                            value: '${employee.thisMonthEnrollments}',
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      _StatChip(
-                        icon:  Icons.calendar_month_outlined,
-                        label: 'This month',
-                        value: '${employee.thisMonthEnrollments}',
-                      ),
-                      const Spacer(),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.account_balance_wallet_outlined, size: 14),
                         label: const Text('Ledger', style: TextStyle(fontSize: 12)),
@@ -218,10 +238,14 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 6,
                             children: [
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.all(5),
@@ -241,8 +265,8 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
                                           style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF059669), fontSize: 16),
                                         ),
                                         TextSpan(
-                                          text: 'earned in $currentMonthName',
-                                          style: TextStyle(fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant),
+                                          text: 'in $currentMonthName',
+                                          style: TextStyle(fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant, fontSize: 13),
                                         ),
                                       ],
                                     ),
@@ -256,7 +280,7 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  remainingToGoal > 0 ? '₹${NumberFormat('#,##0').format(remainingToGoal)} to next goal' : '🎯 Target Smashed!',
+                                  remainingToGoal > 0 ? '₹${NumberFormat('#,##0').format(remainingToGoal)} to next' : '🎯 Target Smashed!',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -279,14 +303,18 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
                             ),
                           ),
                           const SizedBox(height: 5),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
                               Text(
-                                '${(meterProgress * 100).toInt()}% towards ₹${NumberFormat('#,##0').format(targetGoal.toInt())} target ($milestoneTier)',
+                                '${(meterProgress * 100).toInt()}% of ₹${NumberFormat('#,##0').format(targetGoal.toInt())} ($milestoneTier)',
                                 style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                               ),
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text('View Payouts', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
                                   Icon(Icons.chevron_right, size: 14, color: scheme.primary),
@@ -304,18 +332,21 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
 
           // ── Filter bar ──────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: SegmentedButton<PaymentFilter>(
-              segments: PaymentFilter.values.map((f) => ButtonSegment(
-                value: f,
-                label: Text(f.label, style: const TextStyle(fontSize: 12)),
-              )).toList(),
-              selected: {provider.filter},
-              onSelectionChanged: (s) {
-                if (s.isNotEmpty) provider.applyFilter(s.first);
-              },
-              style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SegmentedButton<PaymentFilter>(
+                segments: PaymentFilter.values.map((f) => ButtonSegment(
+                  value: f,
+                  label: Text(f.label, style: const TextStyle(fontSize: 12)),
+                )).toList(),
+                selected: {provider.filter},
+                onSelectionChanged: (s) {
+                  if (s.isNotEmpty) provider.applyFilter(s.first);
+                },
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ),
           ),

@@ -4,11 +4,12 @@
 // Handles business & branch reads, pre-aggregated stats rollup, category toggling,
 // star-routing updates, renewal payment status checks, and cash payment confirmations (Doc 06).
 
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import '../models/business_model.dart';
 import '../models/branch_model.dart';
-
 
 class OwnerDashboardProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
@@ -17,6 +18,9 @@ class OwnerDashboardProvider extends ChangeNotifier {
   List<BranchModel> _branches = [];
   Map<String, dynamic>? _assignedTemplate;
   List<Map<String, dynamic>> _renewalNotifications = [];
+
+  StreamSubscription<QuerySnapshot>? _branchesSub;
+  StreamSubscription<DocumentSnapshot>? _bizSub;
 
   String _selectedBranchId = 'all'; // 'all' or branchId
   String _selectedMonth = 'all'; // 'all' or 'YYYY-MM'
@@ -154,6 +158,15 @@ class OwnerDashboardProvider extends ChangeNotifier {
       // 5. Index pre-aggregated monthly branch stats for performance reporting (O(1) memory index, no raw scan fetch)
       _fetchAndIndexMonthlyScans(_business!.id);
 
+      // 6. Attach real-time snapshot listener so dashboard stats update live on new customer scans
+      _listenToRealtimeUpdates(_business!.id);
+
+      // 7. Auto-reconcile in background if branches have 0 counted scans in case TTL/historic scans exist
+      final totalScansAcrossBranches = _branches.fold<int>(0, (total, b) => total + b.totalScans);
+      if (totalScansAcrossBranches == 0) {
+        _autoReconcileIfNeeded(_business!.id);
+      }
+
       _loading = false;
       notifyListeners();
     } catch (e) {
@@ -161,6 +174,49 @@ class OwnerDashboardProvider extends ChangeNotifier {
       _error = 'Failed to load owner data: ${e.toString()}';
       notifyListeners();
     }
+  }
+
+  void _autoReconcileIfNeeded(String businessId) {
+    FirebaseFunctions.instanceFor(region: 'asia-south1')
+        .httpsCallable('reconcileBusinessStats')
+        .call({'businessId': businessId})
+        .then((_) {
+      debugPrint('Auto-reconciled stats for business $businessId');
+    }).catchError((err) {
+      debugPrint('Auto-reconcile error (non-fatal): $err');
+    });
+  }
+
+  void _listenToRealtimeUpdates(String businessId) {
+    _branchesSub?.cancel();
+    _branchesSub = _db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('branches')
+        .snapshots()
+        .listen((snap) {
+      _branches = snap.docs
+          .map((d) => BranchModel.fromDoc(d, businessId: businessId))
+          .toList();
+      _fetchAndIndexMonthlyScans(businessId);
+      notifyListeners();
+    }, onError: (err) {
+      debugPrint('OwnerDashboardProvider branches snapshot error: $err');
+    });
+
+    _bizSub?.cancel();
+    _bizSub = _db
+        .collection('businesses')
+        .doc(businessId)
+        .snapshots()
+        .listen((snap) {
+      if (snap.exists) {
+        _business = BusinessModel.fromDoc(snap);
+        notifyListeners();
+      }
+    }, onError: (err) {
+      debugPrint('OwnerDashboardProvider business snapshot error: $err');
+    });
   }
 
   /// Populates monthly performance buckets directly from pre-aggregated branch documents (O(1) read, no raw scan fetch)
@@ -408,6 +464,16 @@ class OwnerDashboardProvider extends ChangeNotifier {
 
   /// Refresh owner dashboard state.
   Future<void> refresh(String ownerUid) async {
-    await loadOwnerData(ownerUid);
+    if (_business != null) {
+      _autoReconcileIfNeeded(_business!.id);
+    }
+    await loadOwnerData(ownerUid, forceReload: true);
+  }
+
+  @override
+  void dispose() {
+    _branchesSub?.cancel();
+    _bizSub?.cancel();
+    super.dispose();
   }
 }

@@ -72,24 +72,9 @@ class AuthService {
       if (e.code == 'not-found') {
         return 'This email is not registered in our system. Please check the email or contact admin.';
       }
-      // Fallback to client-side FirebaseAuth in case of temporary function outage
-      try {
-        await _auth.sendPasswordResetEmail(email: cleanEmail);
-        return null;
-      } on FirebaseAuthException catch (authErr) {
-        return _friendlyError(authErr);
-      } catch (_) {
-        return e.message ?? 'Failed to send password reset email.';
-      }
+      return e.message ?? 'Failed to send password reset email. Please try again.';
     } catch (e) {
-      try {
-        await _auth.sendPasswordResetEmail(email: cleanEmail);
-        return null;
-      } on FirebaseAuthException catch (authErr) {
-        return _friendlyError(authErr);
-      } catch (_) {
-        return 'Unexpected error: $e';
-      }
+      return 'Failed to send password reset email: $e';
     }
   }
 

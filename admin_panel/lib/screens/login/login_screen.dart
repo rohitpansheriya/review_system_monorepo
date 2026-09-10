@@ -65,12 +65,17 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       });
     } else if (mounted) {
-      if (auth.isAdmin) {
-        context.go('/admin');
-      } else if (auth.isOwner) {
-        context.go('/owner');
-      } else {
-        context.go('/businesses');
+      // GoRouter redirect automatically handles role navigation via refreshListenable.
+      // Fallback navigation only if GoRouter hasn't redirected yet.
+      final loc = GoRouterState.of(context).matchedLocation;
+      if (loc == '/login') {
+        if (auth.isAdmin) {
+          context.go('/admin');
+        } else if (auth.isOwner) {
+          context.go('/owner');
+        } else {
+          context.go('/businesses');
+        }
       }
     }
   }

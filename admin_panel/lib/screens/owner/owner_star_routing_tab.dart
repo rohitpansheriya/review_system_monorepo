@@ -1,15 +1,18 @@
 // lib/screens/owner/owner_star_routing_tab.dart
 //
-// Star-Routing Config Tab for Business Owner.
-// Editable table for stars 1-5 -> dropdowns (Thank-you / WhatsApp / Google review).
-// Writes to branches/{id}.star_routing_config.
-// REUSES StarRoutingWidget from enrollment.
+// Star-Routing Overview Tab for Business Owner (Read-Only).
+// Displays the active 1-5 star routing configuration and explains
+// how 1-3★ negative feedback is routed privately while 4-5★ reviews
+// are directed to Google Reviews. Read-only to prevent accidental misconfigurations.
 
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../models/branch_draft.dart';
+import '../../core/constants.dart';
+import '../../core/theme.dart';
+import '../../models/branch_model.dart';
 import '../../providers/owner_dashboard_provider.dart';
-import '../enroll/star_routing_widget.dart';
 
 class OwnerStarRoutingTab extends StatefulWidget {
   const OwnerStarRoutingTab({super.key});
@@ -20,84 +23,23 @@ class OwnerStarRoutingTab extends StatefulWidget {
 
 class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
   String? _selectedBranchId;
-  BranchDraft? _draft;
-  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _initDraft();
-  }
-
-  void _initDraft() {
-    final provider = context.read<OwnerDashboardProvider>();
-    if (provider.branches.isEmpty) return;
-
-    _selectedBranchId ??= provider.branches.first.id;
-    final branch = provider.branches.firstWhere(
-      (b) => b.id == _selectedBranchId,
-      orElse: () => provider.branches.first,
-    );
-
-    final d = BranchDraft();
-    d.name = branch.branchName;
-    d.whatsappNumber = branch.whatsappNumber;
-    d.address = branch.address;
-
-    branch.starRoutingConfig.forEach((k, v) {
-      if (['1', '2', '3', '4', '5'].contains(k)) {
-        d.setStarRoute(k, v);
-      }
-    });
-
-    _draft = d;
   }
 
   void _onBranchChanged(String? newId) {
     if (newId == null || newId == _selectedBranchId) return;
     setState(() {
       _selectedBranchId = newId;
-      _initDraft();
     });
   }
 
-  Future<void> _saveStarRouting() async {
-    if (_draft == null || !_draft!.starRoutingComplete || _selectedBranchId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select routing for all 5 stars.')),
-      );
-      return;
-    }
-
-    setState(() => _saving = true);
-    final provider = context.read<OwnerDashboardProvider>();
-
-    try {
-      await provider.updateStarRouting(
-        _selectedBranchId!,
-        _draft!.starRoutingAsMap,
-      );
-
-      if (mounted) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Star-routing configuration saved successfully! Takes effect immediately.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save routing: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
+  void _openWhatsAppSupport() {
+    const supportUrl =
+        'https://wa.me/918866390389?text=Hello%20AppNexa%20Support,%20I%20would%20like%20to%20request%20a%20change%20to%20my%20review%20routing%20configuration.';
+    html.window.open(supportUrl, '_blank');
   }
 
   @override
@@ -108,9 +50,12 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
     final branches = provider.branches;
 
     if (branches.isEmpty) {
-      return const Center(child: Text('No branch available for star routing configuration.'));
+      return const Center(
+        child: Text('No branch available for star routing overview.'),
+      );
     }
 
+    _selectedBranchId ??= branches.first.id;
     final currentBranch = branches.firstWhere(
       (b) => b.id == _selectedBranchId,
       orElse: () => branches.first,
@@ -122,36 +67,120 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
       padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
       child: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 640),
+          constraints: const BoxConstraints(maxWidth: 720),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header
               Text(
-                'Star-Routing Configuration',
-                style: (isDesktop ? theme.textTheme.headlineMedium : theme.textTheme.titleLarge)?.copyWith(
+                'Review Routing Overview',
+                style: (isDesktop
+                        ? theme.textTheme.headlineMedium
+                        : theme.textTheme.titleLarge)
+                    ?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Configure what action is triggered when a customer taps 1–5 stars on the review page.',
+                'View how customer ratings (1–5 stars) are routed from your Smart Standee QR code.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 20),
 
+              // ── Security & Reputation Shield Notice ───────────────────────
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        color: Color(0xFF0284C7),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'AppNexa Reputation Shield',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE0F2FE),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: const Color(0xFFBAE6FD)),
+                                ),
+                                child: Text(
+                                  'Protected & Verified',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF0369A1),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'To protect your business from accidental misconfigurations and public negative reviews, star routing is managed securely. 1–3★ ratings are intercepted privately on WhatsApp, and 4–5★ happy customers are directed straight to Google Reviews.',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              color: const Color(0xFF475569),
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
               // Multi-branch selector if > 1 branch
               if (branches.length > 1) ...[
                 Text(
-                  'Select Branch',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  'Select Branch Location',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: currentBranch.id,
                   decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
                   items: branches
                       .map((b) => DropdownMenuItem(
@@ -164,7 +193,7 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                 const SizedBox(height: 20),
               ],
 
-              // Reused StarRoutingWidget from enrollment
+              // ── Star Routing Breakdown Cards ──────────────────────────────
               Card(
                 elevation: 1,
                 shape: RoundedRectangleBorder(
@@ -172,68 +201,59 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                   side: BorderSide(color: colorScheme.outlineVariant),
                 ),
                 child: Padding(
-                  padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
+                  padding: EdgeInsets.all(isDesktop ? 22.0 : 16.0),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (_draft != null)
-                        StarRoutingWidget(
-                          draft: _draft!,
-                          onChanged: () => setState(() {}),
-                        ),
-                      const SizedBox(height: 24),
-                      if (provider.isGracePeriod)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFEF4444)),
+                      Row(
+                        children: [
+                          Icon(Icons.route_outlined,
+                              color: colorScheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Active Star Routing Map',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.lock_clock, color: Color(0xFFDC2626), size: 20),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Star-routing editing is locked during grace period. Renew your subscription to modify settings.',
-                                  style: TextStyle(
-                                    color: Color(0xFF991B1B),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          onPressed: (_saving || provider.isGracePeriod) ? null : _saveStarRouting,
-                          icon: _saving
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.save),
-                          label: Text(
-                            provider.isGracePeriod
-                                ? 'Locked (Grace Period Active)'
-                                : (_saving ? 'Saving...' : 'Save Star-Routing Config'),
-                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Current action triggered when customers tap each star rating:',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      const Divider(height: 1),
+                      const SizedBox(height: 14),
+
+                      // List 5 stars down to 1 star (or 1 to 5)
+                      ...List.generate(5, (index) {
+                        final starNum = 5 - index; // 5, 4, 3, 2, 1
+                        final starKey = '$starNum';
+                        final routeAction = currentBranch
+                                .starRoutingConfig[starKey] ??
+                            (starNum >= 4
+                                ? AppConstants.routingGoogle
+                                : AppConstants.routingWhatsapp);
+
+                        return _buildStarRouteRow(
+                          context,
+                          starNum: starNum,
+                          routeAction: routeAction,
+                          branch: currentBranch,
+                        );
+                      }),
                     ],
                   ),
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
-              // ── Interactive WhatsApp Private Resolution Live Preview ─────────
+              // ── WhatsApp Private Feedback Live Preview ────────────────────
               Card(
                 elevation: 0,
                 color: const Color(0xFFF0FDF4),
@@ -254,7 +274,8 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                               color: const Color(0xFF25D366),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
+                            child: const Icon(Icons.chat_rounded,
+                                color: Colors.white, size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -262,14 +283,14 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Live WhatsApp Private Feedback Preview',
+                                  'Live WhatsApp Private Resolution Preview',
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: const Color(0xFF14532D),
                                   ),
                                 ),
                                 Text(
-                                  'What you receive on +91 ${currentBranch.whatsappNumber} when a 1–3★ customer submits feedback',
+                                  'What you receive on +91 ${currentBranch.whatsappNumber} when a 1–3★ customer shares feedback',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: const Color(0xFF166534),
                                   ),
@@ -297,8 +318,10 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                             Align(
                               alignment: Alignment.centerLeft,
                               child: Container(
-                                constraints: const BoxConstraints(maxWidth: 480),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                constraints:
+                                    const BoxConstraints(maxWidth: 480),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 12),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: const BorderRadius.only(
@@ -309,7 +332,8 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.06),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.06),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     ),
@@ -320,7 +344,10 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                                   children: [
                                     Text(
                                       'Hello, I visited ${provider.business?.brandName ?? 'your store'} (${currentBranch.branchName}) today and would like to share private feedback.',
-                                      style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), height: 1.4),
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF1E293B),
+                                          height: 1.4),
                                     ),
                                     const SizedBox(height: 8),
                                     Container(
@@ -328,19 +355,27 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFFEF2F2),
                                         borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: const Color(0xFFFECACA)),
+                                        border: Border.all(
+                                            color: const Color(0xFFFECACA)),
                                       ),
                                       child: const Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             'Issue: ⏳ Long Wait Time, 🍽️ Food Quality',
-                                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                                            style: TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF991B1B)),
                                           ),
                                           SizedBox(height: 4),
                                           Text(
                                             'Details: "Food was cold and took 30 mins to arrive."',
-                                            style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xFF7F1D1D)),
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                fontStyle: FontStyle.italic,
+                                                color: Color(0xFF7F1D1D)),
                                           ),
                                         ],
                                       ),
@@ -350,7 +385,9 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                                       alignment: Alignment.bottomRight,
                                       child: Text(
                                         'Just now • Sent via AppNexa Smart QR',
-                                        style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            color: Color(0xFF94A3B8)),
                                       ),
                                     ),
                                   ],
@@ -364,9 +401,228 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                   ),
                 ),
               ),
+
+              const SizedBox(height: 24),
+
+              // ── Request Changes / Contact Support Card ────────────────────
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.help_outline_rounded,
+                        color: Color(0xFF64748B), size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Need to adjust your review routing threshold?',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Our team can review and update your routing settings anytime upon request.',
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: _openWhatsAppSupport,
+                      icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                      label: const Text('Contact Support'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        textStyle: GoogleFonts.outfit(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStarRouteRow(
+    BuildContext context, {
+    required int starNum,
+    required String routeAction,
+    required BranchModel branch,
+  }) {
+    final isGoogle = routeAction == AppConstants.routingGoogle;
+    final isWhatsApp = routeAction == AppConstants.routingWhatsapp;
+
+    Color badgeBg;
+    Color badgeBorder;
+    Color badgeText;
+    String badgeLabel;
+    IconData actionIcon;
+    String actionTitle;
+    String actionDesc;
+
+    if (isGoogle) {
+      badgeBg = const Color(0xFFFEF3C7);
+      badgeBorder = const Color(0xFFFDE68A);
+      badgeText = const Color(0xFF92400E);
+      badgeLabel = 'PUBLIC GOOGLE REVIEW';
+      actionIcon = Icons.star_rounded;
+      actionTitle = 'Google Reviews (Public Listing)';
+      actionDesc =
+          'Pre-fills high-rating phrases & directly opens Google Maps review posting screen to increase public 5★ rating.';
+    } else if (isWhatsApp) {
+      badgeBg = const Color(0xFFDCFCE7);
+      badgeBorder = const Color(0xFFBBF7D0);
+      badgeText = const Color(0xFF166534);
+      badgeLabel = 'PRIVATE WHATSAPP RESOLUTION';
+      actionIcon = Icons.chat_rounded;
+      actionTitle = 'WhatsApp Private Feedback (+91 ${branch.whatsappNumber})';
+      actionDesc =
+          'Redirects customer to your private WhatsApp chat with pre-selected problem tags to resolve complaints directly.';
+    } else {
+      badgeBg = const Color(0xFFF1F5F9);
+      badgeBorder = const Color(0xFFE2E8F0);
+      badgeText = const Color(0xFF475569);
+      badgeLabel = 'PRIVATE THANK-YOU SCREEN';
+      actionIcon = Icons.favorite_rounded;
+      actionTitle = 'Thank-You Screen Only';
+      actionDesc =
+          'Displays an on-screen thank you card without directing to public review sites.';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isGoogle
+            ? const Color(0xFFFFFBEB)
+            : (isWhatsApp ? const Color(0xFFF8FAFC) : const Color(0xFFF8FAFC)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isGoogle
+              ? const Color(0xFFFDE68A)
+              : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Star Label Container
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$starNum',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.star_rounded,
+                  color: AppColors.star,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // Destination Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      actionIcon,
+                      size: 16,
+                      color: isGoogle
+                          ? const Color(0xFFD97706)
+                          : (isWhatsApp
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFF64748B)),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        actionTitle,
+                        style: GoogleFonts.outfit(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: badgeBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: badgeBorder),
+                      ),
+                      child: Text(
+                        badgeLabel,
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: badgeText,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  actionDesc,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -11,7 +11,7 @@
 import * as crypto from "crypto";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
-import {getFirestore, Timestamp} from "firebase-admin/firestore";
+import {getFirestore, Timestamp, FieldValue} from "firebase-admin/firestore";
 import {getAuth} from "firebase-admin/auth";
 import {formatCustomResetLink} from "./notifications";
 
@@ -242,3 +242,144 @@ export const verifyEmployeeDocumentsAdmin = onCall(
     };
   }
 );
+
+// ---------------------------------------------------------------------------
+// reassignBusinessEnrollerAdmin — onCall
+// ---------------------------------------------------------------------------
+
+export const reassignBusinessEnrollerAdmin = onCall(
+  {
+    region: "asia-south1",
+  },
+  async (request) => {
+    if (!request.auth?.uid || request.auth.token?.role !== "admin") {
+      throw new HttpsError(
+        "permission-denied",
+        "Only admins can change the enrolled employee of a business."
+      );
+    }
+
+    const {businessId, newEmployeeUid, reason} = (request.data || {}) as {
+      businessId?: string;
+      newEmployeeUid?: string;
+      reason?: string;
+    };
+
+    if (!businessId || !newEmployeeUid) {
+      throw new HttpsError(
+        "invalid-argument",
+        "businessId and newEmployeeUid are required."
+      );
+    }
+
+    const db = getFirestore();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const bizSnap = await bizRef.get();
+
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", `Business ${businessId} not found.`);
+    }
+
+    const bizData = bizSnap.data() || {};
+    const oldEnrolledBy = (bizData.enrolled_by as string | undefined) || "";
+    const isBusinessActive = bizData.subscription_status === "active";
+    const now = Timestamp.now();
+
+    // Verify new employee exists if not "admin"
+    let newEmployeeName = "Admin";
+    if (newEmployeeUid !== "admin") {
+      const empSnap = await db.collection("employees").doc(newEmployeeUid).get();
+      if (!empSnap.exists) {
+        throw new HttpsError("not-found", `Target employee ${newEmployeeUid} not found.`);
+      }
+      const empData = empSnap.data() || {};
+      newEmployeeName = empData.name || (empData.profile?.full_name as string) || newEmployeeUid;
+    }
+
+    const batch = db.batch();
+
+    // 1. Update business document
+    batch.update(bizRef, {
+      enrolled_by: newEmployeeUid,
+      currently_managed_by: newEmployeeUid,
+      updated_at: now,
+      enroller_reassigned_at: now,
+      enroller_reassigned_by: request.auth.uid,
+      enroller_reassignment_reason: reason || "Admin manual reassignment",
+    });
+
+    // 2. Update branches
+    const branchesSnap = await bizRef.collection("branches").get();
+    for (const bDoc of branchesSnap.docs) {
+      batch.update(bDoc.ref, {
+        enrolled_by: newEmployeeUid,
+      });
+    }
+
+    // 3. Update employee_commissions if any exist for this business
+    const commSnap = await db
+      .collection("employee_commissions")
+      .where("business_id", "==", businessId)
+      .get();
+
+    for (const cDoc of commSnap.docs) {
+      const cData = cDoc.data();
+      if (cData.status === "pending") {
+        if (newEmployeeUid === "admin") {
+          // Admin doesn't receive employee commissions -> delete pending record
+          batch.delete(cDoc.ref);
+        } else {
+          batch.update(cDoc.ref, {
+            employee_id: newEmployeeUid,
+            transferred_from: oldEnrolledBy || null,
+            transferred_at: now,
+          });
+        }
+      }
+    }
+
+    await batch.commit();
+
+    // 4. Update employee stats if business is active
+    if (isBusinessActive) {
+      if (oldEnrolledBy && oldEnrolledBy !== "admin" && oldEnrolledBy !== newEmployeeUid) {
+        try {
+          await db.collection("employees").doc(oldEnrolledBy).update({
+            total_enrollments: FieldValue.increment(-1),
+            this_month_enrollments: FieldValue.increment(-1),
+          });
+        } catch (e) {
+          logger.warn("reassignBusinessEnrollerAdmin: old employee counter decrement error", {e});
+        }
+      }
+
+      if (newEmployeeUid !== "admin" && newEmployeeUid !== oldEnrolledBy) {
+        try {
+          await db.collection("employees").doc(newEmployeeUid).update({
+            total_enrollments: FieldValue.increment(1),
+            this_month_enrollments: FieldValue.increment(1),
+          });
+        } catch (e) {
+          logger.warn("reassignBusinessEnrollerAdmin: new employee counter increment error", {e});
+        }
+      }
+    }
+
+    logger.info("reassignBusinessEnrollerAdmin: reassigned business", {
+      businessId,
+      oldEnrolledBy,
+      newEmployeeUid,
+      newEmployeeName,
+      adminUid: request.auth.uid,
+    });
+
+    return {
+      success: true,
+      businessId,
+      oldEnrolledBy,
+      newEmployeeUid,
+      newEmployeeName,
+    };
+  }
+);
+

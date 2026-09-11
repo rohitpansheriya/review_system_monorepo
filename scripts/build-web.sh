@@ -28,16 +28,19 @@ node scripts/inject-firebase-config.js
 # 2. Build Flutter Web Release in admin_panel/
 echo "\n2️⃣ Compiling Flutter Web Application (admin_panel)..."
 cd "$REPO_ROOT/admin_panel"
-flutter build web --release $EMULATOR_DEFINE
+flutter build web --release --base-href /app/ $EMULATOR_DEFINE
 cd "$REPO_ROOT"
 
 # 3. Cleanly assemble public/ directory
 echo "\n3️⃣ Assembling public/ directory structure..."
 rm -rf public
-mkdir -p public/r
+mkdir -p public/app public/r
 
-# Copy Flutter Web release build output to public/ root
-cp -R admin_panel/build/web/* public/
+# Copy landing page files to public/ root
+cp -R landing_page/* public/
+
+# Copy Flutter Web release build output to public/app/
+cp -R admin_panel/build/web/* public/app/
 
 # Copy customer review page files to public/r/
 cp -R review_page/* public/r/
@@ -45,31 +48,38 @@ cp -R review_page/* public/r/
 # 4. Strict Validation Checks
 echo "\n4️⃣ Verifying public/ assembly integrity..."
 
-# Verification A: public/index.html must be the real Flutter app
+# Verification A: public/index.html must be the landing page
 if [ ! -f "public/index.html" ]; then
   echo "❌ Assembly Error: public/index.html does not exist!"
   exit 1
 fi
 
-if ! grep -q "flutter_bootstrap.js" public/index.html && ! grep -q "flutter.js" public/index.html && ! grep -q "main.dart.js" public/index.html; then
-  echo "❌ Assembly Error: public/index.html is NOT the Flutter application!"
+# Verification B: public/app/index.html must be the real Flutter app
+if [ ! -f "public/app/index.html" ]; then
+  echo "❌ Assembly Error: public/app/index.html does not exist!"
   exit 1
 fi
 
-# Verification B: public/r/index.html must exist
+if ! grep -q "flutter_bootstrap.js" public/app/index.html && ! grep -q "flutter.js" public/app/index.html && ! grep -q "main.dart.js" public/app/index.html; then
+  echo "❌ Assembly Error: public/app/index.html is NOT the Flutter application!"
+  exit 1
+fi
+
+# Verification C: public/r/index.html must exist
 if [ ! -f "public/r/index.html" ]; then
   echo "❌ Assembly Error: public/r/index.html missing!"
   exit 1
 fi
 
-# Verification C: No double-nesting (public/r/r/ must NOT exist)
-if [ -d "public/r/r" ]; then
-  echo "❌ Assembly Error: Double-nested directory public/r/r detected!"
+# Verification D: No double-nesting (public/r/r/ or public/app/app/ must NOT exist)
+if [ -d "public/r/r" ] || [ -d "public/app/app" ]; then
+  echo "❌ Assembly Error: Double-nested directory detected!"
   exit 1
 fi
 
 echo "\n==========================================================="
 echo "✅ WEB BUILD ASSEMBLY COMPLETE & VERIFIED!"
-echo "   - Flutter App Root: public/index.html"
-echo "   - Customer Review Page: public/r/index.html"
+echo "   - Landing Page Root: public/index.html"
+echo "   - Flutter App:       public/app/index.html"
+echo "   - Review Page:       public/r/index.html"
 echo "===========================================================\n"

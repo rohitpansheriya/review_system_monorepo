@@ -658,10 +658,36 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                 // Owner (name + phone)
                 DataCell(_buildOwnerCell(biz, theme)),
                 // Enrolled By
-                DataCell(Text(
-                  enrolledByName,
-                  style: theme.textTheme.bodySmall,
-                )),
+                DataCell(
+                  InkWell(
+                    onTap: () => _showQuickChangeEnrollerDialog(context, biz, enrolledByName),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              enrolledByName,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.swap_horiz_rounded,
+                            size: 14,
+                            color: colorScheme.primary.withValues(alpha: 0.7),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 // Branch count
                 DataCell(Center(
                   child: Container(
@@ -1071,7 +1097,12 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      _metaChip(Icons.person_search_rounded, enrolledByName, colorScheme),
+                      _metaChip(
+                        Icons.person_search_rounded,
+                        enrolledByName,
+                        colorScheme,
+                        onTap: () => _showQuickChangeEnrollerDialog(context, biz, enrolledByName),
+                      ),
                       _metaChip(Icons.storefront_rounded, '$branchCount branch${branchCount == 1 ? '' : 'es'}', colorScheme),
                       if (biz.createdAt != null)
                         _metaChip(Icons.calendar_today, DateFormat('d MMM yyyy').format(biz.createdAt!), colorScheme),
@@ -1086,11 +1117,16 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
     );
   }
 
-  Widget _metaChip(IconData icon, String label, ColorScheme colorScheme) {
-    return Container(
+  Widget _metaChip(
+    IconData icon,
+    String label,
+    ColorScheme colorScheme, {
+    VoidCallback? onTap,
+  }) {
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(
@@ -1106,9 +1142,206 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
+          if (onTap != null) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.swap_horiz_rounded, size: 12, color: colorScheme.primary),
+          ],
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: chip,
+      );
+    }
+    return chip;
+  }
+
+  Future<void> _showQuickChangeEnrollerDialog(
+    BuildContext context,
+    BusinessModel biz,
+    String currentEnrolledByName,
+  ) async {
+    final provider = context.read<AdminDashboardProvider>();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final employees = provider.employees;
+
+    String selectedEmployeeUid = biz.enrolledBy.isEmpty ? 'admin' : biz.enrolledBy;
+    String reason = '';
+
+    final success = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isCurrent = selectedEmployeeUid == (biz.enrolledBy.isEmpty ? 'admin' : biz.enrolledBy);
+
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.swap_horiz_rounded, size: 24, color: AppColors.primary),
+                  SizedBox(width: 10),
+                  Text('Change Enrolled Employee'),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reassign which employee is credited for enrolling "${biz.brandName}".',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_outline, size: 20, color: Colors.grey),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Currently Enrolled By', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                  Text(
+                                    currentEnrolledByName,
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: selectedEmployeeUid,
+                        decoration: const InputDecoration(
+                          labelText: 'Select New Enrolled Employee *',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: 'admin',
+                            child: Text('Admin (Direct Enrollment / No Commission)'),
+                          ),
+                          ...employees.map((emp) => DropdownMenuItem(
+                                value: emp.uid,
+                                child: Text(
+                                  '${emp.name} (${emp.email})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              )),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedEmployeeUid = val);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Reason for Reassignment (Optional)',
+                          hintText: 'e.g. Territory reallocation or correction',
+                          prefixIcon: Icon(Icons.notes_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                        onChanged: (val) => reason = val.trim(),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Impact of change:\n'
+                                '• Moves business to selected employee’s workspace.\n'
+                                '• Removes it from previous employee’s view.\n'
+                                '• Transferred pending commissions & enrollment counters.',
+                                style: TextStyle(fontSize: 12, height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  onPressed: isCurrent
+                      ? null
+                      : () {
+                          Navigator.of(ctx).pop(true);
+                        },
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Confirm Reassignment'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (success == true && context.mounted) {
+      try {
+        await provider.reassignBusinessEnroller(
+          businessId: biz.id,
+          newEmployeeId: selectedEmployeeUid,
+          reason: reason.isNotEmpty ? reason : 'Admin reassignment from CRM',
+        );
+
+        if (context.mounted) {
+          final newName = provider.resolveEmployeeName(selectedEmployeeUid);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Enrolled employee changed to "$newName" successfully.'),
+              backgroundColor: AppColors.activeFg,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to reassign enrolled employee: $e'),
+              backgroundColor: theme.colorScheme.error,
+            ),
+          );
+        }
+      }
+    }
   }
 }
 

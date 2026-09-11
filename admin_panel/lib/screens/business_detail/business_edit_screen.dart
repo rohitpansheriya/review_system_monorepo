@@ -35,7 +35,9 @@ import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 import '../../models/branch_model.dart';
 import '../../models/business_model.dart';
+import '../../models/employee_profile_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/storage_service.dart';
@@ -72,6 +74,10 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
   String _selectedCategoryType = '';
   String? _selectedTemplateId;
 
+  // ── Enrolled by employee (admin edit) ────────────────────────────────────
+  List<EmployeeProfileModel> _employees = [];
+  String _selectedEnrolledBy = 'admin';
+
   // ── Logo — Bug 2: always rendered, upload wired via StorageService ────────
   String     _logoUrl          = '';
   Uint8List? _logoBytes;
@@ -100,9 +106,20 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
     _ownerEmailCtrl       = TextEditingController(text: biz.ownerEmail ?? '');
     _ownerPhoneE164       = biz.ownerPhone ?? '';
     _selectedCategoryType = biz.categoryType;
+    _selectedEnrolledBy   = biz.enrolledBy.isEmpty ? 'admin' : biz.enrolledBy;
     _logoUrl              = biz.logoUrl;
     _loadTemplates();
+    _loadEmployees();
     _loadBranches();
+  }
+
+  Future<void> _loadEmployees() async {
+    final svc = context.read<FirestoreService>();
+    final emps = await svc.getEmployeesList();
+    if (!mounted) return;
+    setState(() {
+      _employees = emps;
+    });
   }
 
   @override
@@ -339,6 +356,7 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
         ownerName:    cleanOwnerName,
         ownerEmail:   _ownerEmailCtrl.text.trim(),
         ownerPhone:   _ownerPhoneE164.trim(),
+        enrolledBy:   auth.isAdmin ? _selectedEnrolledBy : null,
       );
 
       // 2 — Update existing branches OR insert newly added branches
@@ -377,8 +395,18 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
           ownerName:                 _ownerNameCtrl.text.trim(),
           ownerEmail:                _ownerEmailCtrl.text.trim(),
           ownerPhone:                _ownerPhoneE164.trim(),
+          enrolledBy:                auth.isAdmin ? _selectedEnrolledBy : widget.business.enrolledBy,
+          currentlyManagedBy:        auth.isAdmin ? _selectedEnrolledBy : widget.business.currentlyManagedBy,
         );
         context.read<MyBusinessesProvider>().replaceLocal(updated);
+
+        if (auth.isAdmin) {
+          try {
+            final adminProvider = context.read<AdminDashboardProvider>();
+            await adminProvider.fetchAllBusinesses();
+            await adminProvider.fetchEmployees();
+          } catch (_) {}
+        }
 
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Row(
@@ -511,6 +539,33 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                             });
                           },
                         ),
+
+                  if (context.watch<AppAuthProvider>().isAdmin) ...[
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: _selectedEnrolledBy,
+                      decoration: const InputDecoration(
+                        labelText: 'Enrolled by (Employee) *',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                        helperText: 'Credits the selected employee for enrollment & commissions',
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: 'admin',
+                          child: Text('Admin (Direct enrollment / No commission)'),
+                        ),
+                        ..._employees.map((e) => DropdownMenuItem(
+                          value: e.uid,
+                          child: Text('${e.name} (${e.email})'),
+                        )),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedEnrolledBy = val);
+                        }
+                      },
+                    ),
+                  ],
 
                   const SizedBox(height: 20),
 

@@ -31,6 +31,7 @@ import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 import '../../models/branch_model.dart';
 import '../../models/business_model.dart';
+import '../../models/employee_profile_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/my_businesses_provider.dart';
@@ -250,6 +251,211 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showChangeEnrollerDialog(BuildContext context) async {
+    final svc = context.read<FirestoreService>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    List<EmployeeProfileModel> employees = [];
+    try {
+      employees = await svc.getEmployeesList();
+    } catch (_) {}
+
+    if (!context.mounted) return;
+
+    String selectedEmployeeUid = _business.enrolledBy.isEmpty ? 'admin' : _business.enrolledBy;
+    String reason = '';
+
+    final success = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isCurrent = selectedEmployeeUid == (_business.enrolledBy.isEmpty ? 'admin' : _business.enrolledBy);
+
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.swap_horiz_rounded, size: 24, color: AppColors.primary),
+                  SizedBox(width: 10),
+                  Text('Change Enrolled Employee'),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reassign which employee is credited for enrolling "${_business.brandName}".',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_outline, size: 20, color: Colors.grey),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Currently Enrolled By', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                  Text(
+                                    _enrolledByName ?? (_business.enrolledBy == 'admin' ? 'Admin' : _business.enrolledBy),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: selectedEmployeeUid,
+                        decoration: const InputDecoration(
+                          labelText: 'Select New Enrolled Employee *',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: 'admin',
+                            child: Text('Admin (Direct Enrollment / No Commission)'),
+                          ),
+                          ...employees.map((emp) => DropdownMenuItem(
+                                value: emp.uid,
+                                child: Text(
+                                  '${emp.name} (${emp.email})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              )),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedEmployeeUid = val);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Reason for Reassignment (Optional)',
+                          hintText: 'e.g. Territory reallocation or correction',
+                          prefixIcon: Icon(Icons.notes_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                        onChanged: (val) => reason = val.trim(),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Impact of change:\n'
+                                '• Moves business to selected employee’s panel.\n'
+                                '• Removes it from previous employee’s view.\n'
+                                '• Transferred pending commissions & enrollment counters.',
+                                style: TextStyle(fontSize: 12, height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  onPressed: isCurrent
+                      ? null
+                      : () {
+                          Navigator.of(ctx).pop(true);
+                        },
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Confirm Reassignment'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (success == true && mounted) {
+      try {
+        setState(() => _loading = true);
+        await svc.reassignBusinessEnroller(
+          businessId: _business.id,
+          newEmployeeId: selectedEmployeeUid,
+          reason: reason.isNotEmpty ? reason : 'Admin reassignment',
+        );
+
+        final newName = await svc.getEmployeeName(selectedEmployeeUid);
+
+        if (mounted) {
+          setState(() {
+            _business = _business.copyWith(
+              enrolledBy: selectedEmployeeUid,
+              currentlyManagedBy: selectedEmployeeUid,
+            );
+            _enrolledByName = newName;
+            _loading = false;
+          });
+
+          try {
+            final adminProvider = context.read<AdminDashboardProvider>();
+            await adminProvider.fetchAllBusinesses();
+            await adminProvider.fetchEmployees();
+          } catch (_) {}
+
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Enrolled employee changed to "$newName" successfully.'),
+              backgroundColor: AppColors.activeFg,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _loading = false);
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Failed to reassign enrolled employee: $e'),
+              backgroundColor: theme.colorScheme.error,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _showDeleteBusinessDialog(BuildContext context) async {
@@ -723,6 +929,33 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                 _InfoRow(
                   label: 'Enrolled by',
                   value: _enrolledByName ?? (biz.enrolledBy == 'admin' ? 'Admin' : (biz.enrolledBy.isEmpty ? '—' : 'Loading…')),
+                  trailing: isAdmin
+                      ? Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: InkWell(
+                            onTap: () => _showChangeEnrollerDialog(context),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.edit_outlined, size: 14, color: scheme.primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Change',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: scheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : null,
                 ),
                 _InfoRow(label: 'Business ID',  value: biz.id, mono: true),
               ],

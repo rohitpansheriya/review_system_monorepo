@@ -26,7 +26,6 @@ import 'owner_categories_tab.dart';
 import 'owner_star_routing_tab.dart';
 import 'owner_renewal_tab.dart';
 import 'package:go_router/go_router.dart';
-import 'google_reply_stub_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   final String? initialTab;
@@ -42,7 +41,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     'categories',
     'routing',
     'renewal',
-    'reply',
   ];
 
   bool _initialized = false;
@@ -307,13 +305,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       const OwnerCategoriesTab(),
       const OwnerStarRoutingTab(),
       const OwnerRenewalTab(),
-      const GoogleReplyStubScreen(),
     ];
 
     // Determine if renewal badge should show (≤30 days to renewal or in grace/suspended)
     final bool showRenewalBadge = _shouldShowRenewalBadge(provider);
 
-    final currentTab = provider.selectedTabIndex;
+    final currentTab = provider.selectedTabIndex.clamp(0, tabs.length - 1);
 
     return Scaffold(
       appBar: AppBar(
@@ -395,11 +392,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                 : const Icon(Icons.payment),
                             label: const Text('Renewal'),
                           ),
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.rate_review_outlined),
-                            selectedIcon: Icon(Icons.rate_review),
-                            label: Text('Google Reply'),
-                          ),
                         ],
                       ),
                       const VerticalDivider(thickness: 1, width: 1),
@@ -440,10 +432,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         )
                       : const Icon(Icons.payment_outlined),
                   label: 'Renewal',
-                ),
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.rate_review_outlined),
-                  label: 'Reply',
                 ),
               ],
             ),

@@ -919,6 +919,21 @@ class AdminDashboardProvider extends ChangeNotifier {
     _revenueSnapshot = _newEnrollmentsRevenue + _renewalsRevenue;
   }
 
+  Future<void> reassignBusinessEnroller({
+    required String businessId,
+    required String newEmployeeId,
+    String? reason,
+  }) async {
+    await _firestoreService.reassignBusinessEnroller(
+      businessId: businessId,
+      newEmployeeId: newEmployeeId,
+      reason: reason,
+    );
+    await fetchAllBusinesses();
+    await fetchEmployees();
+    await refreshPlatformStats();
+  }
+
   Future<void> updateBusinessDetailsAdmin({
     required String businessId,
     required String brandName,
@@ -927,6 +942,7 @@ class AdminDashboardProvider extends ChangeNotifier {
     required String ownerEmail,
     required String ownerPhone,
     required String subscriptionStatus,
+    String? enrolledBy,
   }) async {
     final cleanEmail = ownerEmail.trim().toLowerCase();
     final isDup = await _firestoreService.ownerEmailExistsForEdit(
@@ -947,15 +963,35 @@ class AdminDashboardProvider extends ChangeNotifier {
         );
       } catch (_) {}
     }
-    await _db.collection('businesses').doc(businessId).update({
+
+    final updateData = <String, dynamic>{
       'brand_name': brandName,
       'category_type': categoryType,
       'owner_name': ownerName,
       'owner_email': cleanEmail,
       'owner_phone': ownerPhone,
       'subscription_status': subscriptionStatus,
-    });
+    };
+
+    if (enrolledBy != null && enrolledBy.isNotEmpty) {
+      updateData['enrolled_by'] = enrolledBy;
+      updateData['currently_managed_by'] = enrolledBy;
+    }
+
+    await _db.collection('businesses').doc(businessId).update(updateData);
+
+    if (enrolledBy != null && enrolledBy.isNotEmpty) {
+      try {
+        await _firestoreService.reassignBusinessEnroller(
+          businessId: businessId,
+          newEmployeeId: enrolledBy,
+          reason: 'Updated during admin business details edit',
+        );
+      } catch (_) {}
+    }
+
     await fetchAllBusinesses();
+    await fetchEmployees();
     await refreshPlatformStats();
   }
 

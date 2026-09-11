@@ -97,5 +97,6 @@ export {
   createEmployeeAccount,
   offboardEmployee,
   verifyEmployeeDocumentsAdmin,
+  reassignBusinessEnrollerAdmin,
 } from "./employees.js";
 export {onScanCreated, reconcileBusinessStats} from "./scans.js";

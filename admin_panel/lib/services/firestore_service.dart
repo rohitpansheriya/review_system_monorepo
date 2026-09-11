@@ -60,6 +60,72 @@ class FirestoreService {
     return uid.length > 8 ? 'Emp: ${uid.substring(0, 8)}…' : uid;
   }
 
+  /// Fetches list of all employee profiles.
+  Future<List<EmployeeProfileModel>> getEmployeesList() async {
+    try {
+      final snap = await _db.collection(AppConstants.colEmployees).get();
+      final list = snap.docs.map(EmployeeProfileModel.fromDoc).toList();
+      for (final emp in list) {
+        employeeNameCache[emp.uid] = emp.name;
+      }
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Reassigns which employee enrolled a business.
+  /// Calls Cloud Function `reassignBusinessEnrollerAdmin` with Firestore fallback.
+  Future<void> reassignBusinessEnroller({
+    required String businessId,
+    required String newEmployeeId,
+    String? reason,
+  }) async {
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'asia-south1')
+          .httpsCallable('reassignBusinessEnrollerAdmin');
+      await callable.call({
+        'businessId': businessId,
+        'newEmployeeUid': newEmployeeId,
+        'reason': reason ?? 'Admin reassignment',
+      });
+    } catch (_) {
+      // Direct Firestore fallback
+      final bizRef = _db.collection(AppConstants.colBusinesses).doc(businessId);
+      final batch = _db.batch();
+      batch.update(bizRef, {
+        'enrolled_by': newEmployeeId,
+        'currently_managed_by': newEmployeeId,
+        'enroller_reassigned_at': FieldValue.serverTimestamp(),
+        'enroller_reassignment_reason': reason ?? 'Admin reassignment',
+      });
+
+      final branchesSnap = await bizRef.collection(AppConstants.colBranches).get();
+      for (final bDoc in branchesSnap.docs) {
+        batch.update(bDoc.reference, {'enrolled_by': newEmployeeId});
+      }
+
+      final commSnap = await _db
+          .collection('employee_commissions')
+          .where('business_id', isEqualTo: businessId)
+          .get();
+      for (final cDoc in commSnap.docs) {
+        if (cDoc.data()['status'] == 'pending') {
+          if (newEmployeeId == 'admin') {
+            batch.delete(cDoc.reference);
+          } else {
+            batch.update(cDoc.reference, {
+              'employee_id': newEmployeeId,
+              'transferred_at': FieldValue.serverTimestamp(),
+            });
+          }
+        }
+      }
+
+      await batch.commit();
+    }
+  }
+
   // ── Category templates ────────────────────────────────────────────────────
 
   List<Map<String, dynamic>>? _cachedTemplates;
@@ -351,6 +417,7 @@ class FirestoreService {
     required String ownerName,
     required String ownerEmail,
     required String ownerPhone,
+    String? enrolledBy,
   }) async {
     final cleanEmail = ownerEmail.trim().toLowerCase();
     final isDup = await ownerEmailExistsForEdit(cleanEmail, businessId);
@@ -361,7 +428,7 @@ class FirestoreService {
     final cleanBrandName = StringUtils.toTitleCase(brandName);
     final cleanOwnerName = StringUtils.toTitleCase(ownerName);
 
-    await _db.collection(AppConstants.colBusinesses).doc(businessId).update({
+    final updateData = <String, dynamic>{
       'brand_name':                   cleanBrandName,
       'logo_url':                     logoUrl,
       'category_type':                categoryType,
@@ -369,10 +436,25 @@ class FirestoreService {
       'owner_name':                   cleanOwnerName,
       'owner_email':                  cleanEmail,
       'owner_phone':                  ownerPhone.trim(),
-      // Payment/lifecycle fields intentionally omitted:
-      // subscription_status, renewal_date, grace_period_ends,
-      // enrolled_by, enrolled_by_original, owner_auth_uid — never touched here.
-    });
+    };
+
+    if (enrolledBy != null && enrolledBy.isNotEmpty) {
+      updateData['enrolled_by'] = enrolledBy;
+      updateData['currently_managed_by'] = enrolledBy;
+    }
+
+    await _db.collection(AppConstants.colBusinesses).doc(businessId).update(updateData);
+
+    if (enrolledBy != null && enrolledBy.isNotEmpty) {
+      // Reassign branches and pending commissions as well
+      try {
+        await reassignBusinessEnroller(
+          businessId: businessId,
+          newEmployeeId: enrolledBy,
+          reason: 'Updated during business edit',
+        );
+      } catch (_) {}
+    }
   }
 
   /// Updates allowed branch-level fields.

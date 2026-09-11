@@ -162,12 +162,21 @@ export const confirmCashPaymentAdmin = onCall(
     const unpaidCount = targetBranches.length > 0 ? targetBranches.length : 1;
     const totalCashAmount = unpaidCount * 1999;
 
+    let totalSetupFee = 0;
+    for (const bDoc of branchesSnap.docs) {
+      const isTarget = targetBranches.some((t) => t.id === bDoc.id);
+      const isAlreadyActive = bDoc.data().subscription_status === "active";
+      if (isTarget || isAlreadyActive) {
+        totalSetupFee += (bDoc.data().setup_fee_paid as number) || (bDoc.data().amount_paid as number) || 1999;
+      }
+    }
+
     const updateData: Record<string, unknown> = {
       subscription_status: "active",
       renewal_date: Timestamp.fromDate(renewalDate),
       payment_mode: "cash",
-      setup_fee_paid: FieldValue.increment(totalCashAmount),
-      amount_paid: FieldValue.increment(totalCashAmount),
+      setup_fee_paid: totalSetupFee,
+      amount_paid: totalSetupFee,
       cash_payment_confirmed_at: now,
       cash_confirmed_by_admin: request.auth.uid,
       has_grace_branches: false,
@@ -348,6 +357,13 @@ export const adminCashActivateBranch = onCall(
       else hasInactive = true;
     }
 
+    let totalSetupFee = 0;
+    for (const doc of allBranchesSnap.docs) {
+      if (doc.id === branchId || doc.data().subscription_status === "active") {
+        totalSetupFee += (doc.data().setup_fee_paid as number) || (doc.data().amount_paid as number) || 1999;
+      }
+    }
+
     const bizUpdatePayload: Record<string, unknown> = {
       subscription_status: "active",
       payment_mode: "cash",
@@ -357,17 +373,14 @@ export const adminCashActivateBranch = onCall(
       has_inactive_branches: hasInactive,
       cash_payment_confirmed_at: now,
       cash_confirmed_by_admin: request.auth.uid,
+      amount_paid: totalSetupFee,
+      setup_fee_paid: totalSetupFee,
     };
 
     if (bizData.subscription_status === "pending_payment") {
       const renewalDate = new Date();
       renewalDate.setDate(renewalDate.getDate() + 365);
       bizUpdatePayload.renewal_date = Timestamp.fromDate(renewalDate);
-      bizUpdatePayload.amount_paid = 1999;
-      bizUpdatePayload.setup_fee_paid = 1999;
-    } else {
-      bizUpdatePayload.amount_paid = FieldValue.increment(1999);
-      bizUpdatePayload.setup_fee_paid = FieldValue.increment(1999);
     }
 
     await bizRef.update(bizUpdatePayload);

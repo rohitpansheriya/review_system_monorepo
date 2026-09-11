@@ -37,6 +37,14 @@ class BranchModel {
   final Map<String, int> starDistribution;
   final Map<String, Map<String, dynamic>> monthlyStats;
 
+  // ── Google Reputation Baseline & Growth ────────────────────────────────────
+  final double? initialRating;
+  final int? initialReviewCount;
+  final DateTime? initialRatingCapturedAt;
+  final double? currentRating;
+  final int? currentReviewCount;
+  final DateTime? lastRatingSyncAt;
+
   const BranchModel({
     required this.id,
     required this.businessId,
@@ -67,16 +75,51 @@ class BranchModel {
     this.googleReviewsOpened = 0,
     this.starDistribution = const {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0},
     this.monthlyStats = const {},
+    this.initialRating,
+    this.initialReviewCount,
+    this.initialRatingCapturedAt,
+    this.currentRating,
+    this.currentReviewCount,
+    this.lastRatingSyncAt,
   });
 
   bool get isPendingPayment => subscriptionStatus == AppConstants.statusPendingPayment;
   bool get isActive => subscriptionStatus == AppConstants.statusActive;
 
+  static DateTime? _parseDate(dynamic val) {
+    if (val == null) return null;
+    if (val is Timestamp) return val.toDate();
+    if (val is DateTime) return val;
+    if (val is String) return DateTime.tryParse(val);
+    if (val is num) return DateTime.fromMillisecondsSinceEpoch(val.toInt());
+    return null;
+  }
+
   factory BranchModel.fromDoc(DocumentSnapshot doc, {required String businessId}) {
-    final d = doc.data() as Map<String, dynamic>;
-    final rawRouting = d['star_routing_config'] as Map<String, dynamic>? ?? {};
-    final stats = d['stats_summary'] as Map<String, dynamic>? ?? {};
-    final rawStars = stats['star_counts'] as Map<String, dynamic>? ?? stats['star_distribution'] as Map<String, dynamic>? ?? {};
+    final rawData = doc.data();
+    final d = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
+
+    final rawRouting = d['star_routing_config'] ?? d['starRoutingConfig'];
+    final routingMap = <String, String>{
+      '1': 'thankyou',
+      '2': 'thankyou',
+      '3': 'whatsapp',
+      '4': 'google',
+      '5': 'google',
+    };
+    if (rawRouting is Map) {
+      rawRouting.forEach((k, v) {
+        if (k != null && v != null) {
+          routingMap[k.toString()] = v.toString();
+        }
+      });
+    }
+
+    final rawStats = d['stats_summary'];
+    final stats = rawStats is Map ? Map<String, dynamic>.from(rawStats) : <String, dynamic>{};
+    final rawStars = stats['star_counts'] is Map
+        ? stats['star_counts'] as Map
+        : (stats['star_distribution'] is Map ? stats['star_distribution'] as Map : const {});
 
     final starsMap = <String, int>{
       '1': (rawStars['1'] as num? ?? 0).toInt(),
@@ -86,59 +129,67 @@ class BranchModel {
       '5': (rawStars['5'] as num? ?? 0).toInt(),
     };
 
-    final rawMonthly = d['monthly_stats'] as Map<String, dynamic>? ?? {};
+    final rawMonthly = d['monthly_stats'];
     final parsedMonthly = <String, Map<String, dynamic>>{};
-    rawMonthly.forEach((mKey, val) {
-      if (val is Map<String, dynamic>) {
-        final mStars = val['star_counts'] as Map<String, dynamic>? ??
-            val['star_distribution'] as Map<String, dynamic>? ?? {};
-        parsedMonthly[mKey] = {
-          'total_scans': (val['total_scans'] as num? ?? 0).toInt(),
-          'google_reviews_opened': (val['google_reviews_opened'] as num? ??
-              val['total_reviews_redirected'] as num? ?? 0).toInt(),
-          'private_issues': (val['private_issues'] as num? ?? 0).toInt(),
-          'star_distribution': {
-            '1': (mStars['1'] as num? ?? 0).toInt(),
-            '2': (mStars['2'] as num? ?? 0).toInt(),
-            '3': (mStars['3'] as num? ?? 0).toInt(),
-            '4': (mStars['4'] as num? ?? 0).toInt(),
-            '5': (mStars['5'] as num? ?? 0).toInt(),
-          },
-        };
-      }
-    });
+    if (rawMonthly is Map) {
+      rawMonthly.forEach((mKey, val) {
+        if (val is Map) {
+          final mStars = val['star_counts'] is Map
+              ? val['star_counts'] as Map
+              : (val['star_distribution'] is Map ? val['star_distribution'] as Map : const {});
+          parsedMonthly[mKey.toString()] = {
+            'total_scans': (val['total_scans'] as num? ?? 0).toInt(),
+            'google_reviews_opened': (val['google_reviews_opened'] as num? ??
+                val['total_reviews_redirected'] as num? ?? 0).toInt(),
+            'private_issues': (val['private_issues'] as num? ?? 0).toInt(),
+            'star_distribution': {
+              '1': (mStars['1'] as num? ?? 0).toInt(),
+              '2': (mStars['2'] as num? ?? 0).toInt(),
+              '3': (mStars['3'] as num? ?? 0).toInt(),
+              '4': (mStars['4'] as num? ?? 0).toInt(),
+              '5': (mStars['5'] as num? ?? 0).toInt(),
+            },
+          };
+        }
+      });
+    }
 
     return BranchModel(
       id:               doc.id,
       businessId:       businessId,
-      branchName:       d['branch_name']       as String? ?? '',
-      address:          d['address']            as String? ?? '',
-      whatsappNumber:   d['whatsapp_number']    as String? ?? '',
-      placeId:          d['place_id']           as String?,
-      googleReviewLink: d['google_review_link'] as String?,
-      starRoutingConfig: rawRouting.map((k, v) => MapEntry(k, v as String)),
-      qrCodeId:         d['qr_code_id']         as String?,
-      nfcTagId:         d['nfc_tag_id']         as String?,
-      plainQrStoragePath:     d['plain_qr_storage_path'] as String?,
-      standeeStatus:          d['standee_status']        as String?
-                                  ?? AppConstants.standeeOrdered,
-      standeeStatusUpdatedAt: (d['standee_status_updated_at'] as Timestamp?)?.toDate(),
-      whatsappMonitoredBy:    d['whatsapp_monitored_by'] as String? ?? '',
-      subscriptionStatus:     d['subscription_status'] as String? ?? AppConstants.statusPendingPayment,
-      paymentMode:            d['payment_mode'] as String? ?? 'pending',
-      enrolledBy:             d['enrolled_by'] as String?,
-      cashConfirmedAt:        (d['cash_payment_confirmed_at'] as Timestamp?)?.toDate(),
-      cashConfirmedByAdmin:   d['cash_confirmed_by_admin'] as String?,
+      branchName:       d['branch_name']?.toString() ?? d['name']?.toString() ?? '',
+      address:          d['address']?.toString() ?? '',
+      whatsappNumber:   d['whatsapp_number']?.toString() ?? '',
+      placeId:          d['place_id']?.toString() ?? d['placeId']?.toString(),
+      googleReviewLink: d['google_review_link']?.toString() ?? d['googleReviewLink']?.toString(),
+      starRoutingConfig: routingMap,
+      qrCodeId:         d['qr_code_id']?.toString(),
+      nfcTagId:         d['nfc_tag_id']?.toString(),
+      plainQrStoragePath:     d['plain_qr_storage_path']?.toString(),
+      standeeStatus:          d['standee_status']?.toString() ?? AppConstants.standeeOrdered,
+      standeeStatusUpdatedAt: _parseDate(d['standee_status_updated_at'] ?? d['standeeStatusUpdatedAt']),
+      whatsappMonitoredBy:    d['whatsapp_monitored_by']?.toString() ?? d['whatsappMonitoredBy']?.toString() ?? '',
+      subscriptionStatus:     d['subscription_status']?.toString() ?? AppConstants.statusPendingPayment,
+      paymentMode:            d['payment_mode']?.toString() ?? 'pending',
+      enrolledBy:             d['enrolled_by']?.toString(),
+      cashConfirmedAt:        _parseDate(d['cash_payment_confirmed_at'] ?? d['cashConfirmedAt']),
+      cashConfirmedByAdmin:   d['cash_confirmed_by_admin']?.toString(),
       amountPaid:             (d['amount_paid'] as num?)?.toDouble(),
       setupFeePaid:           (d['setup_fee_paid'] as num?)?.toDouble(),
       renewalAmountPaid:      (d['renewal_amount_paid'] as num?)?.toDouble(),
-      renewalDate:            (d['renewal_date'] as Timestamp?)?.toDate(),
-      gracePeriodEnds:        (d['grace_period_ends'] as Timestamp?)?.toDate(),
-      lastRenewalLinkUrl:     d['last_renewal_link_url'] as String?,
+      renewalDate:            _parseDate(d['renewal_date'] ?? d['renewalDate']),
+      gracePeriodEnds:        _parseDate(d['grace_period_ends'] ?? d['gracePeriodEnds']),
+      lastRenewalLinkUrl:     d['last_renewal_link_url']?.toString(),
       totalScans:             (stats['total_scans'] as num? ?? d['stats_summary.total_scans'] as num? ?? d['total_scans'] as num? ?? 0).toInt(),
       googleReviewsOpened:    (stats['google_reviews_opened'] as num? ?? stats['total_reviews_redirected'] as num? ?? stats['monthly_google_reviews'] as num? ?? d['stats_summary.google_reviews_opened'] as num? ?? 0).toInt(),
       starDistribution:       starsMap,
       monthlyStats:           parsedMonthly,
+      initialRating:          (d['initial_rating'] as num? ?? d['initialRating'] as num?)?.toDouble(),
+      initialReviewCount:     (d['initial_review_count'] as num? ?? d['initialReviewCount'] as num?)?.toInt(),
+      initialRatingCapturedAt: _parseDate(d['initial_rating_captured_at'] ?? d['initialRatingCapturedAt']),
+      currentRating:          (d['current_rating'] as num? ?? d['currentRating'] as num?)?.toDouble(),
+      currentReviewCount:     (d['current_review_count'] as num? ?? d['currentReviewCount'] as num?)?.toInt(),
+      lastRatingSyncAt:       _parseDate(d['last_rating_sync_at'] ?? d['lastRatingSyncAt']),
     );
   }
 
@@ -154,6 +205,12 @@ class BranchModel {
     DateTime? gracePeriodEnds,
     double? renewalAmountPaid,
     String? lastRenewalLinkUrl,
+    double? initialRating,
+    int? initialReviewCount,
+    DateTime? initialRatingCapturedAt,
+    double? currentRating,
+    int? currentReviewCount,
+    DateTime? lastRatingSyncAt,
   }) {
     return BranchModel(
       id: id,
@@ -184,6 +241,13 @@ class BranchModel {
       totalScans: totalScans,
       googleReviewsOpened: googleReviewsOpened,
       starDistribution: starDistribution,
+      monthlyStats: monthlyStats,
+      initialRating: initialRating ?? this.initialRating,
+      initialReviewCount: initialReviewCount ?? this.initialReviewCount,
+      initialRatingCapturedAt: initialRatingCapturedAt ?? this.initialRatingCapturedAt,
+      currentRating: currentRating ?? this.currentRating,
+      currentReviewCount: currentReviewCount ?? this.currentReviewCount,
+      lastRatingSyncAt: lastRatingSyncAt ?? this.lastRatingSyncAt,
     );
   }
 }

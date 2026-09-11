@@ -62,7 +62,7 @@ setGlobalOptions({maxInstances: 10, region: "asia-south1"});
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
-export {searchPlaces, getPlacePhoto} from "./placeSearch.js";
+export {searchPlaces, getPlacePhoto, syncBranchGoogleRating} from "./placeSearch.js";
 export {onBranchCreated, generateBranchQr} from "./qrGenerator.js";
 export {
   createOrder,

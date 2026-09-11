@@ -470,6 +470,31 @@ class OwnerDashboardProvider extends ChangeNotifier {
     await loadOwnerData(ownerUid, forceReload: true);
   }
 
+  /// Triggers Cloud Function to sync Google Places rating & review count for branch(es).
+  Future<int> syncGoogleRatings() async {
+    if (_business == null) return 0;
+    final functions = FirebaseFunctions.instanceFor(region: 'asia-south1');
+    final targets = _selectedBranchId == 'all'
+        ? _branches.where((b) => (b.placeId ?? '').isNotEmpty).toList()
+        : _branches.where((b) => b.id == _selectedBranchId && (b.placeId ?? '').isNotEmpty).toList();
+
+    int successCount = 0;
+    for (final branch in targets) {
+      try {
+        await functions
+            .httpsCallable('syncBranchGoogleRating')
+            .call({
+              'branchId': branch.id,
+              'businessId': _business!.id,
+            });
+        successCount++;
+      } catch (e) {
+        debugPrint('Error syncing rating for branch ${branch.id}: $e');
+      }
+    }
+    return successCount;
+  }
+
   @override
   void dispose() {
     _branchesSub?.cancel();

@@ -23,12 +23,16 @@ class PlaceCandidate {
   final String name;
   final String address;
   final String? photoReference; // Opaque token — use getPlacePhoto function
+  final double? rating;
+  final int? userRatingCount;
 
   const PlaceCandidate({
     required this.placeId,
     required this.name,
     required this.address,
     this.photoReference,
+    this.rating,
+    this.userRatingCount,
   });
 
   factory PlaceCandidate.fromMap(Map map) => PlaceCandidate(
@@ -36,6 +40,8 @@ class PlaceCandidate {
         name:           map['name']           as String? ?? '',
         address:        map['address']        as String? ?? '',
         photoReference: map['photoReference'] as String?,
+        rating:         (map['rating'] as num?)?.toDouble(),
+        userRatingCount: (map['userRatingCount'] as num?)?.toInt(),
       );
 }
 
@@ -86,5 +92,16 @@ class PlacesService {
       print('PlacesService.search unexpected: $e');
       return [];
     }
+  }
+
+  /// Syncs Google Places rating and review count for a branch.
+  Future<Map<String, dynamic>> syncBranchGoogleRating(String branchId, {String? businessId}) async {
+    final result = await _functions
+        .httpsCallable(AppConstants.fnSyncBranchGoogleRating)
+        .call({
+          'branchId': branchId.trim(),
+          if (businessId != null && businessId.trim().isNotEmpty) 'businessId': businessId.trim(),
+        });
+    return Map<String, dynamic>.from(result.data as Map);
   }
 }

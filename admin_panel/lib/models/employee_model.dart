@@ -21,12 +21,13 @@ class EmployeeModel {
   });
 
   factory EmployeeModel.fromDoc(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+    final rawData = doc.data();
+    final d = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
     return EmployeeModel(
       id:                   doc.id,
-      name:                 d['name'] as String? ?? '',
-      contact:              d['contact'] as String? ?? '',
-      role:                 d['role'] as String? ?? '',
+      name:                 d['name']?.toString() ?? '',
+      contact:              d['contact']?.toString() ?? '',
+      role:                 d['role']?.toString() ?? '',
       active:               d['active'] as bool? ?? true,
       totalEnrollments:     (d['total_enrollments'] as num?)?.toInt() ?? 0,
       thisMonthEnrollments: (d['this_month_enrollments'] as num?)?.toInt() ?? 0,

@@ -18,6 +18,9 @@ class BranchDraft {
   /// Optional — enrollment never hard-blocks on this field being blank.
   String? placeId;
   String? googleReviewLink;
+  double? initialRating;
+  int? initialReviewCount;
+  DateTime? initialRatingCapturedAt;
 
   // ── WhatsApp monitoring contact (Change 5) ─────────────────────────────────
   /// Who monitors the WhatsApp number for incoming 1-3 star feedback messages.
@@ -68,6 +71,9 @@ class BranchDraft {
     googleReviewLink = candidate.placeId.isNotEmpty
         ? 'https://search.google.com/local/writereview?placeid=${StringUtils.sanitizePlaceId(candidate.placeId)}'
         : null;
+    initialRating          = candidate.rating;
+    initialReviewCount     = candidate.userRatingCount;
+    initialRatingCapturedAt = candidate.rating != null || candidate.userRatingCount != null ? DateTime.now() : null;
     placePrefilled = true;
     candidates     = [];
     searchError    = null;
@@ -142,5 +148,12 @@ class BranchDraft {
       'star_counts': {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0},
       'last_updated':            null,
     },
+    // Google Places initial baseline rating captured at enrollment
+    'initial_rating':             initialRating,
+    'initial_review_count':       initialReviewCount,
+    'initial_rating_captured_at': initialRatingCapturedAt,
+    'current_rating':             initialRating,
+    'current_review_count':       initialReviewCount,
+    'last_rating_sync_at':        initialRatingCapturedAt,
   };
 }

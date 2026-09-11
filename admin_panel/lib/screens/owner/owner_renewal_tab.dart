@@ -147,7 +147,6 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
 
   /// Generates or fetches a shareable payment link for combined or branch-specific renewal.
   Future<void> _generateAndCopyPaymentLink({
-    required BuildContext context,
     required String businessId,
     BranchModel? branch,
   }) async {
@@ -735,7 +734,6 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
                             onPressed: isGeneratingAll
                                 ? null
                                 : () => _generateAndCopyPaymentLink(
-                                      context: context,
                                       businessId: biz.id,
                                     ),
                             icon: isGeneratingAll
@@ -800,7 +798,6 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
                           onPressed: isGeneratingAll
                               ? null
                               : () => _generateAndCopyPaymentLink(
-                                    context: context,
                                     businessId: biz.id,
                                   ),
                           icon: isGeneratingAll
@@ -1004,7 +1001,6 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
                         onPressed: isGeneratingThis
                             ? null
                             : () => _generateAndCopyPaymentLink(
-                                  context: context,
                                   businessId: biz.id,
                                   branch: branch,
                                 ),
@@ -1060,7 +1056,6 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
                         onPressed: isGeneratingThis
                             ? null
                             : () => _generateAndCopyPaymentLink(
-                                  context: context,
                                   businessId: biz.id,
                                   branch: branch,
                                 ),

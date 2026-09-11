@@ -5,6 +5,7 @@
 // how 1-3★ negative feedback is routed privately while 4-5★ reviews
 // are directed to Google Reviews. Read-only to prevent accidental misconfigurations.
 
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

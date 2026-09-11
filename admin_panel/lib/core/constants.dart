@@ -36,6 +36,7 @@ class AppConstants {
   static const String fnMarkCommissionsPaidBulk      = 'markCommissionsPaidBulk';
   static const String fnDeleteBusinessAdmin          = 'deleteBusinessAdmin';
   static const String fnDeleteBranchAdmin            = 'deleteBranchAdmin';
+  static const String fnSyncBranchGoogleRating       = 'syncBranchGoogleRating';
 
   // ── Star routing option values ──────────────────────────────────────────────
   static const String routingThankyou = 'thankyou';

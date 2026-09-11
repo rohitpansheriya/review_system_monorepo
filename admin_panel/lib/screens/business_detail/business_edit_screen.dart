@@ -408,6 +408,8 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
           } catch (_) {}
         }
 
+        if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Row(
             children: [

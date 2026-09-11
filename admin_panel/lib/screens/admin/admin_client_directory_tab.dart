@@ -522,7 +522,7 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.4)),
+        border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Row(
@@ -559,13 +559,13 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        side: BorderSide(color: colorScheme.outline.withOpacity(0.15)),
+        side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.15)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
           headingRowColor: WidgetStateProperty.all(
-            colorScheme.surfaceContainerHighest.withOpacity(0.5),
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           ),
           dataRowMinHeight: 56,
           dataRowMaxHeight: 72,
@@ -932,7 +932,7 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
           padding: const EdgeInsets.all(48),
           child: Column(
             children: [
-              Icon(Icons.search_off_rounded, size: 56, color: colorScheme.onSurfaceVariant.withOpacity(0.4)),
+              Icon(Icons.search_off_rounded, size: 56, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
               const SizedBox(height: 16),
               Text(
                 'No businesses match your search.',
@@ -1367,7 +1367,7 @@ class _KpiCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        side: BorderSide(color: color.withOpacity(0.2)),
+        side: BorderSide(color: color.withValues(alpha: 0.2)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -1380,7 +1380,7 @@ class _KpiCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+                    color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
                   child: Icon(icon, size: 20, color: color),

@@ -55,6 +55,15 @@ class StandeeFulfillmentModel {
     this.deliveredVia,
   });
 
+  static DateTime? _parseDate(dynamic val) {
+    if (val == null) return null;
+    if (val is Timestamp) return val.toDate();
+    if (val is DateTime) return val;
+    if (val is String) return DateTime.tryParse(val);
+    if (val is num) return DateTime.fromMillisecondsSinceEpoch(val.toInt());
+    return null;
+  }
+
   factory StandeeFulfillmentModel.fromDoc({
     required String businessId,
     required String businessName,
@@ -67,8 +76,9 @@ class StandeeFulfillmentModel {
     String? enrolledByAddress,
     required DocumentSnapshot branchDoc,
   }) {
-    final d = branchDoc.data() as Map<String, dynamic>? ?? {};
-    final branchEnrolledBy = d['enrolled_by'] as String? ?? enrolledBy;
+    final rawData = branchDoc.data();
+    final d = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
+    final branchEnrolledBy = d['enrolled_by']?.toString() ?? enrolledBy;
 
     return StandeeFulfillmentModel(
       businessId: businessId,
@@ -77,21 +87,21 @@ class StandeeFulfillmentModel {
       ownerPhone: ownerPhone,
       ownerEmail: ownerEmail,
       branchId: branchDoc.id,
-      branchName: d['branch_name'] as String? ?? businessName,
-      address: d['address'] as String? ?? '',
-      standeeStatus: d['standee_status'] as String? ?? AppConstants.standeeOrdered,
-      standeeStatusUpdatedAt: (d['standee_status_updated_at'] as Timestamp?)?.toDate(),
-      qrCodeId: d['qr_code_id'] as String?,
-      plainQrStoragePath: d['plain_qr_storage_path'] as String?,
+      branchName: d['branch_name']?.toString() ?? businessName,
+      address: d['address']?.toString() ?? '',
+      standeeStatus: d['standee_status']?.toString() ?? AppConstants.standeeOrdered,
+      standeeStatusUpdatedAt: _parseDate(d['standee_status_updated_at']),
+      qrCodeId: d['qr_code_id']?.toString(),
+      plainQrStoragePath: d['plain_qr_storage_path']?.toString(),
       enrolledBy: branchEnrolledBy,
       enrolledByName: enrolledByName,
       enrolledByPhone: enrolledByPhone,
       enrolledByAddress: enrolledByAddress,
-      courierName: d['courier_name'] as String?,
-      courierAwb: d['courier_awb'] as String?,
-      shippedAt: (d['shipped_at'] as Timestamp?)?.toDate(),
-      deliveredAt: (d['delivered_at'] as Timestamp?)?.toDate(),
-      deliveredVia: d['delivered_via'] as String?,
+      courierName: d['courier_name']?.toString(),
+      courierAwb: d['courier_awb']?.toString(),
+      shippedAt: _parseDate(d['shipped_at']),
+      deliveredAt: _parseDate(d['delivered_at']),
+      deliveredVia: d['delivered_via']?.toString(),
     );
   }
 }

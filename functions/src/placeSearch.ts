@@ -14,6 +14,7 @@
 
 import {onCall, onRequest, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import {getFirestore, Timestamp} from "firebase-admin/firestore";
 import {placeApiKey} from "./secrets.js";
 
 // ---------------------------------------------------------------------------
@@ -30,6 +31,8 @@ export interface PlaceCandidate {
    * The API key is never included in this token or returned to the client.
    */
   photoReference: string | null;
+  rating?: number | null;
+  userRatingCount?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,12 +99,16 @@ export const searchPlaces = onCall(
           address: `101 Commercial Street, ${loc}`,
           placeId: `ChIJ_mock_${mockSlug}_001`,
           photoReference: null,
+          rating: 4.6,
+          userRatingCount: 128,
         },
         {
           name: `${name} - City Center`,
           address: `45 Station Road, ${loc}`,
           placeId: `ChIJ_mock_${mockSlug}_002`,
           photoReference: null,
+          rating: 4.3,
+          userRatingCount: 79,
         },
       ],
     });
@@ -141,7 +148,7 @@ export const searchPlaces = onCall(
           "Content-Type": "application/json",
           "X-Goog-Api-Key": apiKey,
           "X-Goog-FieldMask":
-            "places.id,places.displayName,places.formattedAddress,places.photos",
+            "places.id,places.displayName,places.formattedAddress,places.photos,places.rating,places.userRatingCount",
         },
         body: JSON.stringify({
           textQuery: `${name} ${loc}`,
@@ -204,11 +211,22 @@ export const searchPlaces = onCall(
             (photos[0]["name"] as string) :
             null;
 
+        const ratingVal =
+          typeof place["rating"] === "number" ?
+            place["rating"] :
+            null;
+        const countVal =
+          typeof place["userRatingCount"] === "number" ?
+            place["userRatingCount"] :
+            null;
+
         return {
           name: placeName,
           address: (place["formattedAddress"] as string) ?? "",
           placeId: (place["id"] as string) ?? "",
           photoReference: photoRef,
+          rating: ratingVal,
+          userRatingCount: countVal,
         };
       });
 
@@ -219,6 +237,155 @@ export const searchPlaces = onCall(
     });
 
     return {candidates};
+  }
+);
+
+// ---------------------------------------------------------------------------
+// syncBranchGoogleRating
+// ---------------------------------------------------------------------------
+
+/**
+ * Callable: sync or fetch Google Places rating & review count for a branch.
+ * If the branch does not have `initial_rating` set yet (e.g. legacy enrolled businesses),
+ * it sets initial_rating, initial_review_count, and initial_rating_captured_at.
+ * Also updates current_rating, current_review_count, and last_rating_sync_at.
+ *
+ * Input: { branchId: string }
+ * Output: { success: boolean, rating: number | null, userRatingCount: number | null, isNewBaseline: boolean }
+ */
+export const syncBranchGoogleRating = onCall(
+  {secrets: [placeApiKey], maxInstances: 10},
+  async (request) => {
+    requireAuth(request.auth);
+
+    const {branchId, businessId} = request.data as {branchId?: unknown; businessId?: unknown};
+    if (typeof branchId !== "string" || branchId.trim().length === 0) {
+      throw new HttpsError("invalid-argument", "Valid `branchId` is required.");
+    }
+
+    const db = getFirestore();
+    let branchRef: FirebaseFirestore.DocumentReference | null = null;
+    let branchSnap: FirebaseFirestore.DocumentSnapshot | null = null;
+
+    if (typeof businessId === "string" && businessId.trim().length > 0) {
+      branchRef = db.collection("businesses").doc(businessId.trim()).collection("branches").doc(branchId.trim());
+      branchSnap = await branchRef.get();
+    }
+
+    if (!branchSnap || !branchSnap.exists) {
+      const groupSnap = await db.collectionGroup("branches").get();
+      const match = groupSnap.docs.find((d) => d.id === branchId.trim());
+      if (match) {
+        branchRef = match.ref;
+        branchSnap = match;
+      }
+    }
+
+    if (!branchSnap || !branchSnap.exists || !branchRef) {
+      throw new HttpsError("not-found", `Branch "${branchId}" not found.`);
+    }
+
+    const branchData = branchSnap.data() || {};
+    const placeId = (branchData.place_id as string | undefined)?.trim();
+
+    if (!placeId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This branch does not have a Google Place ID configured."
+      );
+    }
+
+    // Enforce 7-day rate limit for non-admin callers if an initial baseline or previous sync exists
+    const lastSyncRaw = branchData.last_rating_sync_at || branchData.initial_rating_captured_at;
+    const hasExistingBaseline = branchData.initial_rating !== undefined && branchData.initial_rating !== null;
+    const isAdmin = request.auth?.token?.role === "admin";
+
+    if (!isAdmin && hasExistingBaseline && lastSyncRaw) {
+      const lastSyncDate =
+        typeof (lastSyncRaw as FirebaseFirestore.Timestamp).toDate === "function" ?
+          (lastSyncRaw as FirebaseFirestore.Timestamp).toDate() :
+          new Date(lastSyncRaw as string | number);
+
+      const nextEligibleTime = lastSyncDate.getTime() + 7 * 24 * 60 * 60 * 1000;
+      if (Date.now() < nextEligibleTime) {
+        const remainingMs = nextEligibleTime - Date.now();
+        const remainingDays = Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+        throw new HttpsError(
+          "failed-precondition",
+          `Google Places rating sync is available once every 7 days. Next update unlocks in ${remainingDays} day${remainingDays === 1 ? "" : "s"}.`
+        );
+      }
+    }
+
+    let rating: number | null = null;
+    let userRatingCount: number | null = null;
+
+    const apiKey = placeApiKey.value();
+    if (!apiKey || apiKey === "PLACEHOLDER" || apiKey.length < 10) {
+      // Mock mode: generate mock baseline or refreshed stats
+      logger.info("syncBranchGoogleRating: Mock API key active, generating mock rating");
+      rating = branchData.current_rating ?? branchData.initial_rating ?? 4.5;
+      userRatingCount = (branchData.current_review_count ?? branchData.initial_review_count ?? 120) + 3;
+    } else {
+      // Places API (New) Place Details: GET https://places.googleapis.com/v1/places/{placeId}
+      const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`;
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "id,rating,userRatingCount,displayName",
+          },
+        });
+
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          logger.warn("Places Details API error", {status: res.status, errText, placeId});
+          throw new HttpsError("unavailable", `Google Places API returned HTTP ${res.status}`);
+        }
+
+        const data = (await res.json()) as Record<string, unknown>;
+        rating = typeof data["rating"] === "number" ? data["rating"] : null;
+        userRatingCount = typeof data["userRatingCount"] === "number" ? data["userRatingCount"] : null;
+      } catch (err) {
+        if (err instanceof HttpsError) throw err;
+        logger.error("Failed to fetch Google Place details", {err, placeId});
+        throw new HttpsError("internal", "Failed to retrieve Place details from Google.");
+      }
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      current_rating: rating,
+      current_review_count: userRatingCount,
+      last_rating_sync_at: Timestamp.now(),
+      updated_at: Timestamp.now(),
+    };
+
+    let isNewBaseline = false;
+    if (branchData.initial_rating === undefined || branchData.initial_rating === null) {
+      updatePayload.initial_rating = rating;
+      updatePayload.initial_review_count = userRatingCount;
+      updatePayload.initial_rating_captured_at = Timestamp.now();
+      isNewBaseline = true;
+    }
+
+    await branchRef.update(updatePayload);
+
+    logger.info("syncBranchGoogleRating updated branch", {
+      branchId,
+      placeId,
+      rating,
+      userRatingCount,
+      isNewBaseline,
+    });
+
+    return {
+      success: true,
+      rating,
+      userRatingCount,
+      isNewBaseline,
+    };
   }
 );
 

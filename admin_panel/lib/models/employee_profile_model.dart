@@ -109,41 +109,43 @@ class EmployeeProfileModel {
 
   // ── From Firestore ────────────────────────────────────────────────────────
   factory EmployeeProfileModel.fromDoc(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+    final rawData = doc.data();
+    final d = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
 
-    final profile = d['profile'] as Map<String, dynamic>? ?? {};
-    final payout  = d['payout']  as Map<String, dynamic>? ?? {};
-    final rawDocs = d['documents'] as List<dynamic>? ?? [];
+    final profile = d['profile'] is Map ? Map<String, dynamic>.from(d['profile'] as Map) : <String, dynamic>{};
+    final payout  = d['payout'] is Map ? Map<String, dynamic>.from(d['payout'] as Map) : <String, dynamic>{};
+    final rawDocs = d['documents'] as List? ?? [];
 
-    final topName  = d['name'] as String? ?? '';
-    final topEmail = d['email'] as String? ?? d['contact'] as String? ?? '';
-    final topPhone = d['phone'] as String? ?? '';
+    final topName  = d['name']?.toString() ?? '';
+    final topEmail = d['email']?.toString() ?? d['contact']?.toString() ?? '';
+    final topPhone = d['phone']?.toString() ?? '';
 
     return EmployeeProfileModel(
       uid:                  doc.id,
-      status:               d['status'] as String? ?? (d['active'] == false ? 'inactive' : 'active'),
+      status:               d['status']?.toString() ?? (d['active'] == false ? 'inactive' : 'active'),
       totalEnrollments:     (d['total_enrollments'] as num?)?.toInt() ?? 0,
       thisMonthEnrollments: (d['this_month_enrollments'] as num?)?.toInt() ?? 0,
-      fullName:             (profile['full_name'] as String? ?? '').isNotEmpty
-                                ? (profile['full_name'] as String)
+      fullName:             (profile['full_name']?.toString() ?? '').isNotEmpty
+                                ? profile['full_name'].toString()
                                 : topName,
-      email:                (profile['email'] as String? ?? '').isNotEmpty
-                                ? (profile['email'] as String)
+      email:                (profile['email']?.toString() ?? '').isNotEmpty
+                                ? profile['email'].toString()
                                 : topEmail,
-      phone:                (profile['phone'] as String? ?? '').isNotEmpty
-                                ? (profile['phone'] as String)
+      phone:                (profile['phone']?.toString() ?? '').isNotEmpty
+                                ? profile['phone'].toString()
                                 : topPhone,
-      address:              profile['address'] as String? ?? '',
+      address:              profile['address']?.toString() ?? '',
 
-      payoutMethod:  PayoutMethodLabel.fromString(payout['payout_method'] as String?),
-      bankAccountNo: payout['bank_account_no'] as String?,
-      bankIfsc:      payout['bank_ifsc']        as String?,
-      upiId:         payout['upi_id']           as String?,
+      payoutMethod:  PayoutMethodLabel.fromString(payout['payout_method']?.toString()),
+      bankAccountNo: payout['bank_account_no']?.toString(),
+      bankIfsc:      payout['bank_ifsc']?.toString(),
+      upiId:         payout['upi_id']?.toString(),
 
       documents: rawDocs
-          .map((e) => EmployeeDocument.fromMap(e as Map<String, dynamic>))
+          .whereType<Map>()
+          .map((e) => EmployeeDocument.fromMap(Map<String, dynamic>.from(e)))
           .toList(),
-      documentsVerified: d['documents_verified'] as String? ?? 'pending',
+      documentsVerified: d['documents_verified']?.toString() ?? 'pending',
     );
   }
 

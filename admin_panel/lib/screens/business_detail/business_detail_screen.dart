@@ -36,6 +36,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../services/places_service.dart';
 import '../../widgets/share_business_qr.dart';
 import '../../widgets/app_animated_loader.dart';
 import '../enroll/branch_form_widget.dart';
@@ -253,7 +254,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
     );
   }
 
-  Future<void> _showChangeEnrollerDialog(BuildContext context) async {
+  Future<void> _showChangeEnrollerDialog() async {
     final svc = context.read<FirestoreService>();
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final theme = Theme.of(context);
@@ -264,7 +265,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
       employees = await svc.getEmployeesList();
     } catch (_) {}
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     String selectedEmployeeUid = _business.enrolledBy.isEmpty ? 'admin' : _business.enrolledBy;
     String reason = '';
@@ -273,7 +274,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dCtx, setDialogState) {
             final isCurrent = selectedEmployeeUid == (_business.enrolledBy.isEmpty ? 'admin' : _business.enrolledBy);
 
             return AlertDialog(
@@ -437,6 +438,8 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
             await adminProvider.fetchEmployees();
           } catch (_) {}
 
+          if (!mounted) return;
+
           scaffoldMessenger.showSnackBar(
             SnackBar(
               content: Text('Enrolled employee changed to "$newName" successfully.'),
@@ -458,7 +461,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
     }
   }
 
-  Future<void> _showDeleteBusinessDialog(BuildContext context) async {
+  Future<void> _showDeleteBusinessDialog() async {
     final svc = context.read<FirestoreService>();
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final errorColor = Theme.of(context).colorScheme.error;
@@ -605,6 +608,12 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
     final isPendingPayment = status == AppConstants.statusPendingPayment || (totalBranchCount > 0 && activeBranchCount == 0);
     final isFullyActive = totalBranchCount > 0 && activeBranchCount == totalBranchCount;
     final isPartialPending = activeBranchCount > 0 && pendingBranchCount > 0;
+    final totalActiveBranchAmount = _branches.isNotEmpty
+        ? activeBranches.fold<double>(
+            0.0,
+            (acc, b) => acc + (b.amountPaid ?? b.setupFeePaid ?? 1999.0),
+          )
+        : (activeBranchCount > 0 ? activeBranchCount * 1999.0 : (biz.amountPaid ?? 1999.0));
 
     return Scaffold(
       appBar: AppBar(
@@ -627,7 +636,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
           ),
           if (isAdmin)
             TextButton.icon(
-              onPressed: () => _showDeleteBusinessDialog(context),
+              onPressed: _showDeleteBusinessDialog,
               icon: Icon(Icons.delete_outline, size: 16, color: scheme.error),
               label: Text('Delete Business', style: TextStyle(color: scheme.error)),
             ),
@@ -919,9 +928,9 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                 _InfoRow(
                   label: 'Payment status',
                   value: isFullyActive
-                      ? 'Paid in Full — ₹${(biz.amountPaid ?? 0) > 0 ? biz.amountPaid : totalBranchCount * 1999} (${biz.paymentMode.isNotEmpty ? biz.paymentMode.toUpperCase() : "PAID"})'
+                      ? 'Paid in Full — ₹${totalActiveBranchAmount.toInt()} (${biz.paymentMode.isNotEmpty ? biz.paymentMode.toUpperCase() : "PAID"})'
                       : (isPartialPending
-                          ? '₹${(biz.amountPaid ?? 0) > 0 ? biz.amountPaid : activeBranchCount * 1999} Paid ($activeBranchCount active) • ₹${pendingBranchCount * 1999} Pending ($pendingBranchCount pending)'
+                          ? '₹${totalActiveBranchAmount.toInt()} Paid ($activeBranchCount active) • ₹${pendingBranchCount * 1999} Pending ($pendingBranchCount pending)'
                           : (isPendingPayment
                               ? 'Awaiting Setup Fee (₹${totalBranchCount > 0 ? totalBranchCount * 1999 : 1999})'
                               : '—')),
@@ -933,7 +942,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                       ? Padding(
                           padding: const EdgeInsets.only(left: 8),
                           child: InkWell(
-                            onTap: () => _showChangeEnrollerDialog(context),
+                            onTap: _showChangeEnrollerDialog,
                             borderRadius: BorderRadius.circular(4),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1681,6 +1690,7 @@ class _BranchCardState extends State<_BranchCard> {
   late String _standeeStatus;
   bool        _standeeUpdating = false;
   bool        _deleting = false;
+  bool        _syncingRating = false;
 
   // QR download state (Change 1)
   bool    _qrLoading = false;
@@ -1690,6 +1700,42 @@ class _BranchCardState extends State<_BranchCard> {
   void initState() {
     super.initState();
     _standeeStatus = widget.branch.standeeStatus;
+  }
+
+  Future<void> _syncGoogleRating() async {
+    if ((widget.branch.placeId ?? '').isEmpty) return;
+    setState(() => _syncingRating = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final errorColor = Theme.of(context).colorScheme.error;
+
+    try {
+      final res = await context.read<PlacesService>().syncBranchGoogleRating(
+        widget.branch.id,
+        businessId: widget.branch.businessId,
+      );
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              '✅ Google Rating Synced: ${res['rating'] ?? '—'} ★ (${res['userRatingCount'] ?? '0'} reviews)',
+            ),
+            backgroundColor: AppColors.activeFg,
+          ),
+        );
+        widget.onBranchUpdated?.call();
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Failed to sync Google rating: $e'),
+            backgroundColor: errorColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _syncingRating = false);
+    }
   }
 
   Future<void> _onStandeeChanged(String? newStatus) async {
@@ -1796,7 +1842,7 @@ class _BranchCardState extends State<_BranchCard> {
     }
   }
 
-  Future<void> _showDeleteBranchDialog(BuildContext context) async {
+  Future<void> _showDeleteBranchDialog() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final errorColor = Theme.of(context).colorScheme.error;
     final svc = context.read<FirestoreService>();
@@ -2048,7 +2094,7 @@ class _BranchCardState extends State<_BranchCard> {
                   )
                 else
                   IconButton(
-                    onPressed: () => _showDeleteBranchDialog(context),
+                    onPressed: _showDeleteBranchDialog,
                     icon: Icon(
                       Icons.delete_outline,
                       size: 16,
@@ -2083,6 +2129,74 @@ class _BranchCardState extends State<_BranchCard> {
           if (branch.googleReviewLink != null &&
               branch.googleReviewLink!.isNotEmpty)
             _InfoRow(label: 'Review link', value: branch.googleReviewLink!),
+          if (branch.placeId != null && branch.placeId!.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Google Rating',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Text(
+                              branch.currentRating != null
+                                  ? '${branch.currentRating!.toStringAsFixed(1)} ★ (${branch.currentReviewCount ?? 0} reviews)'
+                                  : (branch.initialRating != null
+                                      ? '${branch.initialRating!.toStringAsFixed(1)} ★ (${branch.initialReviewCount ?? 0} reviews)'
+                                      : 'Not synced yet'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            if (branch.initialRating != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Baseline: ${branch.initialRating!.toStringAsFixed(1)} ★',
+                                  style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _syncingRating ? null : _syncGoogleRating,
+                    icon: _syncingRating
+                        ? const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync_rounded, size: 14),
+                    label: Text(
+                      _syncingRating ? 'Syncing…' : 'Sync Rating',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: const Size(60, 30),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           _InfoRow(label: 'Branch ID', value: branch.id, mono: true),
 
           const SizedBox(height: AppSpacing.md),

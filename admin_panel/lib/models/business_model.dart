@@ -69,11 +69,34 @@ class BusinessModel {
     this.monthlyStats = const {},
   });
 
+  static DateTime? _parseDate(dynamic val) {
+    if (val == null) return null;
+    if (val is Timestamp) return val.toDate();
+    if (val is DateTime) return val;
+    if (val is String) return DateTime.tryParse(val);
+    if (val is num) return DateTime.fromMillisecondsSinceEpoch(val.toInt());
+    return null;
+  }
+
   factory BusinessModel.fromDoc(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
-    final rawActive = d['active_categories'] as Map<String, dynamic>? ?? {};
-    final stats = d['stats_summary'] as Map<String, dynamic>? ?? {};
-    final rawStars = stats['star_counts'] as Map<String, dynamic>? ?? stats['star_distribution'] as Map<String, dynamic>? ?? {};
+    final rawData = doc.data();
+    final d = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
+
+    final rawActive = d['active_categories'];
+    final activeMap = <String, bool>{};
+    if (rawActive is Map) {
+      rawActive.forEach((k, v) {
+        if (k != null) {
+          activeMap[k.toString()] = v == true;
+        }
+      });
+    }
+
+    final rawStats = d['stats_summary'];
+    final stats = rawStats is Map ? Map<String, dynamic>.from(rawStats) : <String, dynamic>{};
+    final rawStars = stats['star_counts'] is Map
+        ? stats['star_counts'] as Map
+        : (stats['star_distribution'] is Map ? stats['star_distribution'] as Map : const {});
 
     final starsMap = <String, int>{
       '1': (rawStars['1'] as num? ?? 0).toInt(),
@@ -83,55 +106,58 @@ class BusinessModel {
       '5': (rawStars['5'] as num? ?? 0).toInt(),
     };
 
-    final rawMonthly = d['monthly_stats'] as Map<String, dynamic>? ?? {};
+    final rawMonthly = d['monthly_stats'];
     final parsedMonthly = <String, Map<String, dynamic>>{};
-    rawMonthly.forEach((mKey, val) {
-      if (val is Map<String, dynamic>) {
-        final mStars = val['star_counts'] as Map<String, dynamic>? ??
-            val['star_distribution'] as Map<String, dynamic>? ?? {};
-        parsedMonthly[mKey] = {
-          'total_scans': (val['total_scans'] as num? ?? 0).toInt(),
-          'google_reviews_opened': (val['google_reviews_opened'] as num? ??
-              val['total_reviews_redirected'] as num? ?? 0).toInt(),
-          'private_issues': (val['private_issues'] as num? ?? 0).toInt(),
-          'star_distribution': {
-            '1': (mStars['1'] as num? ?? 0).toInt(),
-            '2': (mStars['2'] as num? ?? 0).toInt(),
-            '3': (mStars['3'] as num? ?? 0).toInt(),
-            '4': (mStars['4'] as num? ?? 0).toInt(),
-            '5': (mStars['5'] as num? ?? 0).toInt(),
-          },
-        };
-      }
-    });
+    if (rawMonthly is Map) {
+      rawMonthly.forEach((mKey, val) {
+        if (val is Map) {
+          final mStars = val['star_counts'] is Map
+              ? val['star_counts'] as Map
+              : (val['star_distribution'] is Map ? val['star_distribution'] as Map : const {});
+          parsedMonthly[mKey.toString()] = {
+            'total_scans': (val['total_scans'] as num? ?? 0).toInt(),
+            'google_reviews_opened': (val['google_reviews_opened'] as num? ??
+                val['total_reviews_redirected'] as num? ?? 0).toInt(),
+            'private_issues': (val['private_issues'] as num? ?? 0).toInt(),
+            'star_distribution': {
+              '1': (mStars['1'] as num? ?? 0).toInt(),
+              '2': (mStars['2'] as num? ?? 0).toInt(),
+              '3': (mStars['3'] as num? ?? 0).toInt(),
+              '4': (mStars['4'] as num? ?? 0).toInt(),
+              '5': (mStars['5'] as num? ?? 0).toInt(),
+            },
+          };
+        }
+      });
+    }
 
     return BusinessModel(
       id:                         doc.id,
-      businessCode:               d['business_code']                 as String?,
-      businessNumber:             d['business_number']               as int?,
-      isTestAccount:              d['is_test_account']               as bool? ?? false,
-      brandName:                  d['brand_name']                    as String? ?? '',
-      logoUrl:                    d['logo_url']                      as String? ?? '',
-      categoryType:               d['category_type']                 as String? ?? '',
-      defaultCategoryTemplateId:  d['default_category_template_id']  as String?,
-      enrolledBy:                 d['enrolled_by']                   as String? ?? '',
-      enrolledByOriginal:         d['enrolled_by_original']          as String? ?? '',
-      currentlyManagedBy:         d['currently_managed_by']          as String? ?? '',
-      subscriptionStatus:         d['subscription_status']           as String? ?? 'active',
-      paymentMode:                d['payment_mode']                  as String? ?? 'pending',
-      renewalDate:                (d['renewal_date']    as Timestamp?)?.toDate(),
-      gracePeriodEnds:            (d['grace_period_ends'] as Timestamp?)?.toDate(),
-      ownerAuthUid:               d['owner_auth_uid']                as String?,
-      ownerEmail:                 d['owner_email']                   as String?,
-      ownerName:                  d['owner_name']                    as String?,
-      ownerPhone:                 d['owner_phone']                   as String?,
-      createdAt:                  (d['created_at']      as Timestamp?)?.toDate(),
-      activeCategories:           rawActive.map((k, v) => MapEntry(k, v as bool? ?? true)),
+      businessCode:               d['business_code']?.toString(),
+      businessNumber:             (d['business_number'] as num?)?.toInt(),
+      isTestAccount:              d['is_test_account'] as bool? ?? false,
+      brandName:                  d['brand_name']?.toString() ?? '',
+      logoUrl:                    d['logo_url']?.toString() ?? '',
+      categoryType:               d['category_type']?.toString() ?? '',
+      defaultCategoryTemplateId:  d['default_category_template_id']?.toString(),
+      enrolledBy:                 d['enrolled_by']?.toString() ?? '',
+      enrolledByOriginal:         d['enrolled_by_original']?.toString() ?? '',
+      currentlyManagedBy:         d['currently_managed_by']?.toString() ?? '',
+      subscriptionStatus:         d['subscription_status']?.toString() ?? 'active',
+      paymentMode:                d['payment_mode']?.toString() ?? 'pending',
+      renewalDate:                _parseDate(d['renewal_date']),
+      gracePeriodEnds:            _parseDate(d['grace_period_ends']),
+      ownerAuthUid:               d['owner_auth_uid']?.toString(),
+      ownerEmail:                 d['owner_email']?.toString(),
+      ownerName:                  d['owner_name']?.toString(),
+      ownerPhone:                 d['owner_phone']?.toString(),
+      createdAt:                  _parseDate(d['created_at']),
+      activeCategories:           activeMap,
       amountPaid:                 (d['amount_paid']     as num?)?.toDouble(),
       setupFeePaid:               (d['setup_fee_paid']  as num?)?.toDouble(),
       renewalAmountPaid:          (d['renewal_amount_paid'] as num?)?.toDouble(),
-      lastPaymentLinkUrl:         d['last_payment_link_url'] as String?,
-      lastRenewalLinkUrl:         d['last_renewal_link_url'] as String?,
+      lastPaymentLinkUrl:         d['last_payment_link_url']?.toString(),
+      lastRenewalLinkUrl:         d['last_renewal_link_url']?.toString(),
       totalScans:                 (stats['total_scans'] as num? ?? d['stats_summary.total_scans'] as num? ?? d['total_scans'] as num? ?? 0).toInt(),
       googleReviewsOpened:        (stats['google_reviews_opened'] as num? ?? stats['total_reviews_redirected'] as num? ?? stats['monthly_google_reviews'] as num? ?? d['stats_summary.google_reviews_opened'] as num? ?? 0).toInt(),
       starDistribution:           starsMap,

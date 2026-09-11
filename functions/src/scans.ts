@@ -331,8 +331,17 @@ export const reconcileBusinessStats = onCall(
       }
     }
 
-    const batch = db.batch();
-    batch.update(bizRef, {
+    let activeBranchCount = 0;
+    let totalBranchSetupPaid = 0;
+    for (const bDoc of branchesSnap.docs) {
+      const bData = bDoc.data();
+      if (bData.subscription_status === "active") {
+        activeBranchCount++;
+        totalBranchSetupPaid += (bData.setup_fee_paid as number) || (bData.amount_paid as number) || 1999;
+      }
+    }
+
+    const bizUpdatePayload: Record<string, unknown> = {
       stats_summary: {
         total_scans: bizTotalScans,
         google_reviews_opened: bizGoogleReviews,
@@ -342,7 +351,18 @@ export const reconcileBusinessStats = onCall(
         star_distribution: bizStarCounts,
       },
       monthly_stats: bizMonthlyStats,
-    });
+      active_branches_count: activeBranchCount,
+      total_branches_count: branchesSnap.size,
+    };
+
+    const currentBizStatus = bizSnap.data()?.subscription_status;
+    if (currentBizStatus === "active" && activeBranchCount > 0) {
+      bizUpdatePayload.setup_fee_paid = totalBranchSetupPaid;
+      bizUpdatePayload.amount_paid = totalBranchSetupPaid;
+    }
+
+    const batch = db.batch();
+    batch.update(bizRef, bizUpdatePayload);
 
     for (const bDoc of branchesSnap.docs) {
       const b = branchStatsMap[bDoc.id];

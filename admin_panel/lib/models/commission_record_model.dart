@@ -59,28 +59,38 @@ class CommissionRecordModel {
   bool get isPaid => status == 'paid';
   bool get isDisputed => status == 'disputed' || disputed;
 
+  static DateTime? _parseDate(dynamic val) {
+    if (val == null) return null;
+    if (val is Timestamp) return val.toDate();
+    if (val is DateTime) return val;
+    if (val is String) return DateTime.tryParse(val);
+    if (val is num) return DateTime.fromMillisecondsSinceEpoch(val.toInt());
+    return null;
+  }
+
   factory CommissionRecordModel.fromDoc(DocumentSnapshot doc, {String? businessName}) {
-    final d = doc.data() as Map<String, dynamic>? ?? {};
+    final rawData = doc.data();
+    final d = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
     return CommissionRecordModel(
       id:               doc.id,
-      employeeId:       d['employee_id'] as String? ?? '',
-      businessId:       d['business_id'] as String? ?? '',
+      employeeId:       d['employee_id']?.toString() ?? '',
+      businessId:       d['business_id']?.toString() ?? '',
       amount:           (d['amount'] as num?)?.toDouble() ?? 0.0,
-      paymentMode:      d['payment_mode'] as String? ?? 'cash',
-      status:           d['status'] as String? ?? 'pending',
-      dateClaimed:      (d['date_claimed'] as Timestamp?)?.toDate(),
-      dateVerified:     (d['date_verified'] as Timestamp?)?.toDate(),
-      datePaid:         (d['date_paid'] as Timestamp?)?.toDate(),
-      payoutReference:  d['payout_reference'] as String?,
+      paymentMode:      d['payment_mode']?.toString() ?? 'cash',
+      status:           d['status']?.toString() ?? 'pending',
+      dateClaimed:      _parseDate(d['date_claimed']),
+      dateVerified:     _parseDate(d['date_verified']),
+      datePaid:         _parseDate(d['date_paid']),
+      payoutReference:  d['payout_reference']?.toString(),
       employeeCollected: (d['employee_collected'] as bool?) ?? false,
       adminConfirmed:   (d['admin_confirmed'] as bool?) ?? false,
-      adminConfirmedBy: d['admin_confirmed_by'] as String?,
-      adminConfirmedAt: (d['admin_confirmed_at'] as Timestamp?)?.toDate(),
+      adminConfirmedBy: d['admin_confirmed_by']?.toString(),
+      adminConfirmedAt: _parseDate(d['admin_confirmed_at']),
       ownerConfirmed:   d['owner_confirmed'] as bool?,
-      ownerConfirmedAt: (d['owner_confirmed_at'] as Timestamp?)?.toDate(),
-      ownerResponse:    d['owner_response'] as String?,
+      ownerConfirmedAt: _parseDate(d['owner_confirmed_at']),
+      ownerResponse:    d['owner_response']?.toString(),
       disputed:         (d['disputed'] as bool?) ?? false,
-      disputeReason:    d['dispute_reason'] as String?,
+      disputeReason:    d['dispute_reason']?.toString(),
       businessName:     businessName,
     );
   }

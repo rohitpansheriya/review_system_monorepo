@@ -316,25 +316,76 @@ export const reassignBusinessEnrollerAdmin = onCall(
       });
     }
 
-    // 3. Update employee_commissions if any exist for this business
+    // 3. Update or create employee_commissions for this business
     const commSnap = await db
       .collection("employee_commissions")
       .where("business_id", "==", businessId)
       .get();
 
-    for (const cDoc of commSnap.docs) {
-      const cData = cDoc.data();
-      if (cData.status === "pending") {
-        if (newEmployeeUid === "admin") {
-          // Admin doesn't receive employee commissions -> delete pending record
-          batch.delete(cDoc.ref);
-        } else {
-          batch.update(cDoc.ref, {
-            employee_id: newEmployeeUid,
-            transferred_from: oldEnrolledBy || null,
-            transferred_at: now,
-          });
+    if (!commSnap.empty) {
+      for (const cDoc of commSnap.docs) {
+        const cData = cDoc.data();
+        if (cData.status === "pending") {
+          if (newEmployeeUid === "admin") {
+            // Admin doesn't receive employee commissions -> delete pending record
+            batch.delete(cDoc.ref);
+          } else {
+            batch.update(cDoc.ref, {
+              employee_id: newEmployeeUid,
+              transferred_from: oldEnrolledBy || null,
+              transferred_at: now,
+            });
+          }
         }
+      }
+    } else if (newEmployeeUid !== "admin" && isBusinessActive) {
+      // Business was originally enrolled by admin (no commissions created).
+      // Now reassigned to a real employee -> create the pending commission record(s)!
+      const activationDate = now.toDate();
+      const activationMonth = `${activationDate.getFullYear()}-${String(activationDate.getMonth() + 1).padStart(2, "0")}`;
+      const brandName = (bizData.brand_name as string) || "Business";
+
+      if (!branchesSnap.empty) {
+        for (const bDoc of branchesSnap.docs) {
+          const bData = bDoc.data();
+          if (bData.subscription_status === "active" || isBusinessActive) {
+            const commDocId = `comm_${businessId}_${bDoc.id}_first_activation`;
+            const commRef = db.collection("employee_commissions").doc(commDocId);
+            const branchName = (bData.branch_name as string) || "Branch";
+            batch.set(commRef, {
+              employee_id: newEmployeeUid,
+              business_id: businessId,
+              branch_id: bDoc.id,
+              business_name: `${brandName} (${branchName})`,
+              amount: 1000,
+              status: "pending",
+              created_at: now,
+              activation_month: activationMonth,
+              paid_at: null,
+              paid_by: null,
+              payout_reference: null,
+              transferred_from: oldEnrolledBy || "admin",
+              transferred_at: now,
+            });
+          }
+        }
+      } else {
+        const commDocId = `comm_${businessId}`;
+        const commRef = db.collection("employee_commissions").doc(commDocId);
+        batch.set(commRef, {
+          employee_id: newEmployeeUid,
+          business_id: businessId,
+          business_name: brandName,
+          amount: 1000,
+          status: "pending",
+          created_at: now,
+          activation_month: activationMonth,
+          paid_at: null,
+          paid_by: null,
+          payout_reference: null,
+          transferred_from: oldEnrolledBy || "admin",
+          transferred_at: now,
+        });
       }
     }
 

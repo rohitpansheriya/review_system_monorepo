@@ -435,23 +435,12 @@ class _AdminCommissionQueueScreenState
     AdminDashboardProvider provider,
     ColorScheme scheme,
   ) {
-    // Choose the right stream based on filters
-    final Stream<List<EmployeeCommissionModel>> stream;
-    if (_selectedEmployeeId != null) {
-      stream = provider.watchEmployeeCommissions(
-        _selectedEmployeeId!,
-        statusFilter: _statusFilter == 'all' ? null : _statusFilter,
-        monthFilter: _monthFilter,
-      );
-    } else {
-      if (_statusFilter == 'pending') {
-        stream = provider.watchAllPendingCommissions(monthFilter: _monthFilter);
-      } else {
-        // For 'all' or 'paid' without employee selection, we need to
-        // use a broader query. Use pending stream for now and filter client-side.
-        stream = provider.watchAllPendingCommissions(monthFilter: _monthFilter);
-      }
-    }
+    // Universal reactive commission stream
+    final stream = provider.watchCommissions(
+      employeeId: _selectedEmployeeId,
+      statusFilter: _statusFilter,
+      monthFilter: _monthFilter,
+    );
 
     return StreamBuilder<List<EmployeeCommissionModel>>(
       stream: stream,

@@ -109,13 +109,65 @@ class FirestoreService {
           .collection('employee_commissions')
           .where('business_id', isEqualTo: businessId)
           .get();
-      for (final cDoc in commSnap.docs) {
-        if (cDoc.data()['status'] == 'pending') {
-          if (newEmployeeId == 'admin') {
-            batch.delete(cDoc.reference);
+      if (commSnap.docs.isNotEmpty) {
+        for (final cDoc in commSnap.docs) {
+          if (cDoc.data()['status'] == 'pending') {
+            if (newEmployeeId == 'admin') {
+              batch.delete(cDoc.reference);
+            } else {
+              batch.update(cDoc.reference, {
+                'employee_id': newEmployeeId,
+                'transferred_at': FieldValue.serverTimestamp(),
+              });
+            }
+          }
+        }
+      } else if (newEmployeeId != 'admin') {
+        final bizDoc = await bizRef.get();
+        final bzData = bizDoc.data() ?? {};
+        final isActive = bzData['subscription_status'] == 'active';
+        if (isActive) {
+          final now = DateTime.now();
+          final activationMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+          final brandName = bzData['brand_name']?.toString() ?? 'Business';
+
+          if (branchesSnap.docs.isNotEmpty) {
+            for (final bDoc in branchesSnap.docs) {
+              final bData = bDoc.data();
+              if (bData['subscription_status'] == 'active' || isActive) {
+                final commRef = _db.collection('employee_commissions').doc('comm_${businessId}_${bDoc.id}_first_activation');
+                final branchName = bData['name']?.toString() ?? bData['branch_name']?.toString() ?? 'Branch';
+                batch.set(commRef, {
+                  'employee_id': newEmployeeId,
+                  'business_id': businessId,
+                  'branch_id': bDoc.id,
+                  'business_name': '$brandName ($branchName)',
+                  'amount': 1000.0,
+                  'status': 'pending',
+                  'created_at': FieldValue.serverTimestamp(),
+                  'activation_month': activationMonth,
+                  'paid_at': null,
+                  'paid_by': null,
+                  'payout_reference': null,
+                  'transferred_from': 'admin',
+                  'transferred_at': FieldValue.serverTimestamp(),
+                });
+              }
+            }
           } else {
-            batch.update(cDoc.reference, {
+            final commRef = _db.collection('employee_commissions').doc('comm_$businessId');
+            batch.set(commRef, {
               'employee_id': newEmployeeId,
+              'business_id': businessId,
+              'business_name': brandName,
+              'amount': 1000.0,
+              'status': 'pending',
+              'created_at': FieldValue.serverTimestamp(),
+              'activation_month': activationMonth,
+              'paid_at': null,
+              'paid_by': null,
+              'payout_reference': null,
+              'transferred_from': 'admin',
               'transferred_at': FieldValue.serverTimestamp(),
             });
           }
@@ -936,6 +988,41 @@ class FirestoreService {
   // Separate collection: employee_commissions. Never deleted.
   // ══════════════════════════════════════════════════════════════════════════
 
+  /// Universal Commission Stream: streams commissions for Admin or Employee
+  /// with optional filters for employeeId, status, and activationMonth.
+  Stream<List<EmployeeCommissionModel>> watchCommissions({
+    String? employeeId,
+    String? statusFilter,
+    String? monthFilter,
+  }) {
+    Query query = _db.collection(AppConstants.colEmployeeCommissions);
+
+    if (employeeId != null && employeeId.isNotEmpty && employeeId != 'all') {
+      query = query.where('employee_id', isEqualTo: employeeId);
+    }
+
+    if (statusFilter != null && statusFilter.isNotEmpty && statusFilter != 'all') {
+      query = query.where('status', isEqualTo: statusFilter);
+    }
+
+    return query.snapshots().map((snap) {
+      var list = snap.docs.map((doc) => EmployeeCommissionModel.fromDoc(doc)).toList();
+
+      if (monthFilter != null && monthFilter.isNotEmpty && monthFilter != 'all') {
+        list = list.where((c) => c.activationMonth == monthFilter).toList();
+      }
+
+      // Safe in-memory sorting: newest first (handles created_at Timestamp and activationMonth fallback)
+      list.sort((a, b) {
+        final aDate = a.createdAt ?? (a.activationMonth.isNotEmpty ? DateTime.tryParse('${a.activationMonth}-01') : null) ?? DateTime(2000);
+        final bDate = b.createdAt ?? (b.activationMonth.isNotEmpty ? DateTime.tryParse('${b.activationMonth}-01') : null) ?? DateTime(2000);
+        return bDate.compareTo(aDate);
+      });
+
+      return list;
+    });
+  }
+
   /// Stream of an employee's commissions from the new ledger.
   /// Optionally filter by status and/or month.
   Stream<List<EmployeeCommissionModel>> watchEmployeeCommissions(
@@ -943,23 +1030,11 @@ class FirestoreService {
     String? statusFilter,
     String? monthFilter,
   }) {
-    Query query = _db
-        .collection(AppConstants.colEmployeeCommissions)
-        .where('employee_id', isEqualTo: employeeId);
-
-    if (statusFilter != null && statusFilter.isNotEmpty) {
-      query = query.where('status', isEqualTo: statusFilter);
-    }
-
-    query = query.orderBy('activation_month', descending: true);
-
-    return query.snapshots().map((snap) {
-      var list = snap.docs.map((doc) => EmployeeCommissionModel.fromDoc(doc)).toList();
-      if (monthFilter != null && monthFilter.isNotEmpty) {
-        list = list.where((c) => c.activationMonth == monthFilter).toList();
-      }
-      return list;
-    });
+    return watchCommissions(
+      employeeId: employeeId,
+      statusFilter: statusFilter,
+      monthFilter: monthFilter,
+    );
   }
 
   /// Admin: stream of ALL pending commissions across all employees.
@@ -967,18 +1042,10 @@ class FirestoreService {
   Stream<List<EmployeeCommissionModel>> watchAllPendingCommissions({
     String? monthFilter,
   }) {
-    Query query = _db
-        .collection(AppConstants.colEmployeeCommissions)
-        .where('status', isEqualTo: 'pending')
-        .orderBy('activation_month', descending: true);
-
-    return query.snapshots().map((snap) {
-      var list = snap.docs.map((doc) => EmployeeCommissionModel.fromDoc(doc)).toList();
-      if (monthFilter != null && monthFilter.isNotEmpty) {
-        list = list.where((c) => c.activationMonth == monthFilter).toList();
-      }
-      return list;
-    });
+    return watchCommissions(
+      statusFilter: 'pending',
+      monthFilter: monthFilter,
+    );
   }
 
   /// Admin: bulk-mark all pending commissions for an employee+month as paid.

@@ -1334,6 +1334,19 @@ class AdminDashboardProvider extends ChangeNotifier {
 
   // ── 5B. EMPLOYEE COMMISSION LEDGER (Build B — separate collection) ─────────
 
+  /// Universal commission stream with optional employeeId, status, and month filters.
+  Stream<List<EmployeeCommissionModel>> watchCommissions({
+    String? employeeId,
+    String? statusFilter,
+    String? monthFilter,
+  }) {
+    return _firestoreService.watchCommissions(
+      employeeId: employeeId,
+      statusFilter: statusFilter,
+      monthFilter: monthFilter,
+    );
+  }
+
   /// Stream of employee commissions with optional filters.
   Stream<List<EmployeeCommissionModel>> watchEmployeeCommissions(
     String employeeId, {

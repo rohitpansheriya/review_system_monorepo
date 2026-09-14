@@ -195,7 +195,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'key':         AppConfig.razorpayKeyId,
         'amount':      setupFeePaise,
         'currency':    'INR',
-        'name':        'Appnexa Technologies',
+        'name':        'AppNexa Technologies',
         'description': isBranchPayment
             ? 'Branch setup fee — $_branchName ($_brandName)'
             : (_branchCount > 1

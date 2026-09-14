@@ -4,24 +4,22 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
-    function isSignedIn()  { return request.auth != null; }
-    function isEmployee()  { return isSignedIn() && request.auth.token.role == 'employee'; }
-    function isAdmin()     { return isSignedIn() && request.auth.token.role == 'admin'; }
-    function isOwner()     { return isSignedIn() && request.auth.token.role == 'owner'; }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && ('role' in request.auth.token) && request.auth.token.role == 'admin';
+    }
 
     // ── Business logos: logos/{filename} ─────────────────────────────────────
     // Uploaded during enrollment (before the businesses doc exists, so the
     // path is a flat logos/{uuid}.ext rather than keyed by businessId).
     // Read is public — logos are displayed on the customer review page.
     match /logos/{filename} {
-      // Public read (shown on customer-facing review page and in panel).
       allow read: if true;
-
-      // Employee or admin can upload/replace a logo.
-      // 2 MB cap, image content type only.
-      allow write: if (isEmployee() || isAdmin() || isOwner())
-                   && request.resource.size <= 2 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow write: if isSignedIn()
+                   && request.resource.size <= 5 * 1024 * 1024;
     }
 
     // ── QR code images: qr_codes/{allPaths=**} ───────────────────────────────
@@ -29,22 +27,18 @@ service firebase.storage {
     // Panel users (employee, admin, owner) can read and download the QR images.
     match /qr_codes/{allPaths=**} {
       allow read:  if isSignedIn();
-      // Client writes blocked — Cloud Functions service account writes only.
       allow write: if false;
     }
 
     // ── Employee KYC Documents: employee_docs/{uid}/{filename} ───────────────
     // Uploaded by employees for commission payout verification.
     // Read: employee reads only their own files; admin reads all.
-    // Write: employee uploads only to their own directory, max 5MB, image or PDF.
+    // Write: employee uploads only to their own directory, or admin. Max 15MB.
     match /employee_docs/{uid}/{filename} {
-      allow read:  if isAdmin()
-                   || (isEmployee() && request.auth.uid == uid);
-      allow write: if isEmployee()
-                   && request.auth.uid == uid
-                   && request.resource.size <= 5 * 1024 * 1024
-                   && (request.resource.contentType.matches('image/.*')
-                       || request.resource.contentType == 'application/pdf');
+      allow read:  if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSignedIn()
+                   && (request.auth.uid == uid || isAdmin())
+                   && request.resource.size <= 15 * 1024 * 1024;
     }
 
     // ── Fallback: deny everything else ────────────────────────────────────────

@@ -263,6 +263,9 @@ class _EnrollScreenState extends State<EnrollScreen> {
       // so that enrolled_by="admin" and the UI never mislabels it as an employee.
       final auth = context.read<AppAuthProvider>();
       final empId = auth.isAdmin ? 'admin' : auth.uid!;
+      if (!auth.isAdmin) {
+        enroll.setIsTestAccount(false);
+      }
       final error = await enroll.submit(empId);
       if (!mounted) return;
 
@@ -542,48 +545,49 @@ class _EnrollScreenState extends State<EnrollScreen> {
 
               const SizedBox(height: AppSpacing.md),
 
-              // ── Demo / Test Account Option (Solution 2) ──────────────────
-              Builder(
-                builder: (context) {
-                  final theme = Theme.of(context);
-                  final colorScheme = theme.colorScheme;
-                  return Card(
-                    color: enroll.isTestAccount ? AppColors.warning.withValues(alpha: 0.08) : null,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: enroll.isTestAccount ? AppColors.warning : theme.dividerColor.withValues(alpha: 0.2),
-                        width: enroll.isTestAccount ? 1.5 : 1,
-                      ),
-                    ),
-                    child: CheckboxListTile(
-                      value: enroll.isTestAccount,
-                      onChanged: (v) => enroll.setIsTestAccount(v ?? false),
-                      activeColor: AppColors.warning,
-                      secondary: Icon(
-                        enroll.isTestAccount ? Icons.science : Icons.science_outlined,
-                        color: enroll.isTestAccount ? AppColors.warning : colorScheme.onSurfaceVariant,
-                      ),
-                      title: Text(
-                        'Demo / QA Test Account',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: enroll.isTestAccount ? AppColors.warning : null,
+              // ── Demo / Test Account Option (Admin Only) ──────────────────
+              if (isAdmin) ...[
+                Builder(
+                  builder: (context) {
+                    final theme = Theme.of(context);
+                    final colorScheme = theme.colorScheme;
+                    return Card(
+                      color: enroll.isTestAccount ? AppColors.warning.withValues(alpha: 0.08) : null,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: enroll.isTestAccount ? AppColors.warning : theme.dividerColor.withValues(alpha: 0.2),
+                          width: enroll.isTestAccount ? 1.5 : 1,
                         ),
                       ),
-                      subtitle: Text(
-                        'Assigns TEST-xxxxx code. Excluded from real client sequential numbers (APT-01001) and revenue metrics.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
+                      child: CheckboxListTile(
+                        value: enroll.isTestAccount,
+                        onChanged: (v) => enroll.setIsTestAccount(v ?? false),
+                        activeColor: AppColors.warning,
+                        secondary: Icon(
+                          enroll.isTestAccount ? Icons.science : Icons.science_outlined,
+                          color: enroll.isTestAccount ? AppColors.warning : colorScheme.onSurfaceVariant,
                         ),
+                        title: Text(
+                          'Demo / QA Test Account',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: enroll.isTestAccount ? AppColors.warning : null,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Assigns TEST-xxxxx code. Excluded from real client sequential numbers (APT-01001) and revenue metrics.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
+                          ),
+                        ),
+                        controlAffinity: ListTileControlAffinity.trailing,
                       ),
-                      controlAffinity: ListTileControlAffinity.trailing,
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: AppSpacing.md),
+                    );
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
 
               // ── Branch(es) ───────────────────────────────────────────────
               Card(

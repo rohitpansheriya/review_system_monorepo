@@ -3,12 +3,12 @@
  *
  * RESTRUCTURED: Two separate concepts that were previously conflated:
  *
- *   A) PAYMENT (owner → Appnexa): ₹1999/₹999 subscription fee.
+ *   A) PAYMENT (owner → AppNexa): ₹1999/₹999 subscription fee.
  *      Cash payments are a VIEW on businesses (payment_mode='cash' +
  *      subscription_status='pending_payment'). Admin confirms cash →
  *      business activates → auto-leaves the pending view.
  *
- *   B) COMMISSION (Appnexa → employee): ₹250 per activation.
+ *   B) COMMISSION (AppNexa → employee): ₹250 per activation.
  *      Stored in `employee_commissions` collection. Created automatically
  *      when a business activates (Firestore trigger). Employee-enrolled
  *      businesses only. Admin-enrolled = no commission.

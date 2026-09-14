@@ -1,4 +1,4 @@
-# Appnexa Admin Panel — Complete Function & Flow Guide
+# AppNexa Admin Panel — Complete Function & Flow Guide
 
 > This document describes **every function and flow** available in the Admin Dashboard UI.  
 > Login URL: `https://review-system-prod-49b7a.web.app` → sign in with an admin-role Firebase Auth account.
@@ -446,7 +446,7 @@ This widget appears on activated business branches only. It provides quick shari
 - **What it does:** Opens `wa.me/{91XXXXXXXXXX}?text={pre-filled message}` in a new tab
 - **Pre-filled message:**
   ```
-  Here is your Appnexa review QR link:
+  Here is your AppNexa review QR link:
   https://appnexa.co.in/r/{businessId}/{branchId}
 
   Share this link with your customers to collect Google reviews!

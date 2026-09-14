@@ -61,7 +61,7 @@ class _ShareBusinessQrState extends State<ShareBusinessQr> {
   void _sendWhatsApp(String phoneNumber) {
     final waNum = _waNumber(phoneNumber);
     final message = Uri.encodeComponent(
-      'Here is your Appnexa review QR link:\n$_reviewUrl\n\n'
+      'Here is your AppNexa review QR link:\n$_reviewUrl\n\n'
       'Share this link with your customers to collect Google reviews!',
     );
     final url = 'https://wa.me/$waNum?text=$message';

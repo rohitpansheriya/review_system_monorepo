@@ -273,6 +273,8 @@ class EnrollProvider extends ChangeNotifier {
       }
 
       // 5 — Atomic batch write (business + N branches + counter)
+      // Test / Demo mode is strictly restricted to Admin (employeeId == 'admin')
+      final effectiveIsTest = (employeeId == 'admin') && isTestAccount;
       final result = await _firestore.enrollBusiness(
         employeeId:    employeeId,
         brandName:     cleanBrandName,
@@ -282,7 +284,7 @@ class EnrollProvider extends ChangeNotifier {
         ownerEmail:    ownerEmail.trim().toLowerCase(),
         ownerName:     cleanOwnerName,
         ownerPhone:    ownerPhone.trim(),
-        isTestAccount: isTestAccount,
+        isTestAccount: effectiveIsTest,
         branches:      List.of(_branches), // snapshot at submit time
       );
 

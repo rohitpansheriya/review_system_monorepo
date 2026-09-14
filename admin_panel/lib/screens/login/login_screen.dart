@@ -73,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
           context.go('/admin');
         } else if (auth.isOwner) {
           context.go('/owner');
-        } else {
+        } else if (auth.isEmployee) {
           context.go('/businesses');
         }
       }
@@ -107,20 +107,30 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   children: [
                     Container(
-                      width: 72, height: 72,
+                      width: 76,
+                      height: 76,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(AppRadius.lg),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.reviews_rounded,
-                        size: 40,
-                        color: Colors.white,
+                      padding: const EdgeInsets.all(12),
+                      child: Image.asset(
+                        'assets/images/appnexa-icon-white.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => const Icon(
+                          Icons.stars_rounded,
+                          size: 40,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Review System Portal',
+                      'AppNexa Portal',
                       style: GoogleFonts.inter(
                         fontSize:   26,
                         fontWeight: FontWeight.w700,

@@ -167,7 +167,7 @@ class AdminDashboardProvider extends ChangeNotifier {
            );
 
   /// Load initial admin overview & stats.
-  Future<void> loadAdminData({bool forceReload = false}) async {
+  Future<void> loadAdminData({bool forceReload = false, int retryCount = 0}) async {
     if (_loading && !forceReload) return;
     final isFirstLoad = _allBusinesses.isEmpty && _employees.isEmpty;
     if (isFirstLoad || forceReload) {
@@ -185,8 +185,14 @@ class AdminDashboardProvider extends ChangeNotifier {
         fetchStandeeFulfillments(),
       ]);
       _loading = false;
+      _error = null;
       notifyListeners();
     } catch (e) {
+      // If token propagation is still happening right after login, retry once after a short delay
+      if (retryCount < 2 && (e.toString().contains('permission-denied') || e.toString().contains('unauthenticated') || isFirstLoad)) {
+        await Future.delayed(const Duration(milliseconds: 600));
+        return loadAdminData(forceReload: true, retryCount: retryCount + 1);
+      }
       _loading = false;
       _error = 'Failed to load admin data: ${e.toString()}';
       notifyListeners();

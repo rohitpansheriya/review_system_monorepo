@@ -140,7 +140,15 @@ class _ReviewSystemAppState extends State<ReviewSystemApp> {
         if (status == AuthStatus.authenticated && isLoginPage) {
           if (_authProvider.isAdmin) return '/admin';
           if (_authProvider.isOwner) return '/owner';
-          return '/businesses';
+          if (_authProvider.isEmployee) return '/businesses';
+          // If role is still being determined from custom claims, stay on login briefly
+          return null;
+        }
+
+        // Role-based route protection: prevent Admin/Owner from landing on Employee /businesses
+        if (status == AuthStatus.authenticated && loc == '/businesses') {
+          if (_authProvider.isAdmin) return '/admin';
+          if (_authProvider.isOwner) return '/owner';
         }
 
         return null;

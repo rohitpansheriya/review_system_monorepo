@@ -81,13 +81,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final auth = Provider.of<AppAuthProvider>(context);
-    if (!_initialized && auth.isAdmin) {
-      _initialized = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          context.read<AdminDashboardProvider>().loadAdminData();
-        }
-      });
+    final provider = Provider.of<AdminDashboardProvider>(context, listen: false);
+    if (auth.isAdmin) {
+      if (!_initialized) {
+        _initialized = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            provider.loadAdminData();
+          }
+        });
+      } else if (!provider.loading && provider.allBusinesses.isEmpty && provider.employees.isEmpty && provider.error == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            provider.loadAdminData();
+          }
+        });
+      }
     }
   }
 

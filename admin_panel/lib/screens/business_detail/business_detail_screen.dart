@@ -2275,9 +2275,9 @@ class _BranchPaymentPanelState extends State<_BranchPaymentPanel> {
 
       final options = js.JsObject.jsify({
         'key': AppConfig.razorpayKeyId,
-        'amount': 199900,
+        'amount': 1999 * 100, // ₹1,999 in paise
         'currency': 'INR',
-        'name': 'Appnexa Technologies',
+        'name': 'AppNexa Technologies',
         'description': 'Branch setup fee — ${widget.branch.branchName}',
         'notes': {
           'business_id': widget.businessId,

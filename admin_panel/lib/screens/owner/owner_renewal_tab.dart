@@ -124,7 +124,7 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
         'key': keyId,
         'amount': totalPaise,
         'currency': 'INR',
-        'name': 'Appnexa Technologies',
+        'name': 'AppNexa Technologies',
         'description': desc,
         'notes': notesMap,
         'handler': handlerSuccess,
@@ -286,7 +286,7 @@ class _OwnerRenewalTabState extends State<OwnerRenewalTab> {
             label: const Text('Share on WhatsApp', style: TextStyle(color: Color(0xFF25D366))),
             onPressed: () {
               final text = Uri.encodeComponent(
-                'Here is your annual subscription renewal link for Appnexa ($title): $url',
+                'Here is your annual subscription renewal link for AppNexa ($title): $url',
               );
               html.window.open('https://wa.me/?text=$text', '_blank');
             },

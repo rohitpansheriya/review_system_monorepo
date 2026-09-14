@@ -144,11 +144,6 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
             onPressed: () => context.go('/profile'),
           ),
           IconButton(
-            icon:    const Icon(Icons.bar_chart_outlined),
-            tooltip: 'Commission tracker',
-            onPressed: () => context.go('/commission'),
-          ),
-          IconButton(
             icon:    const Icon(Icons.logout),
             tooltip: 'Sign out',
             onPressed: () => confirmAndSignOut(context),
@@ -184,37 +179,27 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 12,
-                    runSpacing: 8,
+                  Row(
                     children: [
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          _StatChip(
-                            icon:  Icons.business_outlined,
-                            label: 'Total enrolled',
-                            value: '${employee.totalEnrollments}',
-                          ),
-                          _StatChip(
-                            icon:  Icons.calendar_month_outlined,
-                            label: 'This month',
-                            value: '${employee.thisMonthEnrollments}',
-                          ),
-                        ],
-                      ),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.account_balance_wallet_outlined, size: 14),
-                        label: const Text('Ledger', style: TextStyle(fontSize: 12)),
-                        style: OutlinedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      Expanded(
+                        child: _StatChip(
+                          icon:  Icons.business_outlined,
+                          label: 'Total enrolled',
+                          value: '${employee.totalEnrollments}',
                         ),
-                        onPressed: () => context.go('/commission'),
+                      ),
+                      Container(
+                        height: 28,
+                        width: 1,
+                        margin: const EdgeInsets.symmetric(horizontal: 12),
+                        color: scheme.onPrimaryContainer.withValues(alpha: 0.25),
+                      ),
+                      Expanded(
+                        child: _StatChip(
+                          icon:  Icons.calendar_month_outlined,
+                          label: 'This month',
+                          value: '${employee.thisMonthEnrollments}',
+                        ),
                       ),
                     ],
                   ),

@@ -35,7 +35,7 @@ async function run() {
     const user = await auth.createUser({
       email:       'admin@test.com',
       password:    'Test1234!',
-      displayName: 'Platform Admin',
+      displayName: 'Admin',
     });
     adminUid = user.uid;
     console.log(`  ✅ Created admin user: ${adminUid}`);

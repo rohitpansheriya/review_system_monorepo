@@ -75,9 +75,12 @@ class EmployeeProfileModel {
   final List<EmployeeDocument> documents;
   final String                 documentsVerified; // "pending" | "verified" | "rejected"
 
+  final String role; // "employee" | "admin"
+
   const EmployeeProfileModel({
     required this.uid,
     this.status = 'active',
+    this.role = 'employee',
     this.totalEnrollments = 0,
     this.thisMonthEnrollments = 0,
     required this.fullName,
@@ -93,11 +96,17 @@ class EmployeeProfileModel {
   });
 
   bool get isActive => status == 'active';
-  String get name => fullName.isNotEmpty ? fullName : email;
+  bool get isAdmin =>
+      role == 'admin' ||
+      fullName.toLowerCase().contains('admin') ||
+      email.toLowerCase().contains('admin@') ||
+      uid == 'admin';
+  String get name => isAdmin ? 'Admin' : (fullName.isNotEmpty ? fullName : email);
 
   // ── Empty state ───────────────────────────────────────────────────────────
   static const empty = EmployeeProfileModel(
     uid:               '',
+    role:              'employee',
     fullName:          '',
     email:             '',
     phone:             '',
@@ -119,15 +128,25 @@ class EmployeeProfileModel {
     final topName  = d['name']?.toString() ?? '';
     final topEmail = d['email']?.toString() ?? d['contact']?.toString() ?? '';
     final topPhone = d['phone']?.toString() ?? '';
+    final rawRole  = d['role']?.toString() ?? 'employee';
+
+    final isAdm = rawRole == 'admin' ||
+        topName.toLowerCase().contains('admin') ||
+        (profile['full_name']?.toString().toLowerCase().contains('admin') == true) ||
+        topEmail.toLowerCase().contains('admin@') ||
+        doc.id == 'admin';
 
     return EmployeeProfileModel(
       uid:                  doc.id,
       status:               d['status']?.toString() ?? (d['active'] == false ? 'inactive' : 'active'),
+      role:                 isAdm ? 'admin' : rawRole,
       totalEnrollments:     (d['total_enrollments'] as num?)?.toInt() ?? 0,
       thisMonthEnrollments: (d['this_month_enrollments'] as num?)?.toInt() ?? 0,
-      fullName:             (profile['full_name']?.toString() ?? '').isNotEmpty
-                                ? profile['full_name'].toString()
-                                : topName,
+      fullName:             isAdm
+          ? 'Admin'
+          : ((profile['full_name']?.toString() ?? '').isNotEmpty
+              ? profile['full_name'].toString()
+              : topName),
       email:                (profile['email']?.toString() ?? '').isNotEmpty
                                 ? profile['email'].toString()
                                 : topEmail,
@@ -145,7 +164,7 @@ class EmployeeProfileModel {
           .whereType<Map>()
           .map((e) => EmployeeDocument.fromMap(Map<String, dynamic>.from(e)))
           .toList(),
-      documentsVerified: d['documents_verified']?.toString() ?? 'pending',
+      documentsVerified: isAdm ? 'verified' : (d['documents_verified']?.toString() ?? 'pending'),
     );
   }
 

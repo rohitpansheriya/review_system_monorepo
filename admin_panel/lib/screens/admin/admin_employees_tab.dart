@@ -275,27 +275,45 @@ class AdminEmployeesTab extends StatelessWidget {
 
                 return Card(
                   elevation: 1,
+                  clipBehavior: Clip.antiAlias,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: BorderSide(color: colorScheme.outlineVariant),
                   ),
-                  child: ExpansionTile(
-                    leading: CircleAvatar(
-                      backgroundColor: emp.isActive ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
+                  child: Theme(
+                    data: theme.copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      shape: const Border(),
+                      collapsedShape: const Border(),
+                      leading: CircleAvatar(
+                      backgroundColor: emp.isAdmin
+                          ? AppColors.primary.withValues(alpha: 0.12)
+                          : (emp.isActive ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest),
                       child: Icon(
-                        emp.isActive ? Icons.person : Icons.person_off,
-                        color: emp.isActive ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                        emp.isAdmin
+                            ? Icons.admin_panel_settings_rounded
+                            : (emp.isActive ? Icons.person : Icons.person_off),
+                        color: emp.isAdmin
+                            ? AppColors.primary
+                            : (emp.isActive ? colorScheme.primary : colorScheme.onSurfaceVariant),
                       ),
                     ),
                     title: Text(
-                      emp.name.isNotEmpty ? emp.name : emp.email,
+                      emp.name,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     subtitle: Text(
-                      '${emp.email} • Phone: ${emp.phone.isNotEmpty ? emp.phone : "N/A"} • Status: ${emp.status.toUpperCase()}',
+                      '${emp.email}${emp.phone.isNotEmpty ? " • Phone: ${emp.phone}" : ""} • ${emp.isAdmin ? "ROLE: ADMIN" : "STATUS: ${emp.status.toUpperCase()}"}',
                       style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
-                    trailing: AppBadge.kyc(emp.documentsVerified),
+                      trailing: emp.isAdmin
+                          ? AppBadge(
+                              label: 'ADMIN',
+                              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                              foregroundColor: AppColors.primary,
+                              icon: Icons.admin_panel_settings_rounded,
+                            )
+                          : AppBadge.kyc(emp.documentsVerified),
                     children: [
                       Padding(
                         padding: EdgeInsets.all(isDesktop ? 20.0 : 12.0),
@@ -310,55 +328,58 @@ class AdminEmployeesTab extends StatelessWidget {
                                 _buildMetricBox(context, 'Total Enrollments', '${provider.employeeTotalEnrollments[emp.uid] ?? 0}'),
                                 _buildMetricBox(context, 'This Month', '${provider.employeeThisMonthEnrollments[emp.uid] ?? 0}'),
                                 _buildMetricBox(context, 'Managed', '${provider.employeeManagedCount[emp.uid] ?? 0}'),
-                                _buildMetricBox(context, 'Pending Comm.', '₹${comms['pending']?.toStringAsFixed(0) ?? '0'}'),
-                                _buildMetricBox(context, 'Paid Comm.', '₹${comms['paid']?.toStringAsFixed(0) ?? '0'}'),
+                                if (!emp.isAdmin) ...[
+                                  _buildMetricBox(context, 'Pending Comm.', '₹${comms['pending']?.toStringAsFixed(0) ?? '0'}'),
+                                  _buildMetricBox(context, 'Paid Comm.', '₹${comms['paid']?.toStringAsFixed(0) ?? '0'}'),
+                                ],
                               ],
                             ),
                             const Divider(height: 32),
 
-                            // Document & Payout Verification Action
-                            Wrap(
-                              alignment: WrapAlignment.spaceBetween,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                Text(
-                                  'KYC Document Status: ${emp.documentsVerified.toUpperCase()}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: () async {
-                                        await provider.verifyEmployeeDocuments(
-                                          employeeUid: emp.uid,
-                                          status: 'rejected',
-                                        );
-                                      },
-                                      icon: const Icon(Icons.close, size: 16),
-                                      label: const Text('Reject KYC Docs'),
-                                      style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
-                                    ),
-                                    ElevatedButton.icon(
-                                      onPressed: () async {
-                                        await provider.verifyEmployeeDocuments(
-                                          employeeUid: emp.uid,
-                                          status: 'verified',
-                                        );
-                                      },
-                                      icon: const Icon(Icons.check, size: 16),
-                                      label: const Text('Verify KYC Docs'),
-                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-
-                            const Divider(height: 32),
+                            if (!emp.isAdmin) ...[
+                              // Document & Payout Verification Action
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  Text(
+                                    'KYC Document Status: ${emp.documentsVerified.toUpperCase()}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      OutlinedButton.icon(
+                                        onPressed: () async {
+                                          await provider.verifyEmployeeDocuments(
+                                            employeeUid: emp.uid,
+                                            status: 'rejected',
+                                          );
+                                        },
+                                        icon: const Icon(Icons.close, size: 16),
+                                        label: const Text('Reject KYC Docs'),
+                                        style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
+                                      ),
+                                      ElevatedButton.icon(
+                                        onPressed: () async {
+                                          await provider.verifyEmployeeDocuments(
+                                            employeeUid: emp.uid,
+                                            status: 'verified',
+                                          );
+                                        },
+                                        icon: const Icon(Icons.check, size: 16),
+                                        label: const Text('Verify KYC Docs'),
+                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 32),
+                            ],
 
                             // Managed Businesses List
                             Text(
@@ -425,7 +446,7 @@ class AdminEmployeesTab extends StatelessWidget {
                                   icon: const Icon(Icons.lock_reset, size: 16),
                                   label: const Text('Resend Password Setup Link'),
                                 ),
-                                if (emp.isActive)
+                                if (emp.isActive && !emp.isAdmin)
                                   OutlinedButton.icon(
                                     onPressed: () => _confirmOffboard(context, provider, emp),
                                     icon: const Icon(Icons.person_off, size: 16),
@@ -442,7 +463,8 @@ class AdminEmployeesTab extends StatelessWidget {
                       ),
                     ],
                   ),
-                );
+                ),
+              );
               },
             ),
         ],

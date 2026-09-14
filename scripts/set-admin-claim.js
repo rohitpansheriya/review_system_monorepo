@@ -52,10 +52,11 @@ async function run() {
 
   // 3. Create employees/{uid} doc (the app reads this for profile info)
   await db.collection('employees').doc(user.uid).set({
-    name: user.displayName || 'Platform Admin',
+    name: user.displayName || 'Admin',
     contact: email,
     role: 'admin',
     active: true,
+    documents_verified: 'verified',
     total_enrollments: 0,
     this_month_enrollments: 0,
   }, { merge: true });

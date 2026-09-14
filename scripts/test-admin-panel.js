@@ -27,7 +27,7 @@ async function runAdminPanelTests() {
 
   adminUser = await auth.createUser({
     email: adminEmail,
-    displayName: 'Platform Admin',
+    displayName: 'Admin',
   });
   await auth.setCustomUserClaims(adminUser.uid, { role: 'admin' });
   console.log(`   ✓ Admin Auth account created: UID=${adminUser.uid}, claim role="admin"`);

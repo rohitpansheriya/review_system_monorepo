@@ -315,69 +315,125 @@ class AdminDashboardProvider extends ChangeNotifier {
     final empTasks = _employees.map((emp) async {
       FirestoreService.employeeNameCache[emp.uid] = emp.name;
 
-      final results = await Future.wait([
-        _db
-            .collection('businesses')
-            .where('enrolled_by', isEqualTo: emp.uid)
-            .get(),
-        _db
-            .collection('employee_commissions')
-            .where('employee_id', isEqualTo: emp.uid)
-            .get(),
-      ]);
+      if (emp.isAdmin) {
+        final results = await Future.wait([
+          _db.collection('businesses').where('enrolled_by', isEqualTo: 'admin').get(),
+          _db.collection('businesses').where('enrolled_by', isEqualTo: emp.uid).get(),
+          _db.collection('businesses').where('currently_managed_by', isEqualTo: 'admin').get(),
+        ]);
 
-      final enrolledSnap = results[0];
-      final commSnap = results[1];
-
-      _employeeTotalEnrollments[emp.uid] = enrolledSnap.docs.length;
-
-      int thisMonth = 0;
-      for (final doc in enrolledSnap.docs) {
-        final data = doc.data();
-        final createdAt = data['created_at'] as Timestamp?;
-        if (createdAt != null && createdAt.compareTo(monthStartTs) >= 0) {
-          thisMonth++;
+        final uniqueDocs = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+        for (final snap in results) {
+          for (final doc in snap.docs) {
+            uniqueDocs[doc.id] = doc;
+          }
         }
-      }
-      _employeeThisMonthEnrollments[emp.uid] = thisMonth;
+        final enrolledDocs = uniqueDocs.values.toList();
 
-      _employeeBusinesses[emp.uid] =
-          enrolledSnap.docs.map(BusinessModel.fromDoc).toList();
-      _employeeManagedCount[emp.uid] = enrolledSnap.docs.length;
+        _employeeTotalEnrollments[emp.uid] = enrolledDocs.length;
 
-      double pending = 0.0;
-      double paid = 0.0;
-      for (final doc in commSnap.docs) {
-        final data = doc.data();
-        final amount = (data['amount'] as num? ?? 0).toDouble();
-        final status = data['status'] as String? ?? 'pending';
-        if (status == 'pending') {
-          pending += amount;
-        } else if (status == 'paid') {
-          paid += amount;
+        int thisMonth = 0;
+        for (final doc in enrolledDocs) {
+          final data = doc.data();
+          final createdAt = data['created_at'] as Timestamp?;
+          if (createdAt != null && createdAt.compareTo(monthStartTs) >= 0) {
+            thisMonth++;
+          }
         }
-      }
+        _employeeThisMonthEnrollments[emp.uid] = thisMonth;
 
-      _employeeCommissionSummaries[emp.uid] = {
-        'pending': pending,
-        'paid': paid,
-      };
+        _employeeBusinesses[emp.uid] =
+            enrolledDocs.map(BusinessModel.fromDoc).toList();
+        _employeeManagedCount[emp.uid] = enrolledDocs.length;
+
+        _employeeCommissionSummaries[emp.uid] = {
+          'pending': 0.0,
+          'paid': 0.0,
+        };
+      } else {
+        final results = await Future.wait([
+          _db
+              .collection('businesses')
+              .where('enrolled_by', isEqualTo: emp.uid)
+              .get(),
+          _db
+              .collection('employee_commissions')
+              .where('employee_id', isEqualTo: emp.uid)
+              .get(),
+        ]);
+
+        final enrolledSnap = results[0];
+        final commSnap = results[1];
+
+        _employeeTotalEnrollments[emp.uid] = enrolledSnap.docs.length;
+
+        int thisMonth = 0;
+        for (final doc in enrolledSnap.docs) {
+          final data = doc.data();
+          final createdAt = data['created_at'] as Timestamp?;
+          if (createdAt != null && createdAt.compareTo(monthStartTs) >= 0) {
+            thisMonth++;
+          }
+        }
+        _employeeThisMonthEnrollments[emp.uid] = thisMonth;
+
+        _employeeBusinesses[emp.uid] =
+            enrolledSnap.docs.map(BusinessModel.fromDoc).toList();
+        _employeeManagedCount[emp.uid] = enrolledSnap.docs.length;
+
+        double pending = 0.0;
+        double paid = 0.0;
+        for (final doc in commSnap.docs) {
+          final data = doc.data();
+          final amount = (data['amount'] as num? ?? 0).toDouble();
+          final status = data['status'] as String? ?? 'pending';
+          if (status == 'pending') {
+            pending += amount;
+          } else if (status == 'paid') {
+            paid += amount;
+          }
+        }
+
+        _employeeCommissionSummaries[emp.uid] = {
+          'pending': pending,
+          'paid': paid,
+        };
+      }
     });
 
     await Future.wait(empTasks);
     notifyListeners();
   }
 
+  /// Checks if a given identifier/UID corresponds to an Admin.
+  bool isAdminUid(String? uid) {
+    if (uid == null || uid.isEmpty || uid == 'admin') return true;
+    final lower = uid.toLowerCase();
+    if (lower == 'admin' || lower == 'platform admin' || lower == 'super admin') return true;
+    for (final emp in _employees) {
+      if (emp.uid == uid && emp.isAdmin) return true;
+    }
+    return false;
+  }
+
   /// Resolves an employee UID to display name (e.g. "Rahul Sharma" or "Admin").
   String resolveEmployeeName(String? uid) {
-    if (uid == null || uid.isEmpty || uid == 'admin') return 'Admin';
+    if (isAdminUid(uid)) return 'Admin';
     for (final emp in _employees) {
-      if (emp.uid == uid) return emp.name;
+      if (emp.uid == uid) {
+        if (emp.isAdmin) return 'Admin';
+        return emp.name;
+      }
     }
     if (FirestoreService.employeeNameCache.containsKey(uid)) {
-      return FirestoreService.employeeNameCache[uid]!;
+      final cached = FirestoreService.employeeNameCache[uid]!;
+      final lower = cached.toLowerCase();
+      if (lower == 'admin' || lower == 'platform admin' || lower == 'super admin') {
+        return 'Admin';
+      }
+      return cached;
     }
-    return uid.length > 8 ? 'Emp: ${uid.substring(0, 8)}…' : uid;
+    return uid!.length > 8 ? 'Emp: ${uid.substring(0, 8)}…' : uid;
   }
 
   /// Create new employee Auth account & Firestore doc, and trigger password-set email.

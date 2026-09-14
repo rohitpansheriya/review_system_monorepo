@@ -137,7 +137,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (provider.error != null && provider.allBusinesses.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Platform Admin Dashboard'),
+          title: const Text('Admin Dashboard'),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
@@ -189,7 +189,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Platform Admin Dashboard'),
+        title: const Text('Admin Dashboard'),
         actions: [
           Center(
             child: Padding(

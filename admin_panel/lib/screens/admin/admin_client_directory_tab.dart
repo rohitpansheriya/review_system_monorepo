@@ -244,10 +244,17 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
 
     // Enrolled-by filter
     if (_enrolledByFilter != 'all') {
-      list = list.where((b) =>
-          b.enrolledBy == _enrolledByFilter ||
-          b.currentlyManagedBy == _enrolledByFilter
-      ).toList();
+      if (_enrolledByFilter == 'admin') {
+        list = list.where((b) =>
+            provider.isAdminUid(b.enrolledBy) ||
+            provider.isAdminUid(b.currentlyManagedBy)
+        ).toList();
+      } else {
+        list = list.where((b) =>
+            b.enrolledBy == _enrolledByFilter ||
+            b.currentlyManagedBy == _enrolledByFilter
+        ).toList();
+      }
     }
 
     // Search
@@ -428,10 +435,26 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
           // ── Search & Filter Bar ───────────────────────────────────────────
           _buildSearchFilterBar(provider, (() {
             final enrolledByUids = <String>{};
+            bool hasAdmin = false;
             for (final biz in provider.allBusinesses) {
-              if (biz.enrolledBy.isNotEmpty) enrolledByUids.add(biz.enrolledBy);
+              if (biz.enrolledBy.isNotEmpty) {
+                if (provider.isAdminUid(biz.enrolledBy)) {
+                  hasAdmin = true;
+                } else {
+                  enrolledByUids.add(biz.enrolledBy);
+                }
+              }
             }
-            return enrolledByUids;
+            final items = <String, String>{
+              'all': 'All Agents',
+            };
+            if (hasAdmin || provider.allBusinesses.any((b) => provider.isAdminUid(b.enrolledBy))) {
+              items['admin'] = 'Admin (Direct)';
+            }
+            for (final uid in enrolledByUids) {
+              items[uid] = provider.resolveEmployeeName(uid);
+            }
+            return items;
           })(), theme, colorScheme),
           const SizedBox(height: 8),
 
@@ -460,7 +483,7 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
   // ── Search & Filter Bar Widget ──────────────────────────────────────────────
   Widget _buildSearchFilterBar(
     AdminDashboardProvider provider,
-    Set<String> enrolledByUids,
+    Map<String, String> enrolledByItems,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
@@ -494,13 +517,9 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
 
         // Enrolled-by filter
         _buildFilterDropdown<String>(
-          value: _enrolledByFilter,
+          value: enrolledByItems.containsKey(_enrolledByFilter) ? _enrolledByFilter : 'all',
           icon: Icons.person_search_rounded,
-          items: {
-            'all': 'All Agents',
-            for (final uid in enrolledByUids)
-              uid: provider.resolveEmployeeName(uid),
-          },
+          items: enrolledByItems,
           onChanged: (v) => setState(() => _enrolledByFilter = v ?? 'all'),
         ),
       ],
@@ -1091,7 +1110,7 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
     final colorScheme = theme.colorScheme;
     final employees = provider.employees;
 
-    String selectedEmployeeUid = biz.enrolledBy.isEmpty ? 'admin' : biz.enrolledBy;
+    String selectedEmployeeUid = provider.isAdminUid(biz.enrolledBy) ? 'admin' : biz.enrolledBy;
     String reason = '';
 
     final success = await showDialog<bool>(
@@ -1099,7 +1118,7 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final isCurrent = selectedEmployeeUid == (biz.enrolledBy.isEmpty ? 'admin' : biz.enrolledBy);
+            final isCurrent = selectedEmployeeUid == (provider.isAdminUid(biz.enrolledBy) ? 'admin' : biz.enrolledBy);
 
             return AppModalDialog(
               icon: Icons.swap_horiz_rounded,
@@ -1153,7 +1172,9 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                         value: 'admin',
                         child: Text('Admin (Direct Enrollment / No Commission)'),
                       ),
-                      ...employees.map((emp) => DropdownMenuItem(
+                      ...employees
+                          .where((emp) => !emp.isAdmin)
+                          .map((emp) => DropdownMenuItem(
                             value: emp.uid,
                             child: Text(
                               '${emp.name} (${emp.email})',

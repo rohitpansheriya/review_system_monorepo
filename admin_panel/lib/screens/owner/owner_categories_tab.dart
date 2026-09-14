@@ -85,7 +85,7 @@ class OwnerCategoriesTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Managed by AppNexa Quality Team',
+                        'AI Review Generation Enabled',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -94,7 +94,7 @@ class OwnerCategoriesTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Review phrase pools are curated and randomized automatically to prevent duplicate review penalties on Google. To request category adjustments, please reach out via WhatsApp Support.',
+                        'Dynamic AI review phrases are automatically generated and varied for each customer to prevent duplicate review penalties on Google. To request category adjustments, please reach out via WhatsApp Support.',
                         style: TextStyle(
                           fontSize: 12,
                           color: colorScheme.onSurfaceVariant,
@@ -181,7 +181,7 @@ class OwnerCategoriesTab extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
-                              Icons.reviews_outlined,
+                              Icons.auto_awesome_rounded,
                               size: 18,
                               color: colorScheme.primary,
                             ),
@@ -200,7 +200,7 @@ class OwnerCategoriesTab extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${phrases.length} unique phrase variations',
+                                  'AI-generated dynamic review phrasing',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -233,7 +233,7 @@ class OwnerCategoriesTab extends StatelessWidget {
                         const Divider(height: 1),
                         const SizedBox(height: 10),
                         Text(
-                          'Sample Phrases Preview:',
+                          'AI Review Preview Samples:',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -316,7 +316,7 @@ class OwnerCategoriesTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$categoryCount curated categories • Optimized for local SEO',
+                  '$categoryCount active categories • AI-powered variations',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),

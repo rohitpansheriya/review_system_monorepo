@@ -566,7 +566,9 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                           value: 'admin',
                           child: Text('Admin (Direct enrollment / No commission)'),
                         ),
-                        ..._employees.map((e) => DropdownMenuItem(
+                        ..._employees
+                            .where((e) => !e.isAdmin)
+                            .map((e) => DropdownMenuItem(
                           value: e.uid,
                           child: Text('${e.name} (${e.email})'),
                         )),

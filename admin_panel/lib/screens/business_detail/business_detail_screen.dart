@@ -37,8 +37,11 @@ import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/places_service.dart';
-import '../../widgets/share_business_qr.dart';
 import '../../widgets/app_animated_loader.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_dialog.dart';
+import '../../widgets/app_fulfillment_stepper.dart';
+import '../../widgets/share_business_qr.dart';
 import '../enroll/branch_form_widget.dart';
 
 class BusinessDetailScreen extends StatefulWidget {
@@ -122,50 +125,46 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          title: Text('Add New Branch to "${_business.brandName}"'),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 580,
-              maxHeight: MediaQuery.of(ctx).size.height * 0.75,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  BranchFormWidget(
-                    branchIndex: _branches.length,
-                    draft: draft,
-                    showBranchName: true,
-                    showError: showErrors,
-                    ownerPhone: _business.ownerPhone,
-                    ownerName: _business.ownerName,
-                    onChanged: () => setDlgState(() {}),
-                  ),
-                  if (saveError != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        saveError!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+        builder: (ctx, setDlgState) => AppModalDialog(
+          icon: Icons.add_business_rounded,
+          iconColor: AppColors.primary,
+          title: 'Add New Branch',
+          subtitle: 'Configure location, review routing, and details for "${_business.brandName}".',
+          maxWidth: 580,
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BranchFormWidget(
+                branchIndex: _branches.length,
+                draft: draft,
+                showBranchName: true,
+                showError: showErrors,
+                ownerPhone: _business.ownerPhone,
+                ownerName: _business.ownerName,
+                onChanged: () => setDlgState(() {}),
               ),
-            ),
+              if (saveError != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    saveError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: saving ? null : () => Navigator.of(dialogCtx).pop(),
               child: const Text('Cancel'),
             ),
@@ -277,121 +276,112 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
           builder: (dCtx, setDialogState) {
             final isCurrent = selectedEmployeeUid == (_business.enrolledBy.isEmpty ? 'admin' : _business.enrolledBy);
 
-            return AlertDialog(
-              title: const Row(
+            return AppModalDialog(
+              icon: Icons.swap_horiz_rounded,
+              iconColor: AppColors.primary,
+              title: 'Change Enrolled Employee',
+              subtitle: 'Reassign which employee is credited for enrolling "${_business.brandName}".',
+              maxWidth: 520,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.swap_horiz_rounded, size: 24, color: AppColors.primary),
-                  SizedBox(width: 10),
-                  Text('Change Enrolled Employee'),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline, size: 20, color: Colors.grey),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Currently Enrolled By', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              Text(
+                                _enrolledByName ?? (_business.enrolledBy == 'admin' ? 'Admin' : _business.enrolledBy),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedEmployeeUid,
+                    dropdownColor: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    elevation: 8,
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    decoration: const InputDecoration(
+                      labelText: 'Select New Enrolled Employee *',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'admin',
+                        child: Text('Admin (Direct Enrollment / No Commission)'),
+                      ),
+                      ...employees.map((emp) => DropdownMenuItem(
+                            value: emp.uid,
+                            child: Text(
+                              '${emp.name} (${emp.email})',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          )),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedEmployeeUid = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Reason for Reassignment (Optional)',
+                      hintText: 'e.g. Territory reallocation or correction',
+                      prefixIcon: Icon(Icons.notes_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                    onChanged: (val) => reason = val.trim(),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Impact of change:\n'
+                            '• Moves business to selected employee’s panel.\n'
+                            '• Removes it from previous employee’s view.\n'
+                            '• Transferred pending commissions & enrollment counters.',
+                            style: TextStyle(fontSize: 12, height: 1.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-              content: SizedBox(
-                width: 480,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Reassign which employee is credited for enrolling "${_business.brandName}".',
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.person_outline, size: 20, color: Colors.grey),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Currently Enrolled By', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                  Text(
-                                    _enrolledByName ?? (_business.enrolledBy == 'admin' ? 'Admin' : _business.enrolledBy),
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: selectedEmployeeUid,
-                        decoration: const InputDecoration(
-                          labelText: 'Select New Enrolled Employee *',
-                          prefixIcon: Icon(Icons.badge_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: 'admin',
-                            child: Text('Admin (Direct Enrollment / No Commission)'),
-                          ),
-                          ...employees.map((emp) => DropdownMenuItem(
-                                value: emp.uid,
-                                child: Text(
-                                  '${emp.name} (${emp.email})',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              )),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() => selectedEmployeeUid = val);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        decoration: const InputDecoration(
-                          labelText: 'Reason for Reassignment (Optional)',
-                          hintText: 'e.g. Territory reallocation or correction',
-                          prefixIcon: Icon(Icons.notes_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 2,
-                        onChanged: (val) => reason = val.trim(),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-                        ),
-                        child: const Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.info_outline, size: 18, color: Colors.amber),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Impact of change:\n'
-                                '• Moves business to selected employee’s panel.\n'
-                                '• Removes it from previous employee’s view.\n'
-                                '• Transferred pending commissions & enrollment counters.',
-                                style: TextStyle(fontSize: 12, height: 1.4),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               actions: [
-                TextButton(
+                OutlinedButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
                   child: const Text('Cancel'),
                 ),
@@ -468,26 +458,24 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.delete_forever, color: errorColor, size: 28),
-            const SizedBox(width: 10),
-            const Text('Delete Business?'),
-          ],
-        ),
+      builder: (ctx) => AppModalDialog(
+        icon: Icons.delete_forever_rounded,
+        iconColor: errorColor,
+        title: 'Delete Business?',
+        subtitle: 'Cascade deletion of brand and branches',
+        maxWidth: 480,
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Are you sure you want to permanently delete "${_business.brandName}"?',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
             const SizedBox(height: 12),
             const Text(
               'This will cascade and permanently remove:',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 8),
             Text('• All ${_branches.length} branch location(s) and review configs', style: const TextStyle(fontSize: 12)),
@@ -497,10 +485,10 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
               Text('• Owner Auth user account (${_business.ownerEmail}) so the email can be reused', style: const TextStyle(fontSize: 12)),
             const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: errorColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: errorColor.withValues(alpha: 0.3)),
               ),
               child: Text(
@@ -511,7 +499,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
           ],
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),
@@ -718,122 +706,41 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               if (biz.businessCode != null || biz.isTestAccount)
-                                Container(
+                                AppBadge.code(
+                                  biz.displayCode,
+                                  isTest: biz.isTestAccount,
+                                  prefix: 'ID',
+                                  fontSize: 12,
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: biz.isTestAccount ? AppColors.warning.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                                    border: Border.all(
-                                      color: biz.isTestAccount ? AppColors.warning : AppColors.primary.withValues(alpha: 0.3),
-                                      width: 0.8,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'ID: ${biz.displayCode}',
-                                    style: TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: biz.isTestAccount ? AppColors.warning : AppColors.primary,
-                                    ),
-                                  ),
                                 ),
-                              _StatusBadge(status: displayStatus),
+                              AppBadge.subscription(displayStatus),
                               if (isFullyActive)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.activeBg,
-                                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                                    border: Border.all(color: AppColors.activeFg.withValues(alpha: 0.3)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.check_circle, size: 13, color: AppColors.activeFg),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'All $totalBranchCount ${totalBranchCount == 1 ? "Location" : "Locations"} Active',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.activeFg,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                AppBadge.count(
+                                  label: 'All $totalBranchCount ${totalBranchCount == 1 ? "Location" : "Locations"} Active',
+                                  color: AppColors.activeFg,
+                                  backgroundColor: AppColors.activeBg,
+                                  icon: Icons.check_circle,
                                 ),
                               if (isPartialPending) ...[
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.activeBg,
-                                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                                    border: Border.all(color: AppColors.activeFg.withValues(alpha: 0.3)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.check_circle_outline, size: 13, color: AppColors.activeFg),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '$activeBranchCount of $totalBranchCount Active',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.activeFg,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                AppBadge.count(
+                                  label: '$activeBranchCount of $totalBranchCount Active',
+                                  color: AppColors.activeFg,
+                                  backgroundColor: AppColors.activeBg,
+                                  icon: Icons.check_circle_outline,
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.pendingBg,
-                                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                                    border: Border.all(color: AppColors.pendingFg.withValues(alpha: 0.4)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.hourglass_empty, size: 13, color: AppColors.pendingFg),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '$pendingBranchCount of $totalBranchCount Pending Payment (₹${pendingBranchCount * 1999})',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.pendingFg,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                AppBadge.count(
+                                  label: '$pendingBranchCount of $totalBranchCount Pending Payment (₹${pendingBranchCount * 1999})',
+                                  color: AppColors.pendingFg,
+                                  backgroundColor: AppColors.pendingBg,
+                                  icon: Icons.hourglass_empty,
                                 ),
                               ],
                               if (graceBranchCount > 0)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.graceBg,
-                                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                                    border: Border.all(color: AppColors.graceFg.withValues(alpha: 0.3)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.warning_amber_rounded, size: 13, color: AppColors.graceFg),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '$graceBranchCount ${totalBranchCount > 1 ? "of $totalBranchCount branches" : "branch"} in Grace Period',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.graceFg,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                AppBadge.count(
+                                  label: '$graceBranchCount ${totalBranchCount > 1 ? "of $totalBranchCount branches" : "branch"} in Grace Period',
+                                  color: AppColors.graceFg,
+                                  backgroundColor: AppColors.graceBg,
+                                  icon: Icons.warning_amber_rounded,
                                 ),
                             ],
                           ),
@@ -2594,9 +2501,6 @@ class _StandeeStatusRow extends StatelessWidget {
     final safeStatus  = AppConstants.standeeStatuses.contains(currentStatus)
         ? currentStatus
         : AppConstants.standeeOrdered;
-    final label       = AppConstants.standeeStatusLabels[safeStatus] ?? safeStatus;
-    final statusColor = AppTheme.standeeStatusColor(safeStatus);
-    final statusFg    = AppTheme.standeeStatusForeground(safeStatus);
     final updatedStr  = updatedAt != null
         ? DateFormat('d MMM yyyy').format(updatedAt!)
         : null;
@@ -2616,26 +2520,14 @@ class _StandeeStatusRow extends StatelessWidget {
               Icon(Icons.local_shipping_outlined,
                   size: 16, color: scheme.onSurfaceVariant),
               const SizedBox(width: 6),
-              const Text('Acrylic Standee',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Text('Acrylic Standee Pipeline',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const Spacer(),
               // Current status chip
-              Container(
+              AppBadge.standee(
+                safeStatus,
+                fontSize: 10,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color:        statusColor,
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border:       Border.all(
-                    color: statusFg.withValues(alpha: 0.4), width: 0.8),
-                ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize:   10,
-                    fontWeight: FontWeight.w600,
-                    color:      statusFg,
-                  ),
-                ),
               ),
               if (updating)
                 const Padding(
@@ -2647,17 +2539,39 @@ class _StandeeStatusRow extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: 10),
+
+          // Visual 4-Step Stepper
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: scheme.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: AppFulfillmentStepper(
+              currentStatus: safeStatus,
+              isInteractive: !updating,
+              onStepSelected: updating ? null : onChanged,
+              compact: true,
+            ),
+          ),
+          const SizedBox(height: 10),
+
           DropdownButtonFormField<String>(
-            value:      safeStatus,
-            isExpanded: true,
+            value:         safeStatus,
+            isExpanded:    true,
+            dropdownColor: Colors.white,
+            borderRadius:  BorderRadius.circular(14),
+            elevation:     8,
+            icon:          const Icon(Icons.keyboard_arrow_down_rounded),
             decoration: InputDecoration(
               isDense: true,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.sm)),
-              label: const Text('Update status'),
+              label: const Text('Change Standee Status'),
             ),
             items: AppConstants.standeeStatuses
                 .map((s) => DropdownMenuItem<String>(
@@ -2814,41 +2728,4 @@ class _InfoRow extends StatelessWidget {
           ],
         ),
       );
-}
-
-class _StatusBadge extends StatelessWidget {
-  final String status;
-  const _StatusBadge({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final labels = {
-      'pending_payment': 'Awaiting Payment',
-      'active':          'Active',
-      'due_soon':        'Renewal Due',
-      'grace_period':    'Grace Period',
-      'suspended':       'Suspended',
-      'deleted':         'Deleted',
-    };
-    final label = labels[status] ?? status;
-    final bg    = AppTheme.statusColor(status);
-    final fg    = AppTheme.statusForeground(status);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color:        bg,
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        border:       Border.all(color: fg.withValues(alpha: 0.4), width: 0.8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize:   11,
-          fontWeight: FontWeight.w700,
-          color:      fg,
-        ),
-      ),
-    );
-  }
 }

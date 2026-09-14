@@ -8,7 +8,7 @@ echo "Injecting Firebase config into review page & landing page..."
 node scripts/inject-firebase-config.js
 
 echo "Building Flutter panels (base-href /app/)..."
-cd admin_panel && flutter build web --release --base-href /app/ && cd ..
+cd admin_panel && flutter build web --release --no-tree-shake-icons --base-href /app/ && cd ..
 
 echo "Assembling public/ ..."
 rm -rf public && mkdir -p public/r public/app

@@ -8,8 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../core/theme.dart';
 import '../../models/business_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_dialog.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_kpi_card.dart';
+import '../../widgets/app_search_bar.dart';
 
 class AdminPlatformStatsTab extends StatelessWidget {
   const AdminPlatformStatsTab({super.key});
@@ -95,41 +101,39 @@ class AdminPlatformStatsTab extends StatelessWidget {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 shrinkWrap: true,
-                childAspectRatio: 1.5,
+                childAspectRatio: constraints.maxWidth > 900
+                    ? 1.45
+                    : (constraints.maxWidth > 600 ? 1.7 : 2.5),
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _buildKpiCard(
-                    context,
-                    title: 'Total Paying Businesses',
+                  AppKpiCard(
+                    label: 'Total Paying Businesses',
                     value: '${provider.totalBusinessesCount}',
                     subtitle:
                         '${provider.totalActiveBranches} active location${provider.totalActiveBranches == 1 ? '' : 's'} across ${provider.totalBusinessesCount} brand${provider.totalBusinessesCount == 1 ? '' : 's'}',
-                    icon: Icons.store,
+                    icon: Icons.store_rounded,
                     color: colorScheme.primary,
                   ),
-                  _buildKpiCard(
-                    context,
-                    title: 'Active Subscriptions',
+                  AppKpiCard(
+                    label: 'Active Subscriptions',
                     value: '${provider.activeBusinessesCount}',
                     subtitle:
                         '${provider.totalActiveBranches} active paid branch${provider.totalActiveBranches == 1 ? '' : 'es'}',
-                    icon: Icons.check_circle,
-                    color: Colors.green,
+                    icon: Icons.check_circle_rounded,
+                    color: AppColors.activeFg,
                   ),
-                  _buildKpiCard(
-                    context,
-                    title: 'Grace Period',
+                  AppKpiCard(
+                    label: 'Grace Period',
                     value: '${provider.graceBusinessesCount}',
                     subtitle: 'Requires renewal',
-                    icon: Icons.warning_amber,
-                    color: Colors.orange,
+                    icon: Icons.warning_amber_rounded,
+                    color: AppColors.graceFg,
                   ),
-                  _buildKpiCard(
-                    context,
-                    title: 'Active Locations',
+                  AppKpiCard(
+                    label: 'Active Locations',
                     value: '${provider.totalActiveBranches}',
                     subtitle: 'Live review routing branches',
-                    icon: Icons.location_on,
+                    icon: Icons.location_on_rounded,
                     color: colorScheme.secondary,
                   ),
                 ],
@@ -182,26 +186,37 @@ class AdminPlatformStatsTab extends StatelessWidget {
                                 // ── Month Selector Dropdown ──
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 2,
+                                    horizontal: 12,
+                                    vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: colorScheme.surfaceContainerHighest
-                                        .withValues(alpha: 0.5),
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                      color: colorScheme.outlineVariant
-                                          .withValues(alpha: 0.5),
+                                      color: colorScheme.outlineVariant,
                                     ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF00458B).withValues(alpha: 0.04),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<String?>(
                                       value: provider.selectedRevenueMonth,
+                                      dropdownColor: Colors.white,
+                                      borderRadius: BorderRadius.circular(14),
+                                      elevation: 8,
                                       isDense: true,
-                                      icon: Icon(
-                                        Icons.calendar_month_outlined,
-                                        size: 16,
-                                        color: colorScheme.primary,
+                                      icon: const Padding(
+                                        padding: EdgeInsets.only(left: 6),
+                                        child: Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          size: 18,
+                                          color: AppColors.primary,
+                                        ),
                                       ),
                                       style: TextStyle(
                                         fontSize: 12,
@@ -462,58 +477,7 @@ class AdminPlatformStatsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildKpiCard(
-    BuildContext context, {
-    required String title,
-    required String value,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-  }) {
-    final theme = Theme.of(context);
 
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Icon(icon, color: color, size: 22),
-              ],
-            ),
-            Text(
-              value,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildRenewalRow(
     BuildContext context,
@@ -644,95 +608,103 @@ class _AllBusinessesTableSectionState
       builder:
           (ctx) => StatefulBuilder(
             builder:
-                (context, setDialogState) => AlertDialog(
-                  title: Text(
-                    'Edit Business — ${biz.brandName.isNotEmpty ? biz.brandName : biz.id}',
-                  ),
-                  content: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: 480,
-                      maxHeight: MediaQuery.of(context).size.height * 0.7,
-                    ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextField(
-                            controller: brandCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Brand Name',
-                            ),
+                (context, setDialogState) => AppModalDialog(
+                  headerIcon: Icons.storefront_rounded,
+                  title: 'Edit Business Details',
+                  subtitle: biz.brandName.isNotEmpty ? biz.brandName : biz.id,
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: brandCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Brand Name',
+                          prefixIcon: Icon(Icons.business_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: catCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Category Type',
+                          prefixIcon: Icon(Icons.category_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: ownerNameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Owner Name',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: ownerEmailCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Owner Email',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: ownerPhoneCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Owner Phone',
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: status,
+                        dropdownColor: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        elevation: 8,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                        decoration: const InputDecoration(
+                          labelText: 'Subscription Status',
+                          prefixIcon: Icon(Icons.shield_outlined),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'active',
+                            child: Text('Active'),
                           ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: catCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Category Type',
-                            ),
+                          DropdownMenuItem(
+                            value: 'pending_payment',
+                            child: Text('Pending Payment'),
                           ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: ownerNameCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Owner Name',
-                            ),
+                          DropdownMenuItem(
+                            value: 'grace_period',
+                            child: Text('Grace Period'),
                           ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: ownerEmailCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Owner Email',
-                            ),
+                          DropdownMenuItem(
+                            value: 'suspended',
+                            child: Text('Suspended'),
                           ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: ownerPhoneCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Owner Phone',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            value: status,
-                            decoration: const InputDecoration(
-                              labelText: 'Subscription Status',
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'active',
-                                child: Text('Active'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'pending_payment',
-                                child: Text('Pending Payment'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'grace_period',
-                                child: Text('Grace Period'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'suspended',
-                                child: Text('Suspended'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'deleted',
-                                child: Text('Deleted'),
-                              ),
-                            ],
-                            onChanged: (v) {
-                              if (v != null) setDialogState(() => status = v);
-                            },
+                          DropdownMenuItem(
+                            value: 'deleted',
+                            child: Text('Deleted'),
                           ),
                         ],
+                        onChanged: (v) {
+                          if (v != null) setDialogState(() => status = v);
+                        },
                       ),
-                    ),
+                    ],
                   ),
                   actions: [
-                    TextButton(
+                    OutlinedButton(
                       onPressed: () => Navigator.of(ctx).pop(),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                       child: const Text('Cancel'),
                     ),
-                    ElevatedButton(
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
                       onPressed: () async {
                         Navigator.of(ctx).pop();
                         final provider = context.read<AdminDashboardProvider>();
@@ -753,7 +725,8 @@ class _AllBusinessesTableSectionState
                           );
                         }
                       },
-                      child: const Text('Save Changes'),
+                      icon: const Icon(Icons.save_outlined, size: 18),
+                      label: const Text('Save Changes'),
                     ),
                   ],
                 ),
@@ -814,52 +787,75 @@ class _AllBusinessesTableSectionState
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width > 500 ? 220 : double.infinity,
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          hintText: 'Search brand / email…',
-                          prefixIcon: Icon(Icons.search, size: 18),
-                          isDense: true,
-                        ),
-                        onChanged: (v) => setState(() => _searchQuery = v),
-                      ),
+                    AppSearchBar(
+                      width: MediaQuery.of(context).size.width > 500 ? 230 : double.infinity,
+                      hintText: 'Search brand / email…',
+                      initialValue: _searchQuery,
+                      onChanged: (v) => setState(() => _searchQuery = v),
                     ),
-                    DropdownButton<String>(
-                      value: _filterStatus,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'all',
-                          child: Text('All Statuses'),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: colorScheme.outlineVariant),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00458B).withValues(alpha: 0.04),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _filterStatus,
+                          dropdownColor: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          elevation: 8,
+                          icon: const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'all',
+                              child: Text('All Statuses'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'active',
+                              child: Text('Active'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'has_pending_branch',
+                              child: Text('Has Pending Branch ⚠️'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'pending_payment',
+                              child: Text('Pending Payment'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'grace_period',
+                              child: Text('Grace Period'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'suspended',
+                              child: Text('Suspended / Lapsed'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'deleted',
+                              child: Text('Deleted'),
+                            ),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) setState(() => _filterStatus = v);
+                          },
                         ),
-                        DropdownMenuItem(
-                          value: 'active',
-                          child: Text('Active'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'has_pending_branch',
-                          child: Text('Has Pending Branch ⚠️'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'pending_payment',
-                          child: Text('Pending Payment'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'grace_period',
-                          child: Text('Grace Period'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'suspended',
-                          child: Text('Suspended / Lapsed'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'deleted',
-                          child: Text('Deleted'),
-                        ),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) setState(() => _filterStatus = v);
-                      },
+                      ),
                     ),
                   ],
                 ),
@@ -868,11 +864,10 @@ class _AllBusinessesTableSectionState
             const Divider(height: 24),
 
             if (filtered.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Center(
-                  child: Text('No enrolled businesses match the criteria.'),
-                ),
+              const AppEmptyState(
+                icon: Icons.search_off_rounded,
+                title: 'No Matching Businesses Found',
+                message: 'No enrolled businesses match your current search query or filter selection.',
               )
             else
               SingleChildScrollView(
@@ -939,126 +934,45 @@ class _AllBusinessesTableSectionState
                               ),
                             ),
                             DataCell(
-                              Chip(
-                                label: Text(
-                                  status == 'suspended'
-                                      ? 'Suspended'
-                                      : status == 'grace_period'
-                                          ? 'Grace Period'
-                                          : status == 'pending_payment'
-                                              ? 'Pending Payment'
-                                              : status == 'active'
-                                                  ? 'Active'
-                                                  : status,
-                                ),
-                                backgroundColor:
-                                    status == 'active'
-                                        ? Colors.green.withValues(alpha: 0.15)
-                                        : status == 'suspended'
-                                            ? Colors.red.withValues(alpha: 0.15)
-                                            : Colors.amber.withValues(alpha: 0.15),
-                              ),
+                              AppBadge.subscription(status),
                             ),
                             DataCell(
                               stats == null
                                   ? const Text('1 Location')
                                   : (hasSuspended
-                                      ? InkWell(
+                                      ? AppBadge(
+                                          label: '${(stats.suspended > 0 ? stats.suspended : stats.total)} Suspended',
+                                          backgroundColor: const Color(0xFFFEE2E2),
+                                          foregroundColor: const Color(0xFFDC2626),
+                                          icon: Icons.pause_circle_outline_rounded,
+                                          fontSize: 11,
                                           onTap: () => context.push('/business/${b.id}', extra: b),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red.withValues(alpha: 0.15),
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.pause_circle_outline, size: 14, color: Colors.red),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  '${(stats.suspended > 0 ? stats.suspended : stats.total)} Suspended (Paused)',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 12,
-                                                    color: Colors.red,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
                                         )
                                       : (stats.grace > 0 || status == 'grace_period'
-                                          ? InkWell(
+                                          ? AppBadge(
+                                              label: '${stats.grace > 0 ? stats.grace : stats.total} in Grace',
+                                              backgroundColor: AppColors.graceBg,
+                                              foregroundColor: AppColors.graceFg,
+                                              icon: Icons.warning_amber_rounded,
+                                              fontSize: 11,
                                               onTap: () => context.push('/business/${b.id}', extra: b),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.orange.withValues(alpha: 0.15),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.deepOrange),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      '${stats.grace > 0 ? stats.grace : stats.total} in Grace Period',
-                                                      style: const TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 12,
-                                                        color: Colors.deepOrange,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
                                             )
                                           : (hasPending
-                                              ? InkWell(
+                                              ? AppBadge(
+                                                  label: stats.active > 0
+                                                      ? '${stats.active} Active, ${stats.pending} Pending'
+                                                      : '${stats.pending} Pending',
+                                                  backgroundColor: AppColors.pendingBg,
+                                                  foregroundColor: AppColors.pendingFg,
+                                                  icon: Icons.hourglass_top_rounded,
+                                                  fontSize: 11,
                                                   onTap: () => context.push('/business/${b.id}', extra: b),
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.amber.withValues(alpha: 0.15),
-                                                      borderRadius: BorderRadius.circular(8),
-                                                      border: Border.all(color: Colors.amber.withValues(alpha: 0.6)),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        const Icon(Icons.hourglass_top_rounded, size: 14, color: Colors.orange),
-                                                        const SizedBox(width: 4),
-                                                        Text(
-                                                          stats.active > 0
-                                                              ? '${stats.active} Active, ${stats.pending} Pending'
-                                                              : '${stats.pending} Pending ${stats.pending == 1 ? "Location" : "Locations"}',
-                                                          style: TextStyle(
-                                                            fontWeight: FontWeight.bold,
-                                                            fontSize: 12,
-                                                            color: stats.active > 0 ? Colors.deepOrange : Colors.amber.shade900,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
                                                 )
-                                              : Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.green.withValues(alpha: 0.12),
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: Text(
-                                                    '${stats.active} Active ${stats.active == 1 ? "Location" : "Locations"}',
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 12,
-                                                      color: Colors.green,
-                                                    ),
-                                                  ),
+                                              : AppBadge.count(
+                                                  label: '${stats.active} Active ${stats.active == 1 ? "Location" : "Locations"}',
+                                                  color: AppColors.activeFg,
+                                                  backgroundColor: AppColors.activeBg,
+                                                  icon: Icons.check_circle_rounded,
                                                 )))),
                             ),
                             DataCell(

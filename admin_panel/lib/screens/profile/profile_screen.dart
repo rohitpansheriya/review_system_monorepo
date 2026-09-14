@@ -511,7 +511,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 children: [
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
-                                      value: _selectedDocType,
+                                      value:         _selectedDocType,
+                                      dropdownColor: Colors.white,
+                                      borderRadius:  BorderRadius.circular(14),
+                                      elevation:     8,
+                                      icon:          const Icon(Icons.keyboard_arrow_down_rounded),
                                       decoration: const InputDecoration(
                                         labelText: 'Document Type',
                                         isDense: true,
@@ -544,7 +548,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   DropdownButtonFormField<String>(
-                                    value: _selectedDocType,
+                                    value:         _selectedDocType,
+                                    dropdownColor: Colors.white,
+                                    borderRadius:  BorderRadius.circular(14),
+                                    elevation:     8,
+                                    icon:          const Icon(Icons.keyboard_arrow_down_rounded),
                                     decoration: const InputDecoration(
                                       labelText: 'Document Type',
                                       isDense: true,

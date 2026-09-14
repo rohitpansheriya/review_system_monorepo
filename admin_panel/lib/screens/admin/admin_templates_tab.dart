@@ -9,7 +9,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants.dart';
 import '../../core/string_utils.dart';
+import '../../core/theme.dart';
 import '../../providers/admin_dashboard_provider.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_dialog.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_kpi_card.dart';
 
 class AdminTemplatesTab extends StatefulWidget {
   const AdminTemplatesTab({super.key});
@@ -39,96 +44,95 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
           final theme = Theme.of(ctx);
           final colorScheme = theme.colorScheme;
 
-          return AlertDialog(
-            title: const Text('Create New Category Template'),
-            content: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 520,
-                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          return AppModalDialog(
+            icon: Icons.playlist_add_circle_rounded,
+            iconColor: AppColors.primary,
+            title: 'Create Category Template',
+            subtitle: 'Define an industry blueprint with initial categories and review phrase pools.',
+            maxWidth: 540,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: idCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Template ID *',
+                    hintText: 'e.g. bakery_v1 or fitness_v1',
+                    prefixIcon: Icon(Icons.tag_rounded),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: typeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Business Type Label *',
+                    hintText: 'e.g. Bakery / Confectionery',
+                    prefixIcon: Icon(Icons.storefront_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: catCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'First Category Name *',
+                    hintText: 'e.g. Taste & Quality',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextField(
-                      controller: idCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Template ID *',
-                        hintText: 'e.g. bakery_v1 or fitness_v1',
-                      ),
+                    Text(
+                      'Review Phrases (Paste all at once):',
+                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: typeCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Business Type Label *',
-                        hintText: 'e.g. Bakery / Confectionery',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: catCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'First Category Name *',
-                        hintText: 'e.g. Taste & Quality',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Review Phrases (Paste all at once):',
-                          style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                    if (detectedPhrases.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        if (detectedPhrases.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '✨ ${detectedPhrases.length} phrases detected',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.primary,
-                              ),
-                            ),
+                        child: Text(
+                          '✨ ${detectedPhrases.length} phrases detected',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.primary,
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: phraseCtrl,
-                      minLines: 4,
-                      maxLines: 7,
-                      decoration: const InputDecoration(
-                        hintText: 'Paste phrases here (one per line, numbered list, or separated by semicolons)\n\ne.g.\n1. Freshly baked cakes!\n2. Great taste and hygiene\n3. Value for money',
-                        helperText: 'System automatically cleans numbering, bullets, and separates each phrase.',
+                        ),
                       ),
-                      onChanged: (_) => setDlgState(() {}),
-                    ),
-                    if (detectedPhrases.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: detectedPhrases.map((p) => Chip(
-                          label: Text(p, style: const TextStyle(fontSize: 12)),
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: colorScheme.surfaceContainerHigh,
-                        )).toList(),
-                      ),
-                    ],
                   ],
                 ),
-              ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: phraseCtrl,
+                  minLines: 4,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                    hintText: 'Paste phrases here (one per line, numbered list, or separated by semicolons)\n\ne.g.\n1. Freshly baked cakes!\n2. Great taste and hygiene\n3. Value for money',
+                    helperText: 'System automatically cleans numbering, bullets, and separates each phrase.',
+                  ),
+                  onChanged: (_) => setDlgState(() {}),
+                ),
+                if (detectedPhrases.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: detectedPhrases.map((p) => Chip(
+                      label: Text(p, style: const TextStyle(fontSize: 12)),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: colorScheme.surfaceContainerHigh,
+                    )).toList(),
+                  ),
+                ],
+              ],
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: const Text('Cancel'),
               ),
@@ -183,80 +187,77 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
           final theme = Theme.of(ctx);
           final colorScheme = theme.colorScheme;
 
-          return AlertDialog(
-            title: const Text('Add New Category & Phrases'),
-            content: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 520,
-                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          return AppModalDialog(
+            icon: Icons.add_circle_outline_rounded,
+            iconColor: AppColors.primary,
+            title: 'Add New Category & Phrases',
+            subtitle: 'Add a new topic/category along with customer review phrases.',
+            maxWidth: 540,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: catCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Category Name *',
+                    hintText: 'e.g. Cleanliness & Ambience, Staff & Service',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextField(
-                      controller: catCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Category Name *',
-                        hintText: 'e.g. Cleanliness & Ambience, Staff & Service',
-                      ),
+                    Text(
+                      'Review Phrases (Paste all at once):',
+                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Review Phrases (Paste all at once):',
-                          style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                    if (detectedPhrases.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        if (detectedPhrases.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '✨ ${detectedPhrases.length} phrases detected',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.primary,
-                              ),
-                            ),
+                        child: Text(
+                          '✨ ${detectedPhrases.length} phrases detected',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.primary,
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: phraseCtrl,
-                      minLines: 4,
-                      maxLines: 7,
-                      decoration: const InputDecoration(
-                        hintText: 'Paste multiple phrases here (one per line, numbered list, or separated by semicolons)\n\ne.g.\n- Very clean and sanitized place\n- Pleasant atmosphere with soothing music\n- Cozy seating arrangement',
-                        helperText: 'System automatically cleans numbering, bullets, and separates each phrase.',
+                        ),
                       ),
-                      onChanged: (_) => setDlgState(() {}),
-                    ),
-                    if (detectedPhrases.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: detectedPhrases.map((p) => Chip(
-                          label: Text(p, style: const TextStyle(fontSize: 12)),
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: colorScheme.surfaceContainerHigh,
-                        )).toList(),
-                      ),
-                    ],
                   ],
                 ),
-              ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: phraseCtrl,
+                  minLines: 4,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                    hintText: 'Paste multiple phrases here (one per line, numbered list, or separated by semicolons)\n\ne.g.\n- Very clean and sanitized place\n- Pleasant atmosphere with soothing music\n- Cozy seating arrangement',
+                    helperText: 'System automatically cleans numbering, bullets, and separates each phrase.',
+                  ),
+                  onChanged: (_) => setDlgState(() {}),
+                ),
+                if (detectedPhrases.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: detectedPhrases.map((p) => Chip(
+                      label: Text(p, style: const TextStyle(fontSize: 12)),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: colorScheme.surfaceContainerHigh,
+                    )).toList(),
+                  ),
+                ],
+              ],
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: const Text('Cancel'),
               ),
@@ -306,77 +307,73 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
           final theme = Theme.of(ctx);
           final colorScheme = theme.colorScheme;
 
-          return AlertDialog(
-            title: Text('Paste Phrases to "$categoryName"'),
-            content: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 520,
-                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          return AppModalDialog(
+            icon: Icons.content_paste_go_rounded,
+            iconColor: AppColors.primary,
+            title: 'Add Phrases to "$categoryName"',
+            subtitle: 'Bulk insert review phrase variants for customer one-tap selection.',
+            maxWidth: 540,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Review Phrases:',
-                          style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                    Text(
+                      'Review Phrases:',
+                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    if (detectedPhrases.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        if (detectedPhrases.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '✨ ${detectedPhrases.length} phrases detected',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.primary,
-                              ),
-                            ),
+                        child: Text(
+                          '✨ ${detectedPhrases.length} phrases detected',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.primary,
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: phraseCtrl,
-                      minLines: 4,
-                      maxLines: 8,
-                      decoration: const InputDecoration(
-                        hintText: 'Paste all phrases at once (one per line, numbered list, or separated by semicolons)\n\ne.g.\n1. Friendly staff and fast service!\n2. Extremely polite and helpful team\n3. Quick turnaround and great support',
-                        helperText: 'System automatically parses and divides each phrase in real time.',
+                        ),
                       ),
-                      onChanged: (_) => setDlgState(() {}),
-                    ),
-                    if (detectedPhrases.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        'Preview of Divided Phrases:',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: detectedPhrases.map((p) => Chip(
-                          label: Text('"$p"', style: const TextStyle(fontSize: 12)),
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: colorScheme.surfaceContainerHigh,
-                        )).toList(),
-                      ),
-                    ],
                   ],
                 ),
-              ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: phraseCtrl,
+                  minLines: 4,
+                  maxLines: 7,
+                  decoration: const InputDecoration(
+                    hintText: 'Paste all phrases at once (one per line, numbered list, or separated by semicolons)\n\ne.g.\n1. Friendly staff and fast service!\n2. Extremely polite and helpful team\n3. Quick turnaround and great support',
+                    helperText: 'System automatically parses and divides each phrase in real time.',
+                  ),
+                  onChanged: (_) => setDlgState(() {}),
+                ),
+                if (detectedPhrases.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    'Preview of Divided Phrases:',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: detectedPhrases.map((p) => Chip(
+                      label: Text('"$p"', style: const TextStyle(fontSize: 12)),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: colorScheme.surfaceContainerHigh,
+                    )).toList(),
+                  ),
+                ],
+              ],
             ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: const Text('Cancel'),
               ),
@@ -419,11 +416,18 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
   ) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Delete "$categoryName"?'),
-        content: Text('Are you sure you want to remove the category "$categoryName" and all its phrase variants from this template?'),
+      builder: (ctx) => AppModalDialog(
+        icon: Icons.delete_outline_rounded,
+        iconColor: Theme.of(ctx).colorScheme.error,
+        title: 'Delete "$categoryName"?',
+        subtitle: 'Remove category & phrase variants',
+        maxWidth: 460,
+        content: Text(
+          'Are you sure you want to remove the category "$categoryName" and all its phrase variants from this template?',
+          style: const TextStyle(fontSize: 13, height: 1.5),
+        ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel'),
           ),
@@ -506,7 +510,48 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        // ── Summary KPI Metric Cards ─────────────────────────────────
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 900;
+            final isMedium = constraints.maxWidth > 600;
+            final crossAxisCount = isWide ? 3 : (isMedium ? 3 : 1);
+            final ratio = isWide ? 1.9 : (isMedium ? 1.6 : 2.5);
+
+            return GridView.count(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              shrinkWrap: true,
+              childAspectRatio: ratio,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                AppKpiCard(
+                  label: 'Industry Blueprints',
+                  value: '${templates.length}',
+                  subtitle: 'Custom tailored industry libraries',
+                  icon: Icons.dashboard_customize_rounded,
+                  color: const Color(0xFF4F46E5),
+                ),
+                AppKpiCard(
+                  label: 'Template Categories',
+                  value: '${categoryNames.length}',
+                  subtitle: 'In ${currentTemplate['business_type'] ?? currentTemplate['id']}',
+                  icon: Icons.category_rounded,
+                  color: const Color(0xFF2563EB),
+                ),
+                AppKpiCard(
+                  label: 'Phrase Pool Engine',
+                  value: 'Multi-Variant',
+                  subtitle: 'Instant one-tap review generation',
+                  icon: Icons.chat_bubble_outline_rounded,
+                  color: const Color(0xFF10B981),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 24),
 
         // Template Selector & Action Buttons
         Wrap(
@@ -523,17 +568,50 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 8),
-                DropdownButton<String>(
-                  value: currentTemplate['id'] as String?,
-                  items: templates
-                      .map((t) => DropdownMenuItem<String>(
-                            value: t['id'] as String,
-                            child: Text('${t['business_type']} (${t['id']})'),
-                          ))
-                      .toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedTemplateId = val);
-                  },
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: colorScheme.outlineVariant),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00458B).withValues(alpha: 0.04),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: currentTemplate['id'] as String?,
+                      dropdownColor: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      elevation: 8,
+                      icon: const Padding(
+                        padding: EdgeInsets.only(left: 6),
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      isDense: true,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface,
+                      ),
+                      items: templates
+                          .map((t) => DropdownMenuItem<String>(
+                                value: t['id'] as String,
+                                child: Text('${t['business_type']} (${t['id']})'),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedTemplateId = val);
+                      },
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -559,27 +637,12 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
 
         // Categories & Lazy-Loaded Phrase Pools
         if (categoryNames.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'No categories defined for this template yet.',
-                      style: TextStyle(color: colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: () => _showAddCategoryDialog(context, provider, templateId),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add First Category'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          AppEmptyState(
+            icon: Icons.category_outlined,
+            title: 'No categories defined yet',
+            subtitle: 'Add categories and review phrase pools to populate this industry template.',
+            actionLabel: 'Add First Category',
+            onAction: () => _showAddCategoryDialog(context, provider, templateId),
           )
         else
           ListView.separated(
@@ -637,22 +700,40 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
               );
             }
           },
-          leading: CircleAvatar(
-            backgroundColor: colorScheme.primaryContainer,
-            child: Icon(Icons.category_outlined, color: colorScheme.primary, size: 20),
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.category_rounded, color: colorScheme.primary, size: 20),
           ),
-          title: Text(
-            catName,
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          title: Row(
+            children: [
+              Text(
+                catName,
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 8),
+              if (phrases != null)
+                AppBadge(
+                  label: '${phrases.length} Phrases',
+                  backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
+                  foregroundColor: colorScheme.primary,
+                  fontSize: 11,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                ),
+            ],
           ),
           subtitle: Text(
             phrases != null
-                ? '${phrases.length} phrase variant(s)'
-                : 'Click to load & edit phrase pool',
+                ? 'Review rotation pool ready for live ratings'
+                : 'Click to expand and view phrases',
             style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
           trailing: IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20),
+            icon: const Icon(Icons.delete_outline_rounded, size: 20),
             color: colorScheme.error.withValues(alpha: 0.8),
             tooltip: 'Delete Category',
             onPressed: () => _showDeleteCategoryDialog(context, provider, templateId, catName),
@@ -670,7 +751,7 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
                       Text(
                         AppConstants.enableMultiplePoolVersions
                             ? 'Pool Version: $version'
-                            : 'Review Phrase Pool',
+                            : 'Active Review Phrases (One-Tap Selection)',
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.primary,
@@ -692,14 +773,14 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
                   const SizedBox(height: 12),
                   if (isPhrasesLoading)
                     const Padding(
-                      padding: EdgeInsets.all(16.0),
+                      padding: EdgeInsets.all(24.0),
                       child: Center(child: CircularProgressIndicator()),
                     )
                   else if (phrases == null || phrases.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
                       child: Text(
-                        'No phrase variants in this pool yet. Click "Add Phrase Variant" to add one.',
+                        'No phrase variants in this pool yet. Click "Paste & Add Phrases" to bulk insert.',
                         style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                       ),
                     )
@@ -736,24 +817,73 @@ class _AdminTemplatesTabState extends State<AdminTemplatesTab> {
       runSpacing: 8,
       children: List.generate(phrases.length, (idx) {
         final phrase = phrases[idx];
-        return Chip(
-          label: Text('"$phrase"'),
-          deleteIcon: const Icon(Icons.close, size: 16),
-          onDeleted: () async {
-            await provider.retirePhraseVariant(
-              templateId: templateId,
-              categoryName: categoryName,
-              poolVersion: poolVersion,
-              language: 'en',
-              index: idx,
-            );
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Phrase variant retired.')),
-              );
-            }
-          },
-          backgroundColor: colorScheme.surfaceContainerHigh,
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: colorScheme.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00458B).withValues(alpha: 0.02),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '“',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  phrase,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+              ),
+              Text(
+                '”',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () async {
+                  await provider.retirePhraseVariant(
+                    templateId: templateId,
+                    categoryName: categoryName,
+                    poolVersion: poolVersion,
+                    language: 'en',
+                    index: idx,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Phrase variant removed.')),
+                    );
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(2.0),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       }),
     );

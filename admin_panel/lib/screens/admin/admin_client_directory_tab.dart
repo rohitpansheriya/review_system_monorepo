@@ -21,6 +21,11 @@ import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../models/business_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_dialog.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_kpi_card.dart';
+import '../../widgets/app_search_bar.dart';
 
 class AdminClientDirectoryTab extends StatefulWidget {
   const AdminClientDirectoryTab({super.key});
@@ -376,28 +381,31 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 shrinkWrap: true,
-                childAspectRatio: constraints.maxWidth > 600 ? 1.6 : 2.2,
+                childAspectRatio: constraints.maxWidth > 900 ? 1.5 : (constraints.maxWidth > 600 ? 1.7 : 2.6),
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _KpiCard(
+                  AppKpiCard(
                     icon: Icons.business_rounded,
                     label: 'Total Brands',
                     value: '$totalBusinesses',
                     color: AppColors.primary,
+                    compact: constraints.maxWidth <= 600,
                   ),
-                  _KpiCard(
+                  AppKpiCard(
                     icon: Icons.check_circle_rounded,
                     label: 'Active Businesses',
                     value: '$activeBusinesses',
                     color: AppColors.activeFg,
+                    compact: constraints.maxWidth <= 600,
                   ),
-                  _KpiCard(
+                  AppKpiCard(
                     icon: Icons.location_on_rounded,
                     label: 'Active Branches',
                     value: '${provider.businessBranchStats.values.fold<int>(0, (sum, s) => sum + s.active)}',
                     color: AppColors.secondary,
+                    compact: constraints.maxWidth <= 600,
                   ),
-                  _KpiCard(
+                  AppKpiCard(
                     icon: Icons.map_rounded,
                     label: 'Cities Covered',
                     value: '${(() {
@@ -409,6 +417,7 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                       return citySet.length;
                     })()}',
                     color: AppColors.star,
+                    compact: constraints.maxWidth <= 600,
                   ),
                 ],
               );
@@ -461,26 +470,11 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         // Search field
-        SizedBox(
+        AppSearchBar(
           width: MediaQuery.of(context).size.width > 500 ? 320 : double.infinity,
-          child: TextField(
-            onChanged: (v) => setState(() => _searchQuery = v),
-            decoration: InputDecoration(
-              hintText: 'Search brand, phone, city, agent…',
-              prefixIcon: const Icon(Icons.search, size: 20),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () => setState(() => _searchQuery = ''),
-                    )
-                  : null,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-            ),
-          ),
+          hintText: 'Search brand, phone, city, agent…',
+          initialValue: _searchQuery,
+          onChanged: (v) => setState(() => _searchQuery = v),
         ),
 
         // Status filter
@@ -520,19 +514,38 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
     required ValueChanged<T?> onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.4)),
+        color: Colors.white,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00458B).withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           DropdownButton<T>(
             value: value,
             underline: const SizedBox.shrink(),
+            dropdownColor: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            elevation: 8,
+            icon: const Padding(
+              padding: EdgeInsets.only(left: 4),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: AppColors.primary,
+              ),
+            ),
             isDense: true,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w600,
@@ -555,6 +568,27 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
+    if (businesses.isEmpty) {
+      return AppEmptyState(
+        icon: Icons.search_off_rounded,
+        title: 'No businesses found',
+        subtitle: _searchQuery.isNotEmpty || _statusFilter != 'all' || _enrolledByFilter != 'all'
+            ? 'No businesses match the current filter or search criteria.'
+            : 'No clients or businesses have been enrolled yet.',
+        actionLabel: _searchQuery.isNotEmpty || _statusFilter != 'all' || _enrolledByFilter != 'all'
+            ? 'Clear Filters'
+            : null,
+        onAction: _searchQuery.isNotEmpty || _statusFilter != 'all' || _enrolledByFilter != 'all'
+            ? () {
+                setState(() {
+                  _searchQuery = '';
+                  _statusFilter = 'all';
+                  _enrolledByFilter = 'all';
+                });
+              }
+            : null,
+      );
+    }
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -616,25 +650,9 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (biz.businessCode != null || biz.isTestAccount) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: biz.isTestAccount ? AppColors.warning.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: biz.isTestAccount ? AppColors.warning : AppColors.primary.withValues(alpha: 0.3),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Text(
-                            biz.displayCode,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: biz.isTestAccount ? AppColors.warning : AppColors.primary,
-                            ),
-                          ),
+                        AppBadge.code(
+                          biz.displayCode,
+                          isTest: biz.isTestAccount,
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -690,23 +708,14 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                 ),
                 // Branch count
                 DataCell(Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: branchGrace > 0
-                          ? AppColors.graceBg
-                          : (branchInactive > 0 ? AppColors.pendingBg : colorScheme.primaryContainer.withValues(alpha: 0.5)),
-                      borderRadius: BorderRadius.circular(AppRadius.full),
-                    ),
-                    child: Text(
-                      totalBranches > 1 ? '$branchCount / $totalBranches' : '$branchCount',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: branchGrace > 0
-                            ? AppColors.graceFg
-                            : (branchInactive > 0 ? AppColors.pendingFg : colorScheme.onPrimaryContainer),
-                      ),
-                    ),
+                  child: AppBadge.count(
+                    label: totalBranches > 1 ? '$branchCount / $totalBranches' : '$branchCount',
+                    color: branchGrace > 0
+                        ? AppColors.graceFg
+                        : (branchInactive > 0 ? AppColors.pendingFg : colorScheme.primary),
+                    backgroundColor: branchGrace > 0
+                        ? AppColors.graceBg
+                        : (branchInactive > 0 ? AppColors.pendingBg : colorScheme.primaryContainer.withValues(alpha: 0.5)),
                   ),
                 )),
                 // Status pill with branch indicator
@@ -810,109 +819,32 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
     int inactiveBranches = 0,
     int totalBranches = 1,
   }) {
-    Color bg;
-    Color fg;
-    String label;
-
-    switch (status) {
-      case AppConstants.statusActive:
-        bg = AppColors.activeBg;
-        fg = AppColors.activeFg;
-        label = 'Active';
-        break;
-      case AppConstants.statusGracePeriod:
-        bg = AppColors.graceBg;
-        fg = AppColors.graceFg;
-        label = 'Grace';
-        break;
-      case AppConstants.statusSuspended:
-        bg = const Color(0xFFFEE2E2);
-        fg = const Color(0xFFDC2626);
-        label = 'Suspended';
-        break;
-      case AppConstants.statusDeleted:
-        bg = AppColors.deletedBg;
-        fg = AppColors.deletedFg;
-        label = 'Lapsed';
-        break;
-      case AppConstants.statusPendingPayment:
-        bg = AppColors.pendingBg;
-        fg = AppColors.pendingFg;
-        label = 'Pending';
-        break;
-      default:
-        bg = AppColors.deletedBg;
-        fg = AppColors.deletedFg;
-        label = status;
-    }
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(AppRadius.full),
-          ),
-          child: Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+        AppBadge.subscription(status),
         if (graceBranches > 0) ...[
           const SizedBox(height: 4),
-          Container(
+          AppBadge(
+            label: '$graceBranches in Grace',
+            backgroundColor: AppColors.graceBg,
+            foregroundColor: AppColors.graceFg,
+            icon: Icons.warning_amber_rounded,
+            fontSize: 10,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.graceBg,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              border: Border.all(color: AppColors.graceFg.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.warning_amber_rounded, size: 11, color: AppColors.graceFg),
-                const SizedBox(width: 3),
-                Text(
-                  '$graceBranches in Grace',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.graceFg,
-                  ),
-                ),
-              ],
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
         ] else if (inactiveBranches > 0 && status == AppConstants.statusActive) ...[
           const SizedBox(height: 4),
-          Container(
+          AppBadge(
+            label: '$inactiveBranches Inactive',
+            backgroundColor: AppColors.pendingBg,
+            foregroundColor: AppColors.pendingFg,
+            icon: Icons.info_outline,
+            fontSize: 10,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.pendingBg,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              border: Border.all(color: AppColors.pendingFg.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.info_outline, size: 11, color: AppColors.pendingFg),
-                const SizedBox(width: 3),
-                Text(
-                  '$inactiveBranches Inactive',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.pendingFg,
-                  ),
-                ),
-              ],
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
         ],
       ],
@@ -927,20 +859,24 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
     ColorScheme colorScheme,
   ) {
     if (businesses.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(48),
-          child: Column(
-            children: [
-              Icon(Icons.search_off_rounded, size: 56, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
-              const SizedBox(height: 16),
-              Text(
-                'No businesses match your search.',
-                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
+      return AppEmptyState(
+        icon: Icons.search_off_rounded,
+        title: 'No businesses found',
+        subtitle: _searchQuery.isNotEmpty || _statusFilter != 'all' || _enrolledByFilter != 'all'
+            ? 'No businesses match the current filter or search criteria.'
+            : 'No clients or businesses have been enrolled yet.',
+        actionLabel: _searchQuery.isNotEmpty || _statusFilter != 'all' || _enrolledByFilter != 'all'
+            ? 'Clear Filters'
+            : null,
+        onAction: _searchQuery.isNotEmpty || _statusFilter != 'all' || _enrolledByFilter != 'all'
+            ? () {
+                setState(() {
+                  _searchQuery = '';
+                  _statusFilter = 'all';
+                  _enrolledByFilter = 'all';
+                });
+              }
+            : null,
       );
     }
 
@@ -982,25 +918,10 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (biz.businessCode != null || biz.isTestAccount) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: biz.isTestAccount ? AppColors.warning.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: biz.isTestAccount ? AppColors.warning : AppColors.primary.withValues(alpha: 0.3),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Text(
-                            biz.displayCode,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: biz.isTestAccount ? AppColors.warning : AppColors.primary,
-                            ),
-                          ),
+                        AppBadge.code(
+                          biz.displayCode,
+                          isTest: biz.isTestAccount,
+                          fontSize: 10,
                         ),
                         const SizedBox(width: 6),
                       ],
@@ -1180,121 +1101,112 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
           builder: (context, setDialogState) {
             final isCurrent = selectedEmployeeUid == (biz.enrolledBy.isEmpty ? 'admin' : biz.enrolledBy);
 
-            return AlertDialog(
-              title: const Row(
+            return AppModalDialog(
+              icon: Icons.swap_horiz_rounded,
+              iconColor: AppColors.primary,
+              title: 'Change Enrolled Employee',
+              subtitle: 'Reassign which employee is credited for enrolling "${biz.brandName}".',
+              maxWidth: 520,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.swap_horiz_rounded, size: 24, color: AppColors.primary),
-                  SizedBox(width: 10),
-                  Text('Change Enrolled Employee'),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline, size: 20, color: Colors.grey),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Currently Enrolled By', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              Text(
+                                currentEnrolledByName,
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedEmployeeUid,
+                    dropdownColor: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    elevation: 8,
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    decoration: const InputDecoration(
+                      labelText: 'Select New Enrolled Employee *',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'admin',
+                        child: Text('Admin (Direct Enrollment / No Commission)'),
+                      ),
+                      ...employees.map((emp) => DropdownMenuItem(
+                            value: emp.uid,
+                            child: Text(
+                              '${emp.name} (${emp.email})',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          )),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedEmployeeUid = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Reason for Reassignment (Optional)',
+                      hintText: 'e.g. Territory reallocation or correction',
+                      prefixIcon: Icon(Icons.notes_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                    onChanged: (val) => reason = val.trim(),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Impact of change:\n'
+                            '• Moves business to selected employee’s workspace.\n'
+                            '• Removes it from previous employee’s view.\n'
+                            '• Transferred pending commissions & enrollment counters.',
+                            style: TextStyle(fontSize: 12, height: 1.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-              content: SizedBox(
-                width: 480,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Reassign which employee is credited for enrolling "${biz.brandName}".',
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.person_outline, size: 20, color: Colors.grey),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Currently Enrolled By', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                  Text(
-                                    currentEnrolledByName,
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: selectedEmployeeUid,
-                        decoration: const InputDecoration(
-                          labelText: 'Select New Enrolled Employee *',
-                          prefixIcon: Icon(Icons.badge_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: 'admin',
-                            child: Text('Admin (Direct Enrollment / No Commission)'),
-                          ),
-                          ...employees.map((emp) => DropdownMenuItem(
-                                value: emp.uid,
-                                child: Text(
-                                  '${emp.name} (${emp.email})',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              )),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() => selectedEmployeeUid = val);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        decoration: const InputDecoration(
-                          labelText: 'Reason for Reassignment (Optional)',
-                          hintText: 'e.g. Territory reallocation or correction',
-                          prefixIcon: Icon(Icons.notes_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 2,
-                        onChanged: (val) => reason = val.trim(),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-                        ),
-                        child: const Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.info_outline, size: 18, color: Colors.amber),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Impact of change:\n'
-                                '• Moves business to selected employee’s workspace.\n'
-                                '• Removes it from previous employee’s view.\n'
-                                '• Transferred pending commissions & enrollment counters.',
-                                style: TextStyle(fontSize: 12, height: 1.4),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               actions: [
-                TextButton(
+                OutlinedButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
                   child: const Text('Cancel'),
                 ),
@@ -1342,72 +1254,5 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
         }
       }
     }
-  }
-}
-
-// ── KPI Card Widget ──────────────────────────────────────────────────────────
-
-class _KpiCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _KpiCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        side: BorderSide(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                  child: Icon(icon, size: 20, color: color),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    value,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

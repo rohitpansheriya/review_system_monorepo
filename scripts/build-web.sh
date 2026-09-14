@@ -28,7 +28,7 @@ node scripts/inject-firebase-config.js
 # 2. Build Flutter Web Release in admin_panel/
 echo "\n2️⃣ Compiling Flutter Web Application (admin_panel)..."
 cd "$REPO_ROOT/admin_panel"
-flutter build web --release --base-href /app/ $EMULATOR_DEFINE
+flutter build web --release --no-tree-shake-icons --base-href /app/ $EMULATOR_DEFINE
 cd "$REPO_ROOT"
 
 # 3. Cleanly assemble public/ directory

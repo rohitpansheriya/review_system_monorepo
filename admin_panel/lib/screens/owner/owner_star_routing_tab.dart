@@ -178,8 +178,13 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: currentBranch.id,
+                  value:         currentBranch.id,
+                  dropdownColor: Colors.white,
+                  borderRadius:  BorderRadius.circular(14),
+                  elevation:     8,
+                  icon:          const Icon(Icons.keyboard_arrow_down_rounded),
                   decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.storefront_outlined),
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),

@@ -31,6 +31,9 @@ import '../../providers/auth_provider.dart';
 import '../../providers/commission_provider.dart';
 import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_dialog.dart';
+import '../../widgets/app_empty_state.dart';
 
 class MyBusinessesScreen extends StatefulWidget {
   const MyBusinessesScreen({super.key});
@@ -455,14 +458,18 @@ class _BusinessCardState extends State<_BusinessCard> {
     final scheme = Theme.of(context).colorScheme;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete draft?'),
+      builder: (ctx) => AppModalDialog(
+        icon: Icons.delete_forever_rounded,
+        iconColor: scheme.error,
+        title: 'Delete draft?',
+        subtitle: 'Permanent deletion of pending enrollment',
+        maxWidth: 440,
         content: Text(
-          'This will permanently delete "${widget.business.brandName}" '
-          'and all its branches. This cannot be undone.',
+          'This will permanently delete "${widget.business.brandName}" and all its branch drafts. This cannot be undone.',
+          style: const TextStyle(fontSize: 13, height: 1.5),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),
@@ -472,7 +479,7 @@ class _BusinessCardState extends State<_BusinessCard> {
               foregroundColor: scheme.onError,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: const Text('Delete Draft'),
           ),
         ],
       ),
@@ -561,8 +568,8 @@ class _BusinessCardState extends State<_BusinessCard> {
                                 ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ),
-                        // Status badge (BUG FIX: now uses statusForeground for text)
-                        _StatusBadge(status: displayStatus, label: statusLabel),
+                        // Status badge
+                        AppBadge.subscription(displayStatus, customLabel: statusLabel),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -667,38 +674,6 @@ class _LoadMoreButton extends StatelessWidget {
   }
 }
 
-// ── Status Badge ──────────────────────────────────────────────────────────────
-// BUG FIX: Previously used statusColor() (background tint) for text color too.
-// Now correctly uses statusForeground() for text/border, statusColor() for fill.
-
-class _StatusBadge extends StatelessWidget {
-  final String status;
-  final String label;
-  const _StatusBadge({required this.status, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = AppTheme.statusColor(status);
-    final fg = AppTheme.statusForeground(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color:        bg,
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        border:       Border.all(color: fg.withValues(alpha: 0.4), width: 0.8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize:   11,
-          fontWeight: FontWeight.w600,
-          color:      fg,
-        ),
-      ),
-    );
-  }
-}
-
 // ── Empty State ───────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
@@ -708,59 +683,23 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme  = Theme.of(context).colorScheme;
-    final message = switch (filter) {
-      PaymentFilter.pending    => 'No businesses awaiting payment.',
-      PaymentFilter.successful => 'No businesses with successful payment.',
-      PaymentFilter.all        => 'No businesses enrolled yet.',
+    final title = switch (filter) {
+      PaymentFilter.pending    => 'No businesses awaiting payment',
+      PaymentFilter.successful => 'No active businesses found',
+      PaymentFilter.all        => 'No businesses enrolled yet',
     };
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 88, height: 88,
-              decoration: BoxDecoration(
-                color:        scheme.primaryContainer.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(AppRadius.xl),
-              ),
-              child: Icon(
-                Icons.storefront_outlined,
-                size:  44,
-                color: scheme.primary.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              message,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(color: scheme.onSurfaceVariant),
-              textAlign: TextAlign.center,
-            ),
-            if (filter == PaymentFilter.all) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Tap the button below to enroll your first business.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: scheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              ElevatedButton.icon(
-                onPressed: onEnroll,
-                icon:  const Icon(Icons.add_business_outlined),
-                label: const Text('Enroll first business'),
-              ),
-            ],
-          ],
-        ),
-      ),
+    final subtitle = switch (filter) {
+      PaymentFilter.pending    => 'Businesses awaiting initial subscription payment will appear here.',
+      PaymentFilter.successful => 'Businesses with active subscriptions will appear here.',
+      PaymentFilter.all        => 'Tap the button below to enroll your first client business.',
+    };
+
+    return AppEmptyState(
+      icon: Icons.storefront_outlined,
+      title: title,
+      subtitle: subtitle,
+      actionLabel: filter == PaymentFilter.all ? 'Enroll First Business' : null,
+      onAction: filter == PaymentFilter.all ? onEnroll : null,
     );
   }
 }

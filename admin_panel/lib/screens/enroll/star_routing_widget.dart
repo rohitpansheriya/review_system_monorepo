@@ -75,7 +75,11 @@ class StarRoutingWidget extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: current,
+                    value:         current,
+                    dropdownColor: Colors.white,
+                    borderRadius:  BorderRadius.circular(14),
+                    elevation:     8,
+                    icon:          const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
                     hint: const Text('Select action'),
                     decoration: InputDecoration(
                       contentPadding: const EdgeInsets.symmetric(

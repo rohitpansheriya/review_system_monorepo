@@ -42,6 +42,7 @@ import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/storage_service.dart';
 import '../../core/string_utils.dart';
+import '../../widgets/app_empty_state.dart';
 import '../enroll/branch_form_widget.dart';
 
 class BusinessEditScreen extends StatefulWidget {
@@ -377,6 +378,7 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
             whatsappMonitoredBy: cleanMonitor,
             placeId:             draft.placeId,
             googleReviewLink:    draft.googleReviewLink,
+            starRoutingConfig:   draft.starRoutingAsMap,
             categoryOverrideId:  null,
           );
         } else {
@@ -518,7 +520,11 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                   _templatesLoading
                       ? const CircularProgressIndicator()
                       : DropdownButtonFormField<String>(
-                          value:      _selectedTemplateId,
+                          value:         _selectedTemplateId,
+                          dropdownColor: Colors.white,
+                          borderRadius:  BorderRadius.circular(14),
+                          elevation:     8,
+                          icon:          const Icon(Icons.keyboard_arrow_down_rounded),
                           decoration: const InputDecoration(
                             labelText:  'Category template',
                             prefixIcon: Icon(Icons.category_outlined),
@@ -545,7 +551,11 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                   if (context.watch<AppAuthProvider>().isAdmin) ...[
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _selectedEnrolledBy,
+                      value:         _selectedEnrolledBy,
+                      dropdownColor: Colors.white,
+                      borderRadius:  BorderRadius.circular(14),
+                      elevation:     8,
+                      icon:          const Icon(Icons.keyboard_arrow_down_rounded),
                       decoration: const InputDecoration(
                         labelText: 'Enrolled by (Employee) *',
                         prefixIcon: Icon(Icons.badge_outlined),
@@ -651,9 +661,12 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                   const SizedBox(height: 12),
 
                   if (_branchDrafts.isEmpty)
-                    Text(
-                      'No branches found.',
-                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    AppEmptyState(
+                      icon: Icons.storefront_outlined,
+                      title: 'No branches configured',
+                      subtitle: 'Every business must have at least one branch location.',
+                      actionLabel: 'Add Branch',
+                      onAction: () => setState(() => _branchDrafts.add(BranchDraft())),
                     )
                   else
                     ...List.generate(_branchDrafts.length, (i) => Padding(

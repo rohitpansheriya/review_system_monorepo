@@ -8,6 +8,9 @@ import '../../models/employee_commission_model.dart';
 import '../../models/employee_profile_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_dialog.dart';
+import '../../widgets/app_empty_state.dart';
 
 class AdminCommissionQueueScreen extends StatefulWidget {
   const AdminCommissionQueueScreen({super.key});
@@ -163,91 +166,81 @@ class _AdminCommissionQueueScreenState
               .where((c) => c.isPending)
               .fold<double>(0, (s, c) => s + c.amount);
 
-          return AlertDialog(
-            title: const Row(
+          return AppModalDialog(
+            icon: Icons.file_download_outlined,
+            iconColor: const Color(0xFF4F46E5),
+            title: 'Export Bulk Payout CSV',
+            subtitle: 'Generate bank-ready payout files for batch disbursement.',
+            maxWidth: 500,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.file_download_outlined, color: Color(0xFF4F46E5)),
-                SizedBox(width: 10),
-                Text('Export Bulk Payout CSV'),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Pending Payouts', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(
+                            '₹${pendingAmount.toStringAsFixed(0)} ($pendingCount records)',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
+                          ),
+                        ],
+                      ),
+                      if (_monthFilter != null)
+                        Chip(
+                          label: Text(_monthFilter!),
+                          backgroundColor: Colors.white,
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text('Select Bank / Gateway Export Format:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 8),
+                RadioListTile<String>(
+                  value: 'razorpayx',
+                  groupValue: selectedFormat,
+                  title: const Text('RazorpayX Bulk Payout (IMPS/NEFT)'),
+                  subtitle: const Text('Ready for direct upload to RazorpayX Corporate Payouts dashboard', style: TextStyle(fontSize: 11)),
+                  onChanged: (v) => setDlgState(() => selectedFormat = v!),
+                ),
+                RadioListTile<String>(
+                  value: 'icici',
+                  groupValue: selectedFormat,
+                  title: const Text('ICICI Bank Corporate Bulk IMPS'),
+                  subtitle: const Text('Compliant with ICICI Corporate Banking Bulk Transfer file format', style: TextStyle(fontSize: 11)),
+                  onChanged: (v) => setDlgState(() => selectedFormat = v!),
+                ),
+                RadioListTile<String>(
+                  value: 'universal',
+                  groupValue: selectedFormat,
+                  title: const Text('Universal Summary CSV / Excel'),
+                  subtitle: const Text('Full breakdown including employee bank details, UPI, and enrolled businesses', style: TextStyle(fontSize: 11)),
+                  onChanged: (v) => setDlgState(() => selectedFormat = v!),
+                ),
+                const Divider(height: 20),
+                CheckboxListTile(
+                  value: onlyPending,
+                  title: const Text('Export ONLY Unpaid / Pending Records', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  subtitle: const Text('Excludes commissions already marked as paid', style: TextStyle(fontSize: 11)),
+                  onChanged: (v) => setDlgState(() => onlyPending = v ?? true),
+                ),
               ],
             ),
-            content: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 480,
-                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Pending Payouts', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            Text(
-                              '₹${pendingAmount.toStringAsFixed(0)} ($pendingCount records)',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
-                            ),
-                          ],
-                        ),
-                        if (_monthFilter != null)
-                          Chip(
-                            label: Text(_monthFilter!),
-                            backgroundColor: Colors.white,
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text('Select Bank / Gateway Export Format:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  RadioListTile<String>(
-                    value: 'razorpayx',
-                    groupValue: selectedFormat,
-                    title: const Text('RazorpayX Bulk Payout (IMPS/NEFT)'),
-                    subtitle: const Text('Ready for direct upload to RazorpayX Corporate Payouts dashboard', style: TextStyle(fontSize: 11)),
-                    onChanged: (v) => setDlgState(() => selectedFormat = v!),
-                  ),
-                  RadioListTile<String>(
-                    value: 'icici',
-                    groupValue: selectedFormat,
-                    title: const Text('ICICI Bank Corporate Bulk IMPS'),
-                    subtitle: const Text('Compliant with ICICI Corporate Banking Bulk Transfer file format', style: TextStyle(fontSize: 11)),
-                    onChanged: (v) => setDlgState(() => selectedFormat = v!),
-                  ),
-                  RadioListTile<String>(
-                    value: 'universal',
-                    groupValue: selectedFormat,
-                    title: const Text('Universal Summary CSV / Excel'),
-                    subtitle: const Text('Full breakdown including employee bank details, UPI, and enrolled businesses', style: TextStyle(fontSize: 11)),
-                    onChanged: (v) => setDlgState(() => selectedFormat = v!),
-                  ),
-                  const Divider(height: 20),
-                    CheckboxListTile(
-                      value: onlyPending,
-                      title: const Text('Export ONLY Unpaid / Pending Records', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                      subtitle: const Text('Excludes commissions already marked as paid', style: TextStyle(fontSize: 11)),
-                      onChanged: (v) => setDlgState(() => onlyPending = v ?? true),
-                    ),
-                  ],
-                ),
-              ),
-            ),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: const Text('Cancel'),
               ),
@@ -307,6 +300,10 @@ class _AdminCommissionQueueScreenState
                       width: 220,
                       child: DropdownButtonFormField<String?>(
                         value: _selectedEmployeeId,
+                        dropdownColor: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        elevation: 8,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
                         decoration: const InputDecoration(
                           labelText: 'Employee',
                           isDense: true,
@@ -335,6 +332,10 @@ class _AdminCommissionQueueScreenState
                       width: 150,
                       child: DropdownButtonFormField<String>(
                         value: _statusFilter,
+                        dropdownColor: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        elevation: 8,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
                         decoration: const InputDecoration(
                           labelText: 'Status',
                           isDense: true,
@@ -356,6 +357,10 @@ class _AdminCommissionQueueScreenState
                       width: 150,
                       child: DropdownButtonFormField<String?>(
                         value: _monthFilter,
+                        dropdownColor: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        elevation: 8,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
                         decoration: const InputDecoration(
                           labelText: 'Month',
                           isDense: true,
@@ -466,31 +471,12 @@ class _AdminCommissionQueueScreenState
             .fold<double>(0, (sum, c) => sum + c.amount);
 
         if (commissions.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.receipt_long,
-                  size: 64,
-                  color: scheme.primary.withValues(alpha: 0.4),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No commission records found',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Commissions are created when employee-enrolled businesses activate.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+          return AppEmptyState(
+            icon: Icons.receipt_long_rounded,
+            title: 'No commission records found',
+            subtitle: _selectedEmployeeId != null || _monthFilter != null || _statusFilter != 'all'
+                ? 'No commissions match your active filter criteria.'
+                : 'Commissions are generated automatically when employee-enrolled businesses activate.',
           );
         }
 
@@ -573,54 +559,61 @@ class _AdminCommissionQueueScreenState
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDlgState) => AlertDialog(
-          title: const Text('Bulk Payout — Mark All Pending as Paid'),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 400,
-              maxHeight: MediaQuery.of(ctx).size.height * 0.75,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+        builder: (context, setDlgState) => AppModalDialog(
+          icon: Icons.payments_rounded,
+          iconColor: Colors.green,
+          title: 'Bulk Payout — Mark as Paid',
+          subtitle: 'Disburse all pending commissions for ${_getEmployeeName(provider.employees, employeeId)}.',
+          maxWidth: 440,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_month, color: Colors.green, size: 20),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Period: ${DateFormat.yMMM().format(DateTime.parse('$month-01'))}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: payoutCtrl,
+                enabled: !isProcessing,
+                decoration: const InputDecoration(
+                  labelText: 'Payout Reference (UTR / Txn ID) *',
+                  hintText: 'e.g. UTIB1234567890',
+                  prefixIcon: Icon(Icons.receipt_outlined),
+                ),
+              ),
+              if (dialogError != null) ...[
+                const SizedBox(height: 12),
                 Text(
-                  'Employee: ${_getEmployeeName(provider.employees, employeeId)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  dialogError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13),
                 ),
-                Text(
-                  'Month: ${DateFormat.yMMM().format(DateTime.parse('$month-01'))}',
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: payoutCtrl,
-                  enabled: !isProcessing,
-                  decoration: const InputDecoration(
-                    labelText: 'Payout Reference (UTR / Transaction ID)',
-                    hintText: 'e.g., UTIB1234567890',
-                  ),
-                ),
-                if (dialogError != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    dialogError!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13),
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
-        ),
-        actions: [
-            TextButton(
+          actions: [
+            OutlinedButton(
               onPressed: isProcessing ? null : () => Navigator.of(ctx).pop(),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
+            FilledButton(
+              style: FilledButton.styleFrom(
                 backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
               ),
               onPressed: isProcessing
                   ? null
@@ -748,24 +741,8 @@ class _CommissionCard extends StatelessWidget {
                 color: isPaid ? Colors.green : scheme.onSurface,
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color:
-                    isPaid
-                        ? Colors.green.withValues(alpha: 0.15)
-                        : Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                isPaid ? 'PAID' : 'PENDING',
-                style: TextStyle(
-                  color: isPaid ? Colors.green : Colors.orange,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                ),
-              ),
-            ),
+            const SizedBox(height: 4),
+            AppBadge.commission(commission.status),
           ],
         ),
         isThreeLine: true,

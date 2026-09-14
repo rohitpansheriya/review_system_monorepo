@@ -11,8 +11,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/phone_field.dart';
+import '../../core/theme.dart';
 import '../../models/employee_profile_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_dialog.dart';
+import '../../widgets/app_empty_state.dart';
 
 class AdminEmployeesTab extends StatelessWidget {
   const AdminEmployeesTab({super.key});
@@ -33,85 +37,93 @@ class AdminEmployeesTab extends StatelessWidget {
 
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Add New Employee'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.info_outline, size: 18, color: Colors.blue),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'A password-setup email will be sent automatically so the employee sets their own secure password.',
-                              style: TextStyle(fontSize: 12, color: Colors.blue),
-                            ),
+            return AppModalDialog(
+              icon: Icons.person_add_rounded,
+              iconColor: AppColors.primary,
+              title: 'Add New Employee',
+              subtitle: 'Create an employee account for sales, tracking, and commission management.',
+              maxWidth: 500,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: AppColors.primary),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'A password-setup email will be sent automatically so the employee sets their own secure password.',
+                            style: TextStyle(fontSize: 12, color: AppColors.primary, height: 1.3),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: InputDecoration(
-                        labelText: 'Full Name *',
-                        errorText: nameError,
-                      ),
-                      onChanged: (_) {
-                        if (nameError != null) setDialogState(() => nameError = null);
-                      },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Full Name *',
+                      prefixIcon: const Icon(Icons.person_outline),
+                      errorText: nameError,
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: emailCtrl,
-                      decoration: InputDecoration(
-                        labelText: 'Email Address *',
-                        errorText: emailError,
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      onChanged: (_) {
-                        if (emailError != null) setDialogState(() => emailError = null);
-                      },
+                    onChanged: (_) {
+                      if (nameError != null) setDialogState(() => nameError = null);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emailCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Email Address *',
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      errorText: emailError,
                     ),
-                    const SizedBox(height: 12),
-                    PhoneField(
-                      label: 'Phone / WhatsApp Number (+91)',
-                      initialValue: rawPhone,
-                      helperText: '10-digit Indian mobile number',
-                      showError: phoneError != null,
-                      errorText: phoneError,
-                      onChanged: (val) {
-                        rawPhone = val;
-                        if (phoneError != null) setDialogState(() => phoneError = null);
-                      },
+                    keyboardType: TextInputType.emailAddress,
+                    onChanged: (_) {
+                      if (emailError != null) setDialogState(() => emailError = null);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  PhoneField(
+                    label: 'Phone / WhatsApp Number (+91)',
+                    initialValue: rawPhone,
+                    helperText: '10-digit Indian mobile number',
+                    showError: phoneError != null,
+                    errorText: phoneError,
+                    onChanged: (val) {
+                      rawPhone = val;
+                      if (phoneError != null) setDialogState(() => phoneError = null);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: addressCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Address',
+                      prefixIcon: Icon(Icons.location_on_outlined),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: addressCtrl,
-                      decoration: const InputDecoration(labelText: 'Address'),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               actions: [
-                TextButton(
+                OutlinedButton(
                   onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
                   child: const Text('Cancel'),
                 ),
-                ElevatedButton.icon(
+                FilledButton.icon(
                   icon: isSubmitting
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.send, size: 16),
                   onPressed: isSubmitting
@@ -157,23 +169,22 @@ class AdminEmployeesTab extends StatelessWidget {
                             if (context.mounted) {
                               showDialog(
                                 context: context,
-                                builder: (successCtx) => AlertDialog(
-                                  title: const Row(
-                                    children: [
-                                      Icon(Icons.mark_email_read, color: Colors.green),
-                                      SizedBox(width: 8),
-                                      Text('Employee Created'),
-                                    ],
-                                  ),
+                                builder: (successCtx) => AppModalDialog(
+                                  icon: Icons.mark_email_read_rounded,
+                                  iconColor: Colors.green,
+                                  title: 'Employee Created',
+                                  subtitle: 'Account has been registered and setup instructions dispatched.',
+                                  maxWidth: 440,
                                   content: Text(
                                     'Employee account for "$name" was created successfully!\n\n'
                                     'A password-setup email has been sent to:\n$email\n\n'
                                     'The employee can click the link in the email to set their password and log in.',
+                                    style: const TextStyle(fontSize: 13, height: 1.5),
                                   ),
                                   actions: [
-                                    ElevatedButton(
+                                    FilledButton(
                                       onPressed: () => Navigator.of(successCtx).pop(),
-                                      child: const Text('OK'),
+                                      child: const Text('Done'),
                                     ),
                                   ],
                                 ),
@@ -183,11 +194,7 @@ class AdminEmployeesTab extends StatelessWidget {
                             final errStr = e.toString();
                             setDialogState(() {
                               isSubmitting = false;
-                              if (errStr.toLowerCase().contains('email')) {
-                                emailError = errStr.replaceAll('Exception:', '').trim();
-                              } else {
-                                emailError = errStr.replaceAll('Exception:', '').trim();
-                              }
+                              emailError = errStr.replaceAll('Exception:', '').trim();
                             });
                           }
                         },
@@ -248,7 +255,13 @@ class AdminEmployeesTab extends StatelessWidget {
           const SizedBox(height: 24),
 
           if (employees.isEmpty)
-            const Center(child: Text('No employees found.'))
+            AppEmptyState(
+              icon: Icons.people_outline_rounded,
+              title: 'No employees found',
+              subtitle: 'Add your sales representatives to track their client enrollments and commissions.',
+              actionLabel: 'Add Employee',
+              onAction: () => _showCreateEmployeeDialog(context, provider),
+            )
           else
             ListView.separated(
               shrinkWrap: true,
@@ -282,25 +295,7 @@ class AdminEmployeesTab extends StatelessWidget {
                       '${emp.email} • Phone: ${emp.phone.isNotEmpty ? emp.phone : "N/A"} • Status: ${emp.status.toUpperCase()}',
                       style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: emp.documentsVerified == 'verified'
-                            ? Colors.green.withValues(alpha: 0.15)
-                            : (emp.documentsVerified == 'rejected' ? Colors.red.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.15)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Docs: ${emp.documentsVerified}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: emp.documentsVerified == 'verified'
-                              ? Colors.green
-                              : (emp.documentsVerified == 'rejected' ? Colors.red : Colors.orange),
-                        ),
-                      ),
-                    ),
+                    trailing: AppBadge.kyc(emp.documentsVerified),
                     children: [
                       Padding(
                         padding: EdgeInsets.all(isDesktop ? 20.0 : 12.0),
@@ -384,7 +379,13 @@ class AdminEmployeesTab extends StatelessWidget {
                                   return ListTile(
                                     dense: true,
                                     title: Text(biz.brandName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    subtitle: Text('Status: ${biz.subscriptionStatus} • Category: ${biz.categoryType}'),
+                                    subtitle: Row(
+                                      children: [
+                                        AppBadge.subscription(biz.subscriptionStatus, fontSize: 10, padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2)),
+                                        const SizedBox(width: 8),
+                                        Text('Category: ${biz.categoryType}', style: const TextStyle(fontSize: 12)),
+                                      ],
+                                    ),
                                     trailing: const Icon(Icons.chevron_right, size: 20),
                                     onTap: () => context.push('/business/${biz.id}', extra: biz),
                                   );
@@ -451,20 +452,42 @@ class AdminEmployeesTab extends StatelessWidget {
 
   Widget _buildMetricBox(BuildContext context, String label, String value) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Container(
-      constraints: const BoxConstraints(minWidth: 100),
+      constraints: const BoxConstraints(minWidth: 110),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00458B).withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: theme.textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: colorScheme.onSurface,
+            ),
+          ),
         ],
       ),
     );
@@ -473,13 +496,18 @@ class AdminEmployeesTab extends StatelessWidget {
   void _confirmOffboard(BuildContext context, AdminDashboardProvider provider, EmployeeProfileModel emp) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Deactivate ${emp.name}?'),
+      builder: (ctx) => AppModalDialog(
+        icon: Icons.person_off_rounded,
+        iconColor: Theme.of(context).colorScheme.error,
+        title: 'Deactivate ${emp.name}?',
+        subtitle: 'Employee offboarding & access revocation',
+        maxWidth: 460,
         content: Text(
           'Deactivating ${emp.name} will disable their login and mark their profile inactive.\n\nAll their enrolled businesses remain intact and fully managed by Admin. Historical enrollment and commission records are preserved for payroll and audit.',
+          style: const TextStyle(fontSize: 13, height: 1.5),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel'),
           ),

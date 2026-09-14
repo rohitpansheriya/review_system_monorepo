@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../../providers/owner_dashboard_provider.dart';
 import '../../models/branch_model.dart';
 import '../../core/theme.dart';
+import '../../widgets/app_kpi_card.dart';
 
 class OwnerHomeTab extends StatefulWidget {
   const OwnerHomeTab({super.key});
@@ -276,24 +277,42 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                   children: [
                     // Timeframe / Month Filter
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: colorScheme.outlineVariant),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00458B).withValues(alpha: 0.04),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: provider.selectedMonth,
+                          dropdownColor: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          elevation: 8,
+                          icon: const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
+                          ),
                           items: provider.availableMonths
                               .map((m) => DropdownMenuItem(
                                     value: m.key,
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.calendar_month_outlined, size: 16),
+                                        const Icon(Icons.calendar_month_outlined, size: 16, color: AppColors.primary),
                                         const SizedBox(width: 8),
-                                        Text(m.label),
+                                        Text(m.label, style: const TextStyle(fontWeight: FontWeight.w600)),
                                       ],
                                     ),
                                   ))
@@ -310,21 +329,39 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                     // Branch Switcher (Multi-branch)
                     if (!provider.isSingleBranch)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: colorScheme.outlineVariant),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00458B).withValues(alpha: 0.04),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: provider.selectedBranchId,
+                            dropdownColor: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            elevation: 8,
+                            icon: const Padding(
+                              padding: EdgeInsets.only(left: 6),
+                              child: Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 18,
+                                color: AppColors.primary,
+                              ),
+                            ),
                             items: [
                               const DropdownMenuItem(
                                 value: 'all',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.storefront, size: 18),
+                                    Icon(Icons.storefront, size: 18, color: AppColors.primary),
                                     SizedBox(width: 8),
                                     Text('All Branches (Aggregated)',
                                         style: TextStyle(fontWeight: FontWeight.bold)),
@@ -333,7 +370,7 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                               ),
                               ...provider.branches.map((b) => DropdownMenuItem(
                                     value: b.id,
-                                    child: Text(b.branchName),
+                                    child: Text(b.branchName, style: const TextStyle(fontWeight: FontWeight.w500)),
                                   )),
                             ],
                             onChanged: (val) {
@@ -369,40 +406,40 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                   childAspectRatio: ratio,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    _buildStatCard(
-                      context,
-                      title: 'Total QR Scans',
+                    AppKpiCard(
+                      compact: true,
+                      label: 'Total QR Scans',
                       value: '$totalScans',
                       subtitle: provider.selectedMonth == 'all'
                           ? 'Customer interactions'
                           : 'Scans in selected period',
-                      icon: Icons.qr_code_scanner,
+                      icon: Icons.qr_code_scanner_rounded,
                       color: colorScheme.primary,
                     ),
-                    _buildStatCard(
-                      context,
-                      title: 'Google Reviews Boosted',
+                    AppKpiCard(
+                      compact: true,
+                      label: 'Google Reviews Boosted',
                       value: '+$googleReviews',
                       subtitle: googleSubtitle,
-                      icon: Icons.rate_review,
+                      icon: Icons.rate_review_rounded,
                       color: AppColors.activeFg,
                     ),
-                    _buildStatCard(
-                      context,
-                      title: 'Private Issues Intercepted',
+                    AppKpiCard(
+                      compact: true,
+                      label: 'Private Issues Intercepted',
                       value: '$privateIssues',
                       subtitle: privateSubtitle,
                       icon: Icons.shield_outlined,
                       color: const Color(0xFFE11D48),
                     ),
-                    _buildStatCard(
-                      context,
-                      title: 'Positive Sentiment Rate',
+                    AppKpiCard(
+                      compact: true,
+                      label: 'Positive Sentiment Rate',
                       value: '$positivePercent%',
                       subtitle: totalRated > 0
                           ? '$positiveRatings of $totalRated ratings (4–5★)'
                           : 'No ratings submitted yet',
-                      icon: Icons.auto_graph,
+                      icon: Icons.auto_graph_rounded,
                       color: AppColors.star,
                     ),
                   ],
@@ -718,76 +755,7 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
     );
   }
 
-  Widget _buildStatCard(
-    BuildContext context, {
-    required String title,
-    required String value,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-  }) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildMonthlyTrendsCard(BuildContext context, OwnerDashboardProvider provider) {
     final theme = Theme.of(context);

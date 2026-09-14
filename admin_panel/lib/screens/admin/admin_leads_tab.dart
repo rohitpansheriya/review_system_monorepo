@@ -19,6 +19,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/lead_model.dart';
 import '../../widgets/app_animated_loader.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_dialog.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_kpi_card.dart';
+import '../../widgets/app_search_bar.dart';
 
 class AdminLeadsTab extends StatefulWidget {
   const AdminLeadsTab({super.key});
@@ -92,18 +97,25 @@ class _AdminLeadsTabState extends State<AdminLeadsTab>
   Future<void> _deleteLead(LeadModel lead) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Lead'),
-        content: Text('Are you sure you want to permanently delete lead for "${lead.businessName}" (${lead.name})?'),
+      builder: (ctx) => AppModalDialog(
+        icon: Icons.delete_outline_rounded,
+        iconColor: Colors.red,
+        title: 'Delete Lead',
+        subtitle: 'Permanent removal of inbound lead',
+        maxWidth: 440,
+        content: Text(
+          'Are you sure you want to permanently delete the lead for "${lead.businessName}" (${lead.name})?',
+          style: const TextStyle(fontSize: 13, height: 1.5),
+        ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: const Text('Delete Lead'),
           ),
         ],
       ),
@@ -134,20 +146,6 @@ class _AdminLeadsTabState extends State<AdminLeadsTab>
     }
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'lead':
-        return const Color(0xFFEF4444); // Red / Hot
-      case 'contacted':
-        return const Color(0xFFF59E0B); // Amber
-      case 'converted':
-        return const Color(0xFF10B981); // Emerald
-      case 'archived':
-        return const Color(0xFF64748B); // Slate
-      default:
-        return const Color(0xFF4F46E5);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -231,10 +229,46 @@ class _AdminLeadsTabState extends State<AdminLeadsTab>
                 spacing: 16,
                 runSpacing: 16,
                 children: [
-                  _buildKpiCard('Total Inquiries', '$totalCount', Icons.contact_page, const Color(0xFF4F46E5)),
-                  _buildKpiCard('New / Uncontacted', '$newCount', Icons.fiber_new, const Color(0xFFEF4444)),
-                  _buildKpiCard('Contacted / In Progress', '$contactedCount', Icons.phone_in_talk, const Color(0xFFF59E0B)),
-                  _buildKpiCard('Converted Clients', '$convertedCount', Icons.verified, const Color(0xFF10B981)),
+                  SizedBox(
+                    width: 220,
+                    child: AppKpiCard(
+                      compact: true,
+                      label: 'Total Inquiries',
+                      value: '$totalCount',
+                      icon: Icons.contact_page_rounded,
+                      color: const Color(0xFF4F46E5),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 220,
+                    child: AppKpiCard(
+                      compact: true,
+                      label: 'New / Uncontacted',
+                      value: '$newCount',
+                      icon: Icons.fiber_new_rounded,
+                      color: const Color(0xFFEF4444),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 220,
+                    child: AppKpiCard(
+                      compact: true,
+                      label: 'Contacted / In Progress',
+                      value: '$contactedCount',
+                      icon: Icons.phone_in_talk_rounded,
+                      color: const Color(0xFFF59E0B),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 220,
+                    child: AppKpiCard(
+                      compact: true,
+                      label: 'Converted Clients',
+                      value: '$convertedCount',
+                      icon: Icons.verified_rounded,
+                      color: const Color(0xFF10B981),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 24),
@@ -251,15 +285,10 @@ class _AdminLeadsTabState extends State<AdminLeadsTab>
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final isWide = constraints.maxWidth > 700;
-                      final searchField = TextField(
+                      final searchField = AppSearchBar(
+                        hintText: 'Search by business, name, phone, city...',
+                        initialValue: _searchQuery,
                         onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                        decoration: InputDecoration(
-                          hintText: 'Search by business, name, phone, city...',
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          isDense: true,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        ),
                       );
 
                       final filters = Wrap(
@@ -298,23 +327,19 @@ class _AdminLeadsTabState extends State<AdminLeadsTab>
 
               // Leads List / Table
               if (filteredLeads.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(48),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.inbox, size: 48, color: scheme.primary.withValues(alpha: 0.4)),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No leads found matching current filter',
-                            style: theme.textTheme.titleMedium?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                AppEmptyState(
+                  icon: Icons.inbox_rounded,
+                  title: 'No leads found',
+                  subtitle: _searchQuery.isNotEmpty || _statusFilter != 'all'
+                      ? 'No leads match your active search or filter criteria.'
+                      : 'No inbound inquiries have been submitted yet.',
+                  actionLabel: _searchQuery.isNotEmpty || _statusFilter != 'all' ? 'Clear Filters' : null,
+                  onAction: _searchQuery.isNotEmpty || _statusFilter != 'all'
+                      ? () => setState(() {
+                            _searchQuery = '';
+                            _statusFilter = 'all';
+                          })
+                      : null,
                 )
               else
                 Card(
@@ -338,47 +363,6 @@ class _AdminLeadsTabState extends State<AdminLeadsTab>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildKpiCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      width: 210,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: color.withValues(alpha: 0.12),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color),
-              ),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -426,16 +410,12 @@ class _AdminLeadsTabState extends State<AdminLeadsTab>
                         lead.businessName,
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       ),
-                      Container(
+                      AppBadge(
+                        label: lead.city,
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        foregroundColor: const Color(0xFF475569),
+                        fontSize: 11,
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          lead.city,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                        ),
                       ),
                     ],
                   ),
@@ -503,12 +483,22 @@ class _AdminLeadsTabState extends State<AdminLeadsTab>
             DropdownButton<String>(
               value: lead.status,
               underline: const SizedBox.shrink(),
-              borderRadius: BorderRadius.circular(12),
+              dropdownColor: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              elevation: 8,
+              icon: const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 18,
+                  color: Color(0xFF6B7A99),
+                ),
+              ),
               items: [
-                _statusDropdownItem('lead', 'New Lead', _statusColor('lead')),
-                _statusDropdownItem('contacted', 'Contacted', _statusColor('contacted')),
-                _statusDropdownItem('converted', 'Converted', _statusColor('converted')),
-                _statusDropdownItem('archived', 'Archived', _statusColor('archived')),
+                DropdownMenuItem<String>(value: 'lead', child: AppBadge.lead('lead')),
+                DropdownMenuItem<String>(value: 'contacted', child: AppBadge.lead('contacted')),
+                DropdownMenuItem<String>(value: 'converted', child: AppBadge.lead('converted')),
+                DropdownMenuItem<String>(value: 'archived', child: AppBadge.lead('archived')),
               ],
               onChanged: (val) {
                 if (val != null) _updateLeadStatus(lead.id, val);
@@ -575,27 +565,4 @@ class _AdminLeadsTabState extends State<AdminLeadsTab>
     );
   }
 
-  DropdownMenuItem<String> _statusDropdownItem(String value, String label, Color color) {
-    return DropdownMenuItem<String>(
-      value: value,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(radius: 4, backgroundColor: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

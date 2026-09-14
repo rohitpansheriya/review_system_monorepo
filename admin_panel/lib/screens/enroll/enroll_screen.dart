@@ -439,6 +439,10 @@ class _EnrollScreenState extends State<EnrollScreen> {
                       )
                     else
                       DropdownButtonFormField<String>(
+                        dropdownColor: Colors.white,
+                        borderRadius:  BorderRadius.circular(14),
+                        elevation:     8,
+                        icon:          const Icon(Icons.keyboard_arrow_down_rounded),
                         decoration: const InputDecoration(
                           labelText:  'Business category',
                           prefixIcon: Icon(Icons.category_outlined),

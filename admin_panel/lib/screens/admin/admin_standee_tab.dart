@@ -19,6 +19,12 @@ import '../../core/theme.dart';
 import '../../models/standee_fulfillment_model.dart';
 import '../../models/employee_profile_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
+import '../../widgets/app_badge.dart';
+import '../../widgets/app_dialog.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/app_fulfillment_stepper.dart';
+import '../../widgets/app_kpi_card.dart';
+import '../../widgets/app_search_bar.dart';
 
 class AdminStandeeTab extends StatefulWidget {
   const AdminStandeeTab({super.key});
@@ -104,43 +110,34 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
 
     return showDialog<({String courierName, String courierAwb})>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.local_shipping, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-          ],
-        ),
+      builder: (ctx) => AppModalDialog(
+        icon: Icons.local_shipping_rounded,
+        iconColor: AppColors.primary,
+        title: title,
+        subtitle: 'Enter courier details and tracking number for this shipment.',
+        maxWidth: 480,
         content: Form(
           key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Enter the courier partner and AWB/tracking number for this shipment:',
-                style: TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 16),
               TextFormField(
                 controller: courierCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Courier Partner',
+                  labelText: 'Courier Partner *',
                   hintText: 'e.g. DTDC, India Post, Delhivery, Bluedart',
                   prefixIcon: Icon(Icons.business_outlined, size: 18),
-                  isDense: true,
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter courier partner' : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               TextFormField(
                 controller: awbCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'AWB / Tracking Number',
+                  labelText: 'AWB / Tracking Number *',
                   hintText: 'e.g. 123456789',
-                  prefixIcon: Icon(Icons.tag, size: 18),
-                  isDense: true,
+                  prefixIcon: Icon(Icons.tag_rounded, size: 18),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter AWB number' : null,
               ),
@@ -148,7 +145,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
           ),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(null),
             child: const Text('Cancel'),
           ),
@@ -169,6 +166,49 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
     );
   }
 
+  Future<void> _updateStatus(
+    AdminDashboardProvider provider,
+    StandeeFulfillmentModel item,
+    String newVal,
+  ) async {
+    if (newVal == item.standeeStatus) return;
+
+    String? courierName = item.courierName;
+    String? courierAwb = item.courierAwb;
+
+    // If changing to 'shipped', ask for Courier & AWB
+    if (newVal == AppConstants.standeeShipped) {
+      final res = await _showAwbInputDialog(
+        context,
+        title: 'Ship Standee for ${item.businessName}',
+        initialCourier: item.courierName ?? 'DTDC',
+      );
+      if (res == null) return; // User cancelled
+      courierName = res.courierName;
+      courierAwb = res.courierAwb;
+    }
+
+    await provider.updateStandeeStatusInline(
+      businessId: item.businessId,
+      branchId: item.branchId,
+      newStatus: newVal,
+      courierName: courierName,
+      courierAwb: courierAwb,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${item.businessName} marked as ${AppConstants.standeeStatusLabels[newVal] ?? newVal}',
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AdminDashboardProvider>();
@@ -176,6 +216,12 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
     final colorScheme = theme.colorScheme;
     final allItems = provider.standeeItems;
     final filtered = _filterList(allItems);
+
+    // Summary counts for KPI cards
+    final orderedCount = allItems.where((i) => (AppConstants.standeeStatuses.contains(i.standeeStatus) ? i.standeeStatus : AppConstants.standeeOrdered) == AppConstants.standeeOrdered).length;
+    final printedCount = allItems.where((i) => (AppConstants.standeeStatuses.contains(i.standeeStatus) ? i.standeeStatus : AppConstants.standeeOrdered) == AppConstants.standeePrinted).length;
+    final shippedCount = allItems.where((i) => (AppConstants.standeeStatuses.contains(i.standeeStatus) ? i.standeeStatus : AppConstants.standeeOrdered) == AppConstants.standeeShipped).length;
+    final deliveredCount = allItems.where((i) => (AppConstants.standeeStatuses.contains(i.standeeStatus) ? i.standeeStatus : AppConstants.standeeOrdered) == AppConstants.standeeDelivered).length;
 
     // Build unique enrolled employee list
     final employeeMap = <String, String>{};
@@ -285,6 +331,60 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
               ),
               const SizedBox(height: 20),
 
+              // ── Summary KPI Metric Cards ─────────────────────────────────
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 900;
+                  final isMedium = constraints.maxWidth > 600;
+                  final crossAxisCount = isWide ? 4 : (isMedium ? 2 : 1);
+                  final ratio = isWide ? 1.45 : (isMedium ? 1.7 : 2.5);
+
+                  return GridView.count(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    shrinkWrap: true,
+                    childAspectRatio: ratio,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      AppKpiCard(
+                        label: 'Ordered / Pending Print',
+                        value: '$orderedCount',
+                        subtitle: 'Awaiting acrylic printing',
+                        icon: Icons.shopping_bag_outlined,
+                        color: const Color(0xFFF59E0B),
+                        onTap: () => setState(() => _selectedStatusFilter = AppConstants.standeeOrdered),
+                      ),
+                      AppKpiCard(
+                        label: 'Printed / In Stock',
+                        value: '$printedCount',
+                        subtitle: 'Ready for batch dispatch',
+                        icon: Icons.print_rounded,
+                        color: const Color(0xFF2563EB),
+                        onTap: () => setState(() => _selectedStatusFilter = AppConstants.standeePrinted),
+                      ),
+                      AppKpiCard(
+                        label: 'Shipped / In Transit',
+                        value: '$shippedCount',
+                        subtitle: 'With courier or field agent',
+                        icon: Icons.local_shipping_rounded,
+                        color: const Color(0xFF7C3AED),
+                        onTap: () => setState(() => _selectedStatusFilter = AppConstants.standeeShipped),
+                      ),
+                      AppKpiCard(
+                        label: 'Delivered & Active',
+                        value: '$deliveredCount',
+                        subtitle: 'Live at merchant counter',
+                        icon: Icons.verified_rounded,
+                        color: const Color(0xFF10B981),
+                        onTap: () => setState(() => _selectedStatusFilter = AppConstants.standeeDelivered),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+
               // ── Filter Controls Row ──────────────────────────────────────
               Wrap(
                 spacing: 12,
@@ -293,15 +393,33 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                 children: [
                   // Employee Filter Dropdown
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerLowest,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: colorScheme.outlineVariant),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00458B).withValues(alpha: 0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: safeEmployeeFilter,
+                        dropdownColor: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        elevation: 8,
+                        icon: const Padding(
+                          padding: EdgeInsets.only(left: 6),
+                          child: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                        ),
                         isDense: true,
                         style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                         items: [
@@ -336,13 +454,9 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                   // Search Bar
                   SizedBox(
                     width: 320,
-                    child: TextField(
-                      decoration: const InputDecoration(
-                        hintText: 'Search business, branch, AWB, phone…',
-                        prefixIcon: Icon(Icons.search, size: 18),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
+                    child: AppSearchBar(
+                      hintText: 'Search business, branch, AWB, phone…',
+                      initialValue: _searchQuery,
                       onChanged: (v) => setState(() => _searchQuery = v),
                     ),
                   ),
@@ -415,29 +529,22 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                   ),
                 )
               else if (filtered.isEmpty)
-                Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(40.0),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.inventory_2_outlined, size: 48, color: colorScheme.onSurfaceVariant),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No standees found matching current filters.',
-                            style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                AppEmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'No standees found',
+                  subtitle: _searchQuery.isNotEmpty || _selectedStatusFilter != 'all' || safeEmployeeFilter != 'all'
+                      ? 'No standees match your active filters.'
+                      : 'No branch standee fulfillment records found.',
+                  actionLabel: _searchQuery.isNotEmpty || _selectedStatusFilter != 'all' || safeEmployeeFilter != 'all'
+                      ? 'Clear Filters'
+                      : null,
+                  onAction: _searchQuery.isNotEmpty || _selectedStatusFilter != 'all' || safeEmployeeFilter != 'all'
+                      ? () => setState(() {
+                            _searchQuery = '';
+                            _selectedStatusFilter = 'all';
+                            _selectedEmployeeFilter = 'all';
+                          })
+                      : null,
                 )
               else
                 ListView.separated(
@@ -619,9 +726,6 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
     final safeStatus = AppConstants.standeeStatuses.contains(item.standeeStatus)
         ? item.standeeStatus
         : AppConstants.standeeOrdered;
-    final statusColor = AppTheme.standeeStatusColor(safeStatus);
-    final statusFg = AppTheme.standeeStatusForeground(safeStatus);
-    final statusLabel = AppConstants.standeeStatusLabels[safeStatus] ?? safeStatus;
     final updatedText = _formatTimeAgo(item.standeeStatusUpdatedAt, safeStatus);
 
     final isDeliveredViaScan = item.standeeStatus == AppConstants.standeeDelivered &&
@@ -631,6 +735,29 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
         ? item.businessName.trim()[0].toUpperCase()
         : '?';
 
+    // Determine next step label and icon for quick action button
+    String? nextStepStatus;
+    String? nextStepLabel;
+    IconData? nextStepIcon;
+    Color? nextStepColor;
+
+    if (safeStatus == AppConstants.standeeOrdered) {
+      nextStepStatus = AppConstants.standeePrinted;
+      nextStepLabel = 'Mark Printed';
+      nextStepIcon = Icons.print_rounded;
+      nextStepColor = const Color(0xFF2563EB);
+    } else if (safeStatus == AppConstants.standeePrinted) {
+      nextStepStatus = AppConstants.standeeShipped;
+      nextStepLabel = 'Ship with AWB';
+      nextStepIcon = Icons.local_shipping_rounded;
+      nextStepColor = const Color(0xFF7C3AED);
+    } else if (safeStatus == AppConstants.standeeShipped) {
+      nextStepStatus = AppConstants.standeeDelivered;
+      nextStepLabel = 'Mark Delivered';
+      nextStepIcon = Icons.verified_rounded;
+      nextStepColor = const Color(0xFF10B981);
+    }
+
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
@@ -638,7 +765,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(18.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -684,22 +811,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    statusLabel.toUpperCase(),
-                    style: TextStyle(
-                      color: statusFg,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
+                AppBadge.standee(safeStatus),
               ],
             ),
             const SizedBox(height: 10),
@@ -728,7 +840,7 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
 
             // Enrolled By (Employee Information)
             Padding(
-              padding: const EdgeInsets.only(bottom: 6.0),
+              padding: const EdgeInsets.only(bottom: 12.0),
               child: Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
@@ -750,9 +862,24 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
               ),
             ),
 
+            // ── Interactive Visual Pipeline Stepper ──────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
+              ),
+              child: AppFulfillmentStepper(
+                currentStatus: safeStatus,
+                isInteractive: true,
+                onStepSelected: (newVal) => _updateStatus(provider, item, newVal),
+              ),
+            ),
+
             // Courier / AWB Tracking Badge (when shipped or delivered)
             if (item.courierAwb != null && item.courierAwb!.isNotEmpty) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
@@ -794,31 +921,21 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
 
             // Auto-Delivery Verification Badge
             if (isDeliveredViaScan) ...[
-              const SizedBox(height: 6),
-              Container(
+              const SizedBox(height: 8),
+              AppBadge(
+                label: 'Verified Handover (Auto-Promoted via Live First Scan)',
+                backgroundColor: AppColors.activeBg,
+                foregroundColor: AppColors.activeFg,
+                icon: Icons.verified,
+                fontSize: 11,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.activeBg,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.activeFg.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.verified, size: 12, color: AppColors.activeFg),
-                    SizedBox(width: 4),
-                    Text(
-                      'Verified Handover (Auto-Promoted via Live First Scan)',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.activeFg),
-                    ),
-                  ],
-                ),
+                borderRadius: BorderRadius.circular(6),
               ),
             ],
 
-            const Divider(height: 16),
+            const Divider(height: 20),
 
-            // Row 3: Timestamp & Inline Status Dropdown
+            // Row 3: Timestamp & Status Controls
             Wrap(
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -839,24 +956,50 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                     ),
                   ],
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(
-                      'Update Status: ',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+                    if (nextStepStatus != null && nextStepLabel != null)
+                      FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          foregroundColor: nextStepColor,
+                          backgroundColor: nextStepColor?.withValues(alpha: 0.12),
+                        ),
+                        onPressed: () => _updateStatus(provider, item, nextStepStatus!),
+                        icon: Icon(nextStepIcon ?? Icons.arrow_forward_rounded, size: 16),
+                        label: Text(nextStepLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
-                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                       decoration: BoxDecoration(
+                        color: Colors.white,
                         border: Border.all(color: colorScheme.outlineVariant),
                         borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00458B).withValues(alpha: 0.03),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: safeStatus,
+                          dropdownColor: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          elevation: 8,
+                          icon: const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: AppColors.primary,
+                            ),
+                          ),
                           isDense: true,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
@@ -882,41 +1025,9 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                               ),
                             );
                           }).toList(),
-                          onChanged: (newVal) async {
-                            if (newVal == null || newVal == item.standeeStatus) return;
-
-                            String? courierName = item.courierName;
-                            String? courierAwb = item.courierAwb;
-
-                            // If changing to 'shipped', ask for Courier & AWB
-                            if (newVal == AppConstants.standeeShipped) {
-                              final res = await _showAwbInputDialog(
-                                context,
-                                title: 'Ship Standee for ${item.businessName}',
-                                initialCourier: item.courierName ?? 'DTDC',
-                              );
-                              if (res == null) return; // User cancelled
-                              courierName = res.courierName;
-                              courierAwb = res.courierAwb;
-                            }
-
-                            await provider.updateStandeeStatusInline(
-                              businessId: item.businessId,
-                              branchId: item.branchId,
-                              newStatus: newVal,
-                              courierName: courierName,
-                              courierAwb: courierAwb,
-                            );
-
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '${item.businessName} marked as ${AppConstants.standeeStatusLabels[newVal] ?? newVal}',
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
+                          onChanged: (newVal) {
+                            if (newVal != null) {
+                              _updateStatus(provider, item, newVal);
                             }
                           },
                         ),

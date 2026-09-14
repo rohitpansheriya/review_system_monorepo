@@ -352,6 +352,60 @@ class AppTheme {
         space: 1,
       ),
 
+      // ── Popup & Dropdown Menus ────────────────────────────────────────────────
+      popupMenuTheme: PopupMenuThemeData(
+        color: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shadowColor: const Color(0xFF00458B).withValues(alpha: 0.14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md + 4),
+          side: BorderSide(color: cs.outlineVariant, width: 1.2),
+        ),
+        textStyle: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: cs.onSurface,
+        ),
+      ),
+
+      dropdownMenuTheme: DropdownMenuThemeData(
+        menuStyle: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(8),
+          shadowColor: WidgetStatePropertyAll(const Color(0xFF00458B).withValues(alpha: 0.14)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md + 4),
+              side: BorderSide(color: cs.outlineVariant, width: 1.2),
+            ),
+          ),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6, horizontal: 4)),
+        ),
+        textStyle: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: cs.onSurface,
+        ),
+      ),
+
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(8),
+          shadowColor: WidgetStatePropertyAll(const Color(0xFF00458B).withValues(alpha: 0.14)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md + 4),
+              side: BorderSide(color: cs.outlineVariant, width: 1.2),
+            ),
+          ),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6, horizontal: 4)),
+        ),
+      ),
+
       // ── Dialog ───────────────────────────────────────────────────────────────
       dialogTheme: DialogTheme(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),

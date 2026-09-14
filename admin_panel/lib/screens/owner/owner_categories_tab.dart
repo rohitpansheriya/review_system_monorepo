@@ -129,8 +129,11 @@ class OwnerCategoriesTab extends StatelessWidget {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle_rounded,
-                        size: 14, color: AppColors.activeFg),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 14,
+                      color: AppColors.activeFg,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Live on QR Flow',
@@ -207,7 +210,9 @@ class OwnerCategoriesTab extends StatelessWidget {
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.activeBg,
                               borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -239,25 +244,30 @@ class OwnerCategoriesTab extends StatelessWidget {
                         Wrap(
                           spacing: 6,
                           runSpacing: 6,
-                          children: phrases.take(3).map((p) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest
-                                    .withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(AppRadius.sm),
-                              ),
-                              child: Text(
-                                '"$p"',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontStyle: FontStyle.italic,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                          children:
+                              phrases.take(3).map((p) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.surfaceContainerHighest
+                                        .withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.sm,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '"$p"',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                         ),
                       ],
                     ],
@@ -272,10 +282,14 @@ class OwnerCategoriesTab extends StatelessWidget {
   }
 
   Widget _buildTemplateCard(
-      BuildContext context, Map<String, dynamic> template, int categoryCount) {
+    BuildContext context,
+    Map<String, dynamic> template,
+    int categoryCount,
+  ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final bizType = template['name'] ?? template['business_type'] ?? 'Standard Template';
+    final bizType =
+        template['name'] ?? template['business_type'] ?? 'Standard Template';
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -315,4 +329,3 @@ class OwnerCategoriesTab extends StatelessWidget {
     );
   }
 }
-

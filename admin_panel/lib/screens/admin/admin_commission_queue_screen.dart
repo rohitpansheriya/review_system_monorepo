@@ -274,6 +274,7 @@ class _AdminCommissionQueueScreenState
     final adminUid = context.read<AppAuthProvider>().uid ?? '';
     final scheme = Theme.of(context).colorScheme;
     final employees = provider.employees;
+    final isMobile = MediaQuery.of(context).size.width <= 760;
 
     // Generate month options (last 12 months)
     final now = DateTime.now();
@@ -282,113 +283,144 @@ class _AdminCommissionQueueScreenState
       return '${d.year}-${d.month.toString().padLeft(2, '0')}';
     });
 
+    final hasActiveFilter = _selectedEmployeeId != null || _statusFilter != 'all' || _monthFilter != null;
+
+    final employeeDropdown = DropdownButtonFormField<String?>(
+      value: _selectedEmployeeId,
+      dropdownColor: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 8,
+      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+      decoration: const InputDecoration(
+        labelText: 'Employee',
+        prefixIcon: Icon(Icons.person_outline_rounded, size: 18),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      ),
+      items: [
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('All Employees'),
+        ),
+        ...employees.map(
+          (e) => DropdownMenuItem<String?>(
+            value: e.uid,
+            child: Text(e.name, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      ],
+      onChanged: (v) => setState(() => _selectedEmployeeId = v),
+    );
+
+    final statusDropdown = DropdownButtonFormField<String>(
+      value: _statusFilter,
+      dropdownColor: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 8,
+      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+      decoration: const InputDecoration(
+        labelText: 'Status',
+        prefixIcon: Icon(Icons.filter_list_rounded, size: 18),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'all', child: Text('All')),
+        DropdownMenuItem(value: 'pending', child: Text('Pending')),
+        DropdownMenuItem(value: 'paid', child: Text('Paid')),
+      ],
+      onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
+    );
+
+    final monthDropdown = DropdownButtonFormField<String?>(
+      value: _monthFilter,
+      dropdownColor: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 8,
+      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+      decoration: const InputDecoration(
+        labelText: 'Month',
+        prefixIcon: Icon(Icons.calendar_month_outlined, size: 18),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      ),
+      items: [
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('All Months'),
+        ),
+        ...months.map(
+          (m) => DropdownMenuItem<String?>(
+            value: m,
+            child: Text(
+              DateFormat.yMMM().format(DateTime.parse('$m-01')),
+            ),
+          ),
+        ),
+      ],
+      onChanged: (v) => setState(() => _monthFilter = v),
+    );
+
     return Column(
       children: [
-        // ── Filters & Actions ────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+        // ── Responsive Filter Bar ─────────────────────────────────────────
+        Container(
+          width: double.infinity,
+          margin: EdgeInsets.fromLTRB(
+            isMobile ? 12 : 16,
+            isMobile ? 12 : 16,
+            isMobile ? 12 : 16,
+            8,
+          ),
+          padding: EdgeInsets.all(isMobile ? 12 : 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: scheme.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+              if (isMobile) ...[
+                employeeDropdown,
+                const SizedBox(height: 8),
+                Row(
                   children: [
-                    // Employee filter
-                    SizedBox(
-                      width: 220,
-                      child: DropdownButtonFormField<String?>(
-                        value: _selectedEmployeeId,
-                        dropdownColor: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        elevation: 8,
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                        decoration: const InputDecoration(
-                          labelText: 'Employee',
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                        ),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('All Employees'),
-                          ),
-                          ...employees.map(
-                            (e) => DropdownMenuItem<String?>(
-                              value: e.uid,
-                              child: Text(e.name),
-                            ),
-                          ),
-                        ],
-                        onChanged: (v) => setState(() => _selectedEmployeeId = v),
-                      ),
-                    ),
-                    // Status filter
-                    SizedBox(
-                      width: 150,
-                      child: DropdownButtonFormField<String>(
-                        value: _statusFilter,
-                        dropdownColor: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        elevation: 8,
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                        decoration: const InputDecoration(
-                          labelText: 'Status',
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'all', child: Text('All')),
-                          DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                          DropdownMenuItem(value: 'paid', child: Text('Paid')),
-                        ],
-                        onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
-                      ),
-                    ),
-                    // Month filter
-                    SizedBox(
-                      width: 150,
-                      child: DropdownButtonFormField<String?>(
-                        value: _monthFilter,
-                        dropdownColor: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        elevation: 8,
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                        decoration: const InputDecoration(
-                          labelText: 'Month',
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                        ),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('All Months'),
-                          ),
-                          ...months.map(
-                            (m) => DropdownMenuItem<String?>(
-                              value: m,
-                              child: Text(
-                                DateFormat.yMMM().format(DateTime.parse('$m-01')),
-                              ),
-                            ),
-                          ),
-                        ],
-                        onChanged: (v) => setState(() => _monthFilter = v),
-                      ),
-                    ),
+                    Expanded(child: statusDropdown),
+                    const SizedBox(width: 8),
+                    Expanded(child: monthDropdown),
                   ],
                 ),
-              ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(flex: 3, child: employeeDropdown),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 2, child: statusDropdown),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 2, child: monthDropdown),
+                    if (hasActiveFilter) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.clear_rounded),
+                        tooltip: 'Reset Filters',
+                        onPressed: () => setState(() {
+                          _selectedEmployeeId = null;
+                          _statusFilter = 'all';
+                          _monthFilter = null;
+                        }),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -396,36 +428,35 @@ class _AdminCommissionQueueScreenState
         // ── One-Click Payout Button ─────────────────────────────────
         if (_selectedEmployeeId != null && _monthFilter != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 4),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed:
-                    () => _showBulkPayoutDialog(
-                      context,
-                      provider,
-                      adminUid,
-                      _selectedEmployeeId!,
-                      _monthFilter!,
-                    ),
-                icon: const Icon(Icons.payments),
+                onPressed: () => _showBulkPayoutDialog(
+                  context,
+                  provider,
+                  adminUid,
+                  _selectedEmployeeId!,
+                  _monthFilter!,
+                ),
+                icon: const Icon(Icons.payments_rounded, size: 18),
                 label: Text(
-                  'Pay All Pending for ${_getEmployeeName(employees, _selectedEmployeeId!)} — '
-                  '${DateFormat.yMMM().format(DateTime.parse('$_monthFilter-01'))}',
+                  'Pay All Pending for ${_getEmployeeName(employees, _selectedEmployeeId!)} (${DateFormat.yMMM().format(DateTime.parse('$_monthFilter-01'))})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: const Color(0xFF059669),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ),
           ),
 
-        const SizedBox(height: 8),
-
-        // ── Commission List ───────────────────────────────────────
-        Expanded(child: _buildCommissionStream(context, provider, scheme)),
+        // ── Commission List & Summaries ───────────────────────────
+        Expanded(child: _buildCommissionStream(context, provider, scheme, isMobile)),
       ],
     );
   }
@@ -434,6 +465,7 @@ class _AdminCommissionQueueScreenState
     BuildContext context,
     AdminDashboardProvider provider,
     ColorScheme scheme,
+    bool isMobile,
   ) {
     // Universal reactive commission stream
     final stream = provider.watchCommissions(
@@ -469,52 +501,80 @@ class _AdminCommissionQueueScreenState
           );
         }
 
-        return Column(
+        final summaryBadges = Row(
           children: [
-            // Summary badges & Export Action
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Wrap(
-                    spacing: 16,
-                    children: [
-                      _SummaryBadge(
-                        label: 'Total Records',
-                        value: '${commissions.length}',
-                        color: scheme.primary,
-                      ),
-                      _SummaryBadge(
-                        label: 'Pending Payout',
-                        value: '₹${totalPending.toStringAsFixed(0)}',
-                        color: Colors.orange,
-                      ),
-                      _SummaryBadge(
-                        label: 'Paid Out',
-                        value: '₹${totalPaid.toStringAsFixed(0)}',
-                        color: Colors.green,
-                      ),
-                    ],
-                  ),
-                  FilledButton.icon(
-                    onPressed: commissions.isEmpty
-                        ? null
-                        : () => _showExportModal(context, commissions, provider.employees),
-                    icon: const Icon(Icons.download_rounded, size: 18),
-                    label: const Text('Export Payout CSV'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F46E5),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    ),
-                  ),
-                ],
+            Expanded(
+              child: _SummaryCard(
+                icon: Icons.receipt_outlined,
+                label: 'Total',
+                value: '${commissions.length}',
+                color: scheme.primary,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _SummaryCard(
+                icon: Icons.schedule_rounded,
+                label: 'Pending',
+                value: '₹${totalPending.toStringAsFixed(0)}',
+                color: const Color(0xFFD97706),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _SummaryCard(
+                icon: Icons.check_circle_outline_rounded,
+                label: 'Paid',
+                value: '₹${totalPaid.toStringAsFixed(0)}',
+                color: const Color(0xFF059669),
+              ),
+            ),
+          ],
+        );
+
+        final exportButton = FilledButton.icon(
+          onPressed: commissions.isEmpty
+              ? null
+              : () => _showExportModal(context, commissions, provider.employees),
+          icon: const Icon(Icons.download_rounded, size: 16),
+          label: const Text('Export Payout CSV', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF4F46E5),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+
+        return Column(
+          children: [
+            // Responsive Summary & Export Bar
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 12 : 16,
+                vertical: 4,
+              ),
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        summaryBadges,
+                        const SizedBox(height: 8),
+                        exportButton,
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: summaryBadges),
+                        const SizedBox(width: 16),
+                        exportButton,
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 8),
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 4),
                 itemCount: commissions.length,
                 itemBuilder: (context, index) {
                   final c = commissions[index];
@@ -660,7 +720,7 @@ class _AdminCommissionQueueScreenState
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SHARED WIDGETS
+// SHARED RESPONSIVE WIDGETS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _CommissionCard extends StatelessWidget {
@@ -671,80 +731,165 @@ class _CommissionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isPaid = commission.isPaid;
-    final dateFormat = DateFormat.yMMMd();
+    final dateFormat = DateFormat('d MMM yyyy');
+    final employeeName = context.watch<AdminDashboardProvider>().resolveEmployeeName(commission.employeeId);
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color:
-              isPaid
-                  ? Colors.green.withValues(alpha: 0.3)
-                  : Colors.orange.withValues(alpha: 0.3),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isPaid
+              ? const Color(0xFF10B981).withValues(alpha: 0.3)
+              : const Color(0xFFF59E0B).withValues(alpha: 0.3),
         ),
-      ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              isPaid
-                  ? Colors.green.withValues(alpha: 0.15)
-                  : Colors.orange.withValues(alpha: 0.15),
-          child: Icon(
-            isPaid ? Icons.check_circle : Icons.schedule,
-            color: isPaid ? Colors.green : Colors.orange,
-            size: 20,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-        ),
-        title: Text(
-          commission.businessName.isNotEmpty
-              ? commission.businessName
-              : commission.businessId,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Column(
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Employee: ${context.watch<AdminDashboardProvider>().resolveEmployeeName(commission.employeeId)}',
+            // Top Row: Status Icon + Business Name + Amount & Status Badge
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: isPaid
+                        ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                        : const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isPaid ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
+                    color: isPaid ? const Color(0xFF059669) : const Color(0xFFD97706),
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        commission.businessName.isNotEmpty
+                            ? commission.businessName
+                            : 'Business #${commission.businessId.substring(0, commission.businessId.length > 8 ? 8 : commission.businessId.length)}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.person_outline_rounded, size: 13, color: scheme.onSurfaceVariant),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              employeeName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.primary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '₹${commission.amount.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: isPaid ? const Color(0xFF059669) : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    AppBadge.commission(commission.status),
+                  ],
+                ),
+              ],
             ),
-            if (commission.createdAt != null)
-              Text('Activated: ${dateFormat.format(commission.createdAt!)}'),
-            if (isPaid && commission.payoutReference != null)
-              Text(
-                'UTR: ${commission.payoutReference}',
-                style: const TextStyle(fontSize: 11),
-              ),
+            const SizedBox(height: 8),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            const SizedBox(height: 6),
+            // Bottom Info Row: Activation Date + Payout Reference
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (commission.createdAt != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.event_available_rounded, size: 13, color: Color(0xFF64748B)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Activated: ${dateFormat.format(commission.createdAt!)}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                if (isPaid && commission.payoutReference != null && commission.payoutReference!.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.receipt_long_rounded, size: 12, color: Color(0xFF475569)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Ref: ${commission.payoutReference}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '₹${commission.amount.toStringAsFixed(0)}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: isPaid ? Colors.green : scheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            AppBadge.commission(commission.status),
-          ],
-        ),
-        isThreeLine: true,
       ),
     );
   }
 }
 
-class _SummaryBadge extends StatelessWidget {
+class _SummaryCard extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
   final Color color;
-  const _SummaryBadge({
+
+  const _SummaryCard({
+    required this.icon,
     required this.label,
     required this.value,
     required this.color,
@@ -753,21 +898,39 @@ class _SummaryBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label: ', style: TextStyle(fontSize: 12, color: color)),
+          Row(
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
           Text(
             value,
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),

@@ -337,7 +337,8 @@ class FirestoreService {
   ///   [statusFilter] — 'pending' | 'successful' | 'all'
   ///                    'successful' means active + grace_period (paid at some point)
   ///                    'all' means pending + successful; never includes 'deleted'
-  ///   [since]        — lower bound on created_at (for 7-day default window)
+  ///   [startDate]    — optional lower bound on created_at (inclusive)
+  ///   [endDate]      — optional upper bound on created_at (inclusive)
   ///   [startAfter]   — cursor document for pagination (null = first page)
   ///   [limit]        — page size (default 20)
   ///
@@ -345,15 +346,23 @@ class FirestoreService {
   Future<List<BusinessModel>> fetchMyBusinessesPage({
     required String employeeId,
     required String statusFilter,
-    required DateTime since,
+    DateTime? startDate,
+    DateTime? endDate,
     DocumentSnapshot? startAfter,
     int limit = 20,
   }) async {
     Query<Map<String, dynamic>> q = _db
         .collection(AppConstants.colBusinesses)
-        .where('enrolled_by', isEqualTo: employeeId)
-        .where('created_at', isGreaterThanOrEqualTo: Timestamp.fromDate(since))
-        .orderBy('created_at', descending: true);
+        .where('enrolled_by', isEqualTo: employeeId);
+
+    if (startDate != null) {
+      q = q.where('created_at', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+    }
+    if (endDate != null) {
+      q = q.where('created_at', isLessThanOrEqualTo: Timestamp.fromDate(endDate));
+    }
+
+    q = q.orderBy('created_at', descending: true);
 
     // Apply status filter at query level — never in-memory
     if (statusFilter == 'pending') {
@@ -361,16 +370,6 @@ class FirestoreService {
     } else if (statusFilter == 'successful') {
       q = q.where('subscription_status',
           whereIn: [AppConstants.statusActive, AppConstants.statusGracePeriod]);
-    } else {
-      // 'all' → show all non-deleted statuses
-      // NOTE: whereNotIn cannot be combined with range filters on a different
-      // field (created_at). Use whereIn with explicit status list instead.
-      q = q.where('subscription_status',
-          whereIn: [
-            AppConstants.statusPendingPayment,
-            AppConstants.statusActive,
-            AppConstants.statusGracePeriod,
-          ]);
     }
 
     if (startAfter != null) {

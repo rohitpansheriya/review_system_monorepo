@@ -22,6 +22,7 @@ import '../../core/phone_field.dart';
 import '../../models/employee_profile_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../widgets/app_brand_title.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -195,7 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile & Payout Details'),
+        title: const AppBrandTitle(subtitle: 'My Profile & Payout'),
         leading: BackButton(onPressed: () {
           final auth = context.read<AppAuthProvider>();
           if (context.canPop()) {

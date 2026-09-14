@@ -11,6 +11,7 @@ import '../../models/employee_commission_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/commission_provider.dart';
 import '../../widgets/app_animated_loader.dart';
+import '../../widgets/app_brand_title.dart';
 
 class CommissionScreen extends StatefulWidget {
   const CommissionScreen({super.key});
@@ -38,7 +39,7 @@ class _CommissionScreenState extends State<CommissionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title:   const Text('My Commissions'),
+        title:   const AppBrandTitle(subtitle: 'Commission Tracker'),
         leading: BackButton(onPressed: () => context.go('/businesses')),
       ),
 

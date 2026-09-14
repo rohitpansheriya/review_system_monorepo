@@ -27,6 +27,7 @@ import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/enroll_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/app_brand_title.dart';
 import 'branch_form_widget.dart';
 
 class EnrollScreen extends StatefulWidget {
@@ -344,7 +345,7 @@ class _EnrollScreenState extends State<EnrollScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Enroll New Business'),
+        title: const AppBrandTitle(subtitle: 'Enroll Business'),
         leading: isAdmin
             ? const SizedBox.shrink()  // No back button inside admin shell
             : BackButton(onPressed: () => context.go('/businesses')),

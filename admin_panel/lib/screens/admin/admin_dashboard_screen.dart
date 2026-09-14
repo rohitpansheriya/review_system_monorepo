@@ -17,6 +17,7 @@ import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../enroll/enroll_screen.dart';
 import '../../widgets/app_animated_loader.dart';
+import '../../widgets/app_brand_title.dart';
 import '../../widgets/app_splash_screen.dart';
 import 'admin_platform_stats_tab.dart';
 import 'admin_employees_tab.dart';
@@ -146,7 +147,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (provider.error != null && provider.allBusinesses.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Admin Dashboard'),
+          title: const AppBrandTitle(subtitle: 'Admin Panel'),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
@@ -198,7 +199,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
+        title: const AppBrandTitle(subtitle: 'Admin Panel'),
         actions: [
           Center(
             child: Padding(

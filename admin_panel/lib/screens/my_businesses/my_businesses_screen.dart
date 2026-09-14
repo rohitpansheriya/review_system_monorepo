@@ -34,6 +34,7 @@ import '../../services/firestore_service.dart';
 import '../../widgets/app_badge.dart';
 import '../../widgets/app_dialog.dart';
 import '../../widgets/app_empty_state.dart';
+import '../../widgets/month_year_picker_dialog.dart';
 
 class MyBusinessesScreen extends StatefulWidget {
   const MyBusinessesScreen({super.key});
@@ -124,7 +125,11 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Enrolled Businesses'),
+        title: Image.asset(
+          'assets/images/appnexa-logo-white.png',
+          height: 26,
+          fit: BoxFit.contain,
+        ),
         actions: [
           if (employee != null && MediaQuery.of(context).size.width > 480)
             Padding(
@@ -133,7 +138,7 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
                 avatar: Icon(Icons.person_outline,
                     size: 16, color: scheme.onPrimary),
                 label: Text(employee.name,
-                    style: TextStyle(color: scheme.onPrimary, fontSize: 12)),
+                    style: TextStyle(color: scheme.onPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
                 backgroundColor: scheme.primary.withValues(alpha: 0.5),
                 side: BorderSide(color: scheme.onPrimary.withValues(alpha: 0.3)),
               ),
@@ -151,221 +156,461 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
         ],
       ),
 
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/enroll'),
-        icon:  const Icon(Icons.add_business_outlined),
-        label: const Text('Enroll New'),
-      ),
+      floatingActionButton: MediaQuery.of(context).size.width <= 720
+          ? FloatingActionButton.extended(
+              onPressed: () => context.go('/enroll'),
+              icon:  const Icon(Icons.add_business_outlined),
+              label: const Text('Enroll New'),
+            )
+          : null,
 
       body: Column(
         children: [
-          // ── Summary bar with Live Commission Earnings Meter ──────────────
-          if (employee != null)
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    scheme.primaryContainer,
-                    scheme.primaryContainer.withValues(alpha: 0.6),
-                  ],
-                  begin: Alignment.topLeft,
-                  end:   Alignment.bottomRight,
-                ),
-              ),
-              padding: EdgeInsets.symmetric(
-                horizontal: MediaQuery.of(context).size.width > 600 ? 20 : 12,
-                vertical: 12,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _StatChip(
-                          icon:  Icons.business_outlined,
-                          label: 'Total enrolled',
-                          value: '${employee.totalEnrollments}',
-                        ),
-                      ),
-                      Container(
-                        height: 28,
-                        width: 1,
-                        margin: const EdgeInsets.symmetric(horizontal: 12),
-                        color: scheme.onPrimaryContainer.withValues(alpha: 0.25),
-                      ),
-                      Expanded(
-                        child: _StatChip(
-                          icon:  Icons.calendar_month_outlined,
-                          label: 'This month',
-                          value: '${employee.thisMonthEnrollments}',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // ── Gamified Live Commission Meter Card ───────────────────
-                  InkWell(
-                    onTap: () => context.go('/commission'),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                        border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
-                      ),
+          // ── Professional Page Title & Actions ───────────────────────────
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+              MediaQuery.of(context).size.width > 600 ? 20 : 16,
+              16,
+              MediaQuery.of(context).size.width > 600 ? 20 : 16,
+              12,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6))),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
+                          Text(
+                            'Enrolled Businesses',
+                            style: GoogleFonts.inter(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Track and manage client business enrollments, branches, and live commissions',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (MediaQuery.of(context).size.width > 720)
+                      FilledButton.icon(
+                        onPressed: () => context.go('/enroll'),
+                        icon: const Icon(Icons.add_business_outlined, size: 17),
+                        label: const Text('Enroll New Business', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // ── Executive KPI & Performance Cards ──────────────────────
+                if (employee != null)
+                  LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final isWide = constraints.maxWidth > 760;
+
+                      final kpiCard = Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.all(5),
+                                    padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.withValues(alpha: 0.2),
+                                      color: scheme.primary.withValues(alpha: 0.1),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.monetization_on_rounded, color: Color(0xFFD97706), size: 18),
+                                    child: Icon(Icons.storefront_rounded, size: 20, color: scheme.primary),
                                   ),
-                                  const SizedBox(width: 8),
-                                  RichText(
-                                    text: TextSpan(
-                                      style: GoogleFonts.inter(fontSize: 14, color: Colors.black87),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        TextSpan(
-                                          text: '₹${NumberFormat('#,##0').format(thisMonthEarned.toInt())} ',
-                                          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF059669), fontSize: 16),
+                                        Text(
+                                          '${employee.totalEnrollments}',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            color: const Color(0xFF0F172A),
+                                          ),
                                         ),
-                                        TextSpan(
-                                          text: 'in $currentMonthName',
-                                          style: TextStyle(fontWeight: FontWeight.w500, color: scheme.onSurfaceVariant, fontSize: 13),
+                                        Text(
+                                          'Total Enrolled',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: const Color(0xFF64748B),
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
                                 ],
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: scheme.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  remainingToGoal > 0 ? '₹${NumberFormat('#,##0').format(remainingToGoal)} to next' : '🎯 Target Smashed!',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: scheme.primary,
+                            ),
+                            Container(
+                              height: 36,
+                              width: 1,
+                              margin: const EdgeInsets.symmetric(horizontal: 12),
+                              color: const Color(0xFFCBD5E1),
+                            ),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF059669).withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.calendar_month_rounded, size: 20, color: Color(0xFF059669)),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${employee.thisMonthEnrollments}',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            color: const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                        Text(
+                                          'This Month',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: const Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      final earningsCard = InkWell(
+                        onTap: () => context.go('/commission'),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFEF3C7),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.monetization_on_rounded, color: Color(0xFFD97706), size: 16),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      RichText(
+                                        text: TextSpan(
+                                          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF0F172A)),
+                                          children: [
+                                            TextSpan(
+                                              text: '₹${NumberFormat('#,##0').format(thisMonthEarned.toInt())} ',
+                                              style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF059669), fontSize: 16),
+                                            ),
+                                            TextSpan(
+                                              text: 'earned in $currentMonthName',
+                                              style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF64748B), fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: scheme.primary.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      remainingToGoal > 0 ? '₹${NumberFormat('#,##0').format(remainingToGoal)} to next' : '🎯 Target Reached',
+                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: scheme.primary),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: meterProgress,
+                                  minHeight: 6,
+                                  backgroundColor: const Color(0xFFF1F5F9),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    meterProgress >= 1.0 ? const Color(0xFF10B981) : scheme.primary,
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(
-                              value: meterProgress,
-                              minHeight: 7,
-                              backgroundColor: scheme.surfaceContainerHighest,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                meterProgress >= 1.0 ? const Color(0xFF10B981) : scheme.primary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [
-                              Text(
-                                '${(meterProgress * 100).toInt()}% of ₹${NumberFormat('#,##0').format(targetGoal.toInt())} ($milestoneTier)',
-                                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-                              ),
+                              const SizedBox(height: 6),
                               Row(
-                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('View Payouts', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
-                                  Icon(Icons.chevron_right, size: 14, color: scheme.primary),
+                                  Text(
+                                    '${(meterProgress * 100).toInt()}% of ₹${NumberFormat('#,##0').format(targetGoal.toInt())} goal ($milestoneTier)',
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                  ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('View Ledger', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.primary)),
+                                      Icon(Icons.chevron_right, size: 13, color: scheme.primary),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                        ),
+                      );
 
-          // ── Filter bar ──────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SegmentedButton<PaymentFilter>(
-                segments: PaymentFilter.values.map((f) => ButtonSegment(
-                  value: f,
-                  label: Text(f.label, style: const TextStyle(fontSize: 12)),
-                )).toList(),
-                selected: {provider.filter},
-                onSelectionChanged: (s) {
-                  if (s.isNotEmpty) provider.applyFilter(s.first);
-                },
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            ),
-          ),
-
-          // ── Date window indicator ────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
-            child: Row(
-              children: [
-                Icon(Icons.calendar_today_outlined,
-                    size: 14, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 6),
-                Text(
-                  'Since ${DateFormat('d MMM yyyy').format(provider.since)}',
-                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: provider.loading ? null : () => provider.loadOlderWindow(),
-                  icon:  const Icon(Icons.history, size: 14),
-                  label: const Text('Load older', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(
-                    padding:        const EdgeInsets.symmetric(horizontal: 8),
-                    visualDensity:  VisualDensity.compact,
+                      if (isWide) {
+                        return Row(
+                          children: [
+                            Expanded(flex: 5, child: kpiCard),
+                            const SizedBox(width: 12),
+                            Expanded(flex: 6, child: earningsCard),
+                          ],
+                        );
+                      } else {
+                        return Column(
+                          children: [
+                            kpiCard,
+                            const SizedBox(height: 10),
+                            earningsCard,
+                          ],
+                        );
+                      }
+                    },
                   ),
-                ),
               ],
             ),
           ),
 
-          Divider(height: 1, color: scheme.outlineVariant),
+          // ── Filter & Period Controls Bar ────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
+            ),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // Status Segmented Selector
+                SegmentedButton<PaymentFilter>(
+                  segments: PaymentFilter.values.map((f) => ButtonSegment(
+                    value: f,
+                    label: Text(f.label, style: const TextStyle(fontSize: 12)),
+                  )).toList(),
+                  selected: {provider.filter},
+                  onSelectionChanged: (s) {
+                    if (s.isNotEmpty) provider.applyFilter(s.first);
+                  },
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+
+                // Interactive Month Navigator with 1-click steppers
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: scheme.outlineVariant),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Previous Month Step (‹)
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left_rounded, size: 18),
+                        tooltip: 'Previous Month',
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        onPressed: provider.loading || provider.isAllTime
+                            ? null
+                            : () => provider.previousMonth(),
+                      ),
+
+                      // Center Interactive Month & Year Pill
+                      InkWell(
+                        onTap: () {
+                          MonthYearPickerDialog.show(
+                            context: context,
+                            initialYear: provider.currentYear,
+                            initialMonth: provider.currentMonth,
+                            isAllTime: provider.isAllTime,
+                            onMonthSelected: (year, month) => provider.setMonth(year, month),
+                            onAllTimeSelected: () => provider.setAllTime(),
+                            onCustomRangeSelected: () async {
+                              final picked = await showDateRangePicker(
+                                context: context,
+                                firstDate: DateTime(2024, 1, 1),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                                initialDateRange: provider.startDate != null && provider.endDate != null
+                                    ? DateTimeRange(start: provider.startDate!, end: provider.endDate!)
+                                    : DateTimeRange(
+                                        start: DateTime(DateTime.now().year, DateTime.now().month, 1),
+                                        end: DateTime.now(),
+                                      ),
+                                helpText: 'Select Date Range',
+                              );
+                              if (picked != null) {
+                                provider.setDateRange(picked.start, picked.end);
+                              }
+                            },
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                provider.isAllTime ? Icons.all_inclusive_rounded : Icons.calendar_month_rounded,
+                                size: 14,
+                                color: scheme.primary,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                provider.dateLabel,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Icon(Icons.unfold_more_rounded, size: 14, color: scheme.onSurfaceVariant),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Next Month Step (›)
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                        tooltip: 'Next Month',
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        onPressed: provider.loading || provider.isAllTime
+                            ? null
+                            : () => provider.nextMonth(),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Custom Date Range Picker Button
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2024, 1, 1),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                      initialDateRange: provider.startDate != null && provider.endDate != null
+                          ? DateTimeRange(start: provider.startDate!, end: provider.endDate!)
+                          : DateTimeRange(
+                              start: DateTime(DateTime.now().year, DateTime.now().month, 1),
+                              end: DateTime.now(),
+                            ),
+                      helpText: 'Select Date Range',
+                    );
+                    if (picked != null) {
+                      provider.setDateRange(picked.start, picked.end);
+                    }
+                  },
+                  icon: const Icon(Icons.date_range_outlined, size: 13),
+                  label: const Text('Date Range', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide(
+                      color: provider.selectedMonthKey == null && !provider.isAllTime
+                          ? scheme.primary
+                          : scheme.outlineVariant,
+                    ),
+                  ),
+                ),
+
+                // Quick Reset to Current Month
+                if (provider.selectedMonthKey != DateFormat('yyyy-MM').format(DateTime.now()))
+                  ActionChip(
+                    avatar: const Icon(Icons.refresh_rounded, size: 13),
+                    label: const Text('This Month', style: TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => provider.setThisMonth(),
+                  ),
+              ],
+            ),
+          ),
 
           // ── Pending activation banner ─────────────────────────────────
           if (provider.pendingActivationId != null)
@@ -395,8 +640,10 @@ class _MyBusinessesScreenState extends State<MyBusinessesScreen> {
                       )
                     : provider.businesses.isEmpty
                         ? _EmptyState(
-                            filter:   provider.filter,
-                            onEnroll: () => context.go('/enroll'),
+                            filter:     provider.filter,
+                            dateLabel:  provider.dateLabel,
+                            isAllTime:  provider.isAllTime,
+                            onEnroll:   () => context.go('/enroll'),
                           )
                         : RefreshIndicator(
                             onRefresh: () => provider.refresh(),
@@ -663,28 +910,38 @@ class _LoadMoreButton extends StatelessWidget {
 
 class _EmptyState extends StatelessWidget {
   final PaymentFilter filter;
+  final String        dateLabel;
+  final bool          isAllTime;
   final VoidCallback  onEnroll;
-  const _EmptyState({required this.filter, required this.onEnroll});
+
+  const _EmptyState({
+    required this.filter,
+    required this.dateLabel,
+    required this.isAllTime,
+    required this.onEnroll,
+  });
 
   @override
   Widget build(BuildContext context) {
     final title = switch (filter) {
       PaymentFilter.pending    => 'No businesses awaiting payment',
       PaymentFilter.successful => 'No active businesses found',
-      PaymentFilter.all        => 'No businesses enrolled yet',
+      PaymentFilter.all        => isAllTime ? 'No businesses enrolled yet' : 'No businesses enrolled for $dateLabel',
     };
     final subtitle = switch (filter) {
-      PaymentFilter.pending    => 'Businesses awaiting initial subscription payment will appear here.',
-      PaymentFilter.successful => 'Businesses with active subscriptions will appear here.',
-      PaymentFilter.all        => 'Tap the button below to enroll your first client business.',
+      PaymentFilter.pending    => 'Businesses awaiting initial subscription payment for $dateLabel will appear here.',
+      PaymentFilter.successful => 'Businesses with active subscriptions for $dateLabel will appear here.',
+      PaymentFilter.all        => isAllTime
+          ? 'Tap the button below to enroll your first client business.'
+          : 'No enrollments found for $dateLabel. Tap below to enroll or change the date filter.',
     };
 
     return AppEmptyState(
       icon: Icons.storefront_outlined,
       title: title,
       subtitle: subtitle,
-      actionLabel: filter == PaymentFilter.all ? 'Enroll First Business' : null,
-      onAction: filter == PaymentFilter.all ? onEnroll : null,
+      actionLabel: 'Enroll New Business',
+      onAction: onEnroll,
     );
   }
 }
@@ -724,46 +981,6 @@ class _ErrorState extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ── Stat Chip ─────────────────────────────────────────────────────────────────
-
-class _StatChip extends StatelessWidget {
-  final IconData icon;
-  final String   label;
-  final String   value;
-  const _StatChip({required this.icon, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: scheme.onPrimaryContainer),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize:   18,
-                fontWeight: FontWeight.w700,
-                color:      scheme.onPrimaryContainer,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color:    scheme.onPrimaryContainer.withValues(alpha: 0.8),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

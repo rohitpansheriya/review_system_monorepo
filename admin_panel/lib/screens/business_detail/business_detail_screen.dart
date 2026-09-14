@@ -39,6 +39,7 @@ import '../../services/firestore_service.dart';
 import '../../services/places_service.dart';
 import '../../widgets/app_animated_loader.dart';
 import '../../widgets/app_badge.dart';
+import '../../widgets/app_brand_title.dart';
 import '../../widgets/app_dialog.dart';
 import '../../widgets/app_fulfillment_stepper.dart';
 import '../../widgets/share_business_qr.dart';
@@ -607,7 +608,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title:       Text(biz.brandName),
+        title:       AppBrandTitle(subtitle: biz.brandName),
         centerTitle: false,
         leading: BackButton(
           onPressed: () {

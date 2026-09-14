@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/owner_dashboard_provider.dart';
 import '../../widgets/app_animated_loader.dart';
+import '../../widgets/app_brand_title.dart';
 import '../../widgets/app_splash_screen.dart';
 import '../../core/logout_helper.dart';
 import 'owner_home_tab.dart';
@@ -112,7 +113,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     if (provider.error != null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Owner Dashboard'),
+          title: const AppBrandTitle(subtitle: 'Owner Dashboard'),
           actions: [_buildLogoutButton(context)],
         ),
         body: Center(
@@ -149,7 +150,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     if (provider.isDeleted) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Account Lapsed'),
+          title: const AppBrandTitle(subtitle: 'Account Lapsed'),
           actions: [_buildLogoutButton(context)],
         ),
         body: Center(
@@ -315,9 +316,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          provider.business?.brandName ?? 'Owner Dashboard',
-          overflow: TextOverflow.ellipsis,
+        title: AppBrandTitle(
+          subtitle: provider.business?.brandName ?? 'Owner Dashboard',
         ),
         actions: [
           IconButton(

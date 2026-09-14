@@ -35,18 +35,78 @@ class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
+class _AdminNavDestination {
+  final String key;
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+  final Color? selectedIconColor;
+
+  const _AdminNavDestination({
+    required this.key,
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+    this.selectedIconColor,
+  });
+}
+
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  static const _tabKeys = [
-    'stats',
-    'leads',
-    'enroll',
-    'employees',
-    'templates',
-    'directory',
-    'commission',
-    'standees',
+  static const _destinations = [
+    _AdminNavDestination(
+      key: 'stats',
+      label: 'Stats',
+      icon: Icons.analytics_outlined,
+      selectedIcon: Icons.analytics,
+    ),
+    _AdminNavDestination(
+      key: 'leads',
+      label: 'Leads',
+      icon: Icons.flash_on_outlined,
+      selectedIcon: Icons.flash_on,
+      selectedIconColor: Color(0xFFF59E0B),
+    ),
+    _AdminNavDestination(
+      key: 'enroll',
+      label: 'Enroll',
+      icon: Icons.add_business_outlined,
+      selectedIcon: Icons.add_business,
+    ),
+    _AdminNavDestination(
+      key: 'employees',
+      label: 'Employees',
+      icon: Icons.people_outlined,
+      selectedIcon: Icons.people,
+    ),
+    _AdminNavDestination(
+      key: 'templates',
+      label: 'Templates',
+      icon: Icons.library_books_outlined,
+      selectedIcon: Icons.library_books,
+    ),
+    _AdminNavDestination(
+      key: 'directory',
+      label: 'Directory',
+      icon: Icons.store_mall_directory_outlined,
+      selectedIcon: Icons.store_mall_directory,
+    ),
+    _AdminNavDestination(
+      key: 'commission',
+      label: 'Commission',
+      icon: Icons.verified_outlined,
+      selectedIcon: Icons.verified,
+    ),
+    _AdminNavDestination(
+      key: 'standees',
+      label: 'Standees',
+      icon: Icons.inventory_2_outlined,
+      selectedIcon: Icons.inventory_2,
+    ),
   ];
 
+  static List<String> get _tabKeys => _destinations.map((d) => d.key).toList();
+
+  final ScrollController _bottomNavScrollController = ScrollController();
   int _selectedTabIndex = 0;
   bool _initialized = false;
 
@@ -54,6 +114,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _applyTabKey(widget.initialTab);
+  }
+
+  @override
+  void dispose() {
+    _bottomNavScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -69,13 +135,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final idx = _tabKeys.indexOf(key.trim().toLowerCase());
     if (idx != -1) {
       _selectedTabIndex = idx;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToActiveTab());
     }
   }
 
   void _onTabSelected(int idx) {
-    if (idx < 0 || idx >= _tabKeys.length) return;
+    if (idx < 0 || idx >= _destinations.length) return;
     setState(() => _selectedTabIndex = idx);
-    context.go('/admin?tab=${_tabKeys[idx]}');
+    _scrollToActiveTab();
+    context.go('/admin?tab=${_destinations[idx].key}');
+  }
+
+  void _scrollToActiveTab() {
+    if (!_bottomNavScrollController.hasClients) return;
+    final targetOffset = (_selectedTabIndex * 80.0) - 80.0;
+    _bottomNavScrollController.animateTo(
+      targetOffset.clamp(0.0, _bottomNavScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
@@ -225,48 +303,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   selectedIndex: _selectedTabIndex,
                   onDestinationSelected: _onTabSelected,
                   labelType: NavigationRailLabelType.all,
-                  destinations: const [
-                    NavigationRailDestination(
-                      icon: Icon(Icons.analytics_outlined),
-                      selectedIcon: Icon(Icons.analytics),
-                      label: Text('Stats'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.flash_on_outlined),
-                      selectedIcon: Icon(Icons.flash_on, color: Color(0xFFF59E0B)),
-                      label: Text('Leads'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.add_business_outlined),
-                      selectedIcon: Icon(Icons.add_business),
-                      label: Text('Enroll'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.people_outlined),
-                      selectedIcon: Icon(Icons.people),
-                      label: Text('Employees'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.library_books_outlined),
-                      selectedIcon: Icon(Icons.library_books),
-                      label: Text('Templates'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.store_mall_directory_outlined),
-                      selectedIcon: Icon(Icons.store_mall_directory),
-                      label: Text('Directory'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.verified_outlined),
-                      selectedIcon: Icon(Icons.verified),
-                      label: Text('Commission'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.inventory_2_outlined),
-                      selectedIcon: Icon(Icons.inventory_2),
-                      label: Text('Standees'),
-                    ),
-                  ],
+                  destinations: _destinations
+                      .map((d) => NavigationRailDestination(
+                            icon: Icon(d.icon),
+                            selectedIcon: Icon(d.selectedIcon, color: d.selectedIconColor),
+                            label: Text(d.label),
+                          ))
+                      .toList(),
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
                 Expanded(
@@ -281,25 +324,87 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               index: _selectedTabIndex,
               children: tabs,
             ),
-      bottomNavigationBar: isDesktop
-          ? null
-          : BottomNavigationBar(
-              currentIndex: _selectedTabIndex,
-              onTap: _onTabSelected,
-              type: BottomNavigationBarType.fixed,
-              selectedItemColor: colorScheme.primary,
-              unselectedItemColor: colorScheme.onSurfaceVariant,
-              items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), label: 'Stats'),
-                BottomNavigationBarItem(icon: Icon(Icons.flash_on_outlined), label: 'Leads'),
-                BottomNavigationBarItem(icon: Icon(Icons.add_business_outlined), label: 'Enroll'),
-                BottomNavigationBarItem(icon: Icon(Icons.people_outlined), label: 'Employees'),
-                BottomNavigationBarItem(icon: Icon(Icons.library_books_outlined), label: 'Templates'),
-                BottomNavigationBarItem(icon: Icon(Icons.store_mall_directory_outlined), label: 'Directory'),
-                BottomNavigationBarItem(icon: Icon(Icons.verified_outlined), label: 'Queue'),
-                BottomNavigationBarItem(icon: Icon(Icons.inventory_2_outlined), label: 'Standees'),
-              ],
+      bottomNavigationBar: isDesktop ? null : _buildMobileBottomBar(context, colorScheme),
+    );
+  }
+
+  Widget _buildMobileBottomBar(BuildContext context, ColorScheme colorScheme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.8),
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00458B).withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: SingleChildScrollView(
+            controller: _bottomNavScrollController,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(_destinations.length, (idx) {
+                final dest = _destinations[idx];
+                final isSelected = _selectedTabIndex == idx;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Material(
+                    color: isSelected
+                        ? colorScheme.primary.withValues(alpha: 0.12)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
+                      onTap: () => _onTabSelected(idx),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isSelected ? dest.selectedIcon : dest.icon,
+                              size: 22,
+                              color: isSelected
+                                  ? (dest.selectedIconColor ?? colorScheme.primary)
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              dest.label,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ),
+          ),
+        ),
+      ),
     );
   }
 }

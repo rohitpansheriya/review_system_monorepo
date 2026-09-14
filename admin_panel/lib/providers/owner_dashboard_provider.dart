@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import '../models/business_model.dart';
 import '../models/branch_model.dart';
 
@@ -68,6 +69,58 @@ class OwnerDashboardProvider extends ChangeNotifier {
   void setSelectedMonth(String monthKey) {
     _selectedMonth = monthKey;
     notifyListeners();
+  }
+
+  bool get isAllTime => _selectedMonth == 'all';
+
+  int get currentYear {
+    if (_selectedMonth != 'all' && _selectedMonth.contains('-')) {
+      return int.tryParse(_selectedMonth.split('-')[0]) ?? DateTime.now().year;
+    }
+    return DateTime.now().year;
+  }
+
+  int get currentMonth {
+    if (_selectedMonth != 'all' && _selectedMonth.contains('-')) {
+      return int.tryParse(_selectedMonth.split('-')[1]) ?? DateTime.now().month;
+    }
+    return DateTime.now().month;
+  }
+
+  String get selectedMonthLabel {
+    if (isAllTime) return 'All Time';
+    try {
+      final dt = DateTime(currentYear, currentMonth, 1);
+      return DateFormat('MMMM yyyy').format(dt);
+    } catch (_) {
+      return _selectedMonth;
+    }
+  }
+
+  void setMonth(int year, int month) {
+    final monthKey = '$year-${month.toString().padLeft(2, '0')}';
+    setSelectedMonth(monthKey);
+  }
+
+  void setThisMonth() {
+    final now = DateTime.now();
+    setMonth(now.year, now.month);
+  }
+
+  void setAllTime() {
+    setSelectedMonth('all');
+  }
+
+  void previousMonth() {
+    final cur = isAllTime ? DateTime.now() : DateTime(currentYear, currentMonth, 1);
+    final prev = DateTime(cur.year, cur.month - 1, 1);
+    setMonth(prev.year, prev.month);
+  }
+
+  void nextMonth() {
+    final cur = isAllTime ? DateTime.now() : DateTime(currentYear, currentMonth, 1);
+    final next = DateTime(cur.year, cur.month + 1, 1);
+    setMonth(next.year, next.month);
   }
 
   /// Returns list of available months for filtering (current + past 11 months).

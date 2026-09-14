@@ -10,12 +10,14 @@ class MonthYearPickerDialog extends StatefulWidget {
   final int initialYear;
   final int initialMonth;
   final bool isAllTime;
+  final bool allowCustomRange;
 
   const MonthYearPickerDialog({
     super.key,
     required this.initialYear,
     required this.initialMonth,
     this.isAllTime = false,
+    this.allowCustomRange = true,
   });
 
   static Future<void> show({
@@ -25,7 +27,7 @@ class MonthYearPickerDialog extends StatefulWidget {
     required bool isAllTime,
     required void Function(int year, int month) onMonthSelected,
     required VoidCallback onAllTimeSelected,
-    required VoidCallback onCustomRangeSelected,
+    VoidCallback? onCustomRangeSelected,
   }) async {
     final result = await showDialog<dynamic>(
       context: context,
@@ -33,6 +35,7 @@ class MonthYearPickerDialog extends StatefulWidget {
         initialYear: initialYear,
         initialMonth: initialMonth,
         isAllTime: isAllTime,
+        allowCustomRange: onCustomRangeSelected != null,
       ),
     );
 
@@ -41,7 +44,7 @@ class MonthYearPickerDialog extends StatefulWidget {
     if (result == 'all') {
       onAllTimeSelected();
     } else if (result == 'custom') {
-      onCustomRangeSelected();
+      onCustomRangeSelected?.call();
     } else if (result is Map<String, int>) {
       onMonthSelected(result['year']!, result['month']!);
     }
@@ -171,13 +174,15 @@ class _MonthYearPickerDialogState extends State<MonthYearPickerDialog> {
                       isSelected: widget.isAllTime,
                       onTap: () => Navigator.of(context).pop('all'),
                     ),
-                    const SizedBox(width: 6),
-                    _PresetChip(
-                      icon: Icons.date_range_rounded,
-                      label: 'Custom Range…',
-                      isSelected: false,
-                      onTap: () => Navigator.of(context).pop('custom'),
-                    ),
+                    if (widget.allowCustomRange) ...[
+                      const SizedBox(width: 6),
+                      _PresetChip(
+                        icon: Icons.date_range_rounded,
+                        label: 'Custom Range…',
+                        isSelected: false,
+                        onTap: () => Navigator.of(context).pop('custom'),
+                      ),
+                    ],
                   ],
                 ),
               ),

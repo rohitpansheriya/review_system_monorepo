@@ -16,6 +16,7 @@ import '../../providers/owner_dashboard_provider.dart';
 import '../../models/branch_model.dart';
 import '../../core/theme.dart';
 import '../../widgets/app_kpi_card.dart';
+import '../../widgets/month_year_picker_dialog.dart';
 
 class OwnerHomeTab extends StatefulWidget {
   const OwnerHomeTab({super.key});
@@ -275,9 +276,8 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    // Timeframe / Month Filter
+                    // Interactive Month Navigator with 1-click steppers
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
@@ -290,41 +290,86 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                           ),
                         ],
                       ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: provider.selectedMonth,
-                          dropdownColor: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          elevation: 8,
-                          icon: const Padding(
-                            padding: EdgeInsets.only(left: 6),
-                            child: Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 18,
-                              color: AppColors.primary,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Previous Month Step (‹)
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left_rounded, size: 18),
+                            tooltip: 'Previous Month',
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            onPressed: provider.loading || provider.isAllTime
+                                ? null
+                                : () => provider.previousMonth(),
+                          ),
+
+                          // Center Interactive Month & Year Pill
+                          InkWell(
+                            onTap: () {
+                              MonthYearPickerDialog.show(
+                                context: context,
+                                initialYear: provider.currentYear,
+                                initialMonth: provider.currentMonth,
+                                isAllTime: provider.isAllTime,
+                                onMonthSelected: (year, month) => provider.setMonth(year, month),
+                                onAllTimeSelected: () => provider.setAllTime(),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    provider.isAllTime ? Icons.all_inclusive_rounded : Icons.calendar_month_rounded,
+                                    size: 15,
+                                    color: AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    provider.selectedMonthLabel,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.unfold_more_rounded, size: 14, color: colorScheme.onSurfaceVariant),
+                                ],
+                              ),
                             ),
                           ),
-                          items: provider.availableMonths
-                              .map((m) => DropdownMenuItem(
-                                    value: m.key,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.calendar_month_outlined, size: 16, color: AppColors.primary),
-                                        const SizedBox(width: 8),
-                                        Text(m.label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                  ))
-                              .toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              provider.setSelectedMonth(val);
-                            }
-                          },
-                        ),
+
+                          // Next Month Step (›)
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                            tooltip: 'Next Month',
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            onPressed: provider.loading || provider.isAllTime
+                                ? null
+                                : () => provider.nextMonth(),
+                          ),
+                        ],
                       ),
                     ),
+
+                    // Quick "This Month" reset chip if not on current month or if on All Time
+                    if (provider.isAllTime ||
+                        provider.currentYear != DateTime.now().year ||
+                        provider.currentMonth != DateTime.now().month)
+                      ActionChip(
+                        avatar: const Icon(Icons.replay_rounded, size: 13, color: AppColors.primary),
+                        label: const Text('This Month', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                        side: BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
+                        onPressed: () => provider.setThisMonth(),
+                      ),
 
                     // Branch Switcher (Multi-branch)
                     if (!provider.isSingleBranch)

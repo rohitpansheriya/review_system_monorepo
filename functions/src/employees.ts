@@ -14,6 +14,7 @@ import * as logger from "firebase-functions/logger";
 import {getFirestore, Timestamp, FieldValue} from "firebase-admin/firestore";
 import {getAuth} from "firebase-admin/auth";
 import {formatCustomResetLink} from "./notifications";
+import {EMPLOYEE_COMMISSION_AMOUNT} from "./commissions.js";
 
 // ---------------------------------------------------------------------------
 // createEmployeeAccount — onCall (doc 04)
@@ -357,7 +358,7 @@ export const reassignBusinessEnrollerAdmin = onCall(
               business_id: businessId,
               branch_id: bDoc.id,
               business_name: `${brandName} (${branchName})`,
-              amount: 1000,
+              amount: EMPLOYEE_COMMISSION_AMOUNT,
               status: "pending",
               created_at: now,
               activation_month: activationMonth,
@@ -376,7 +377,7 @@ export const reassignBusinessEnrollerAdmin = onCall(
           employee_id: newEmployeeUid,
           business_id: businessId,
           business_name: brandName,
-          amount: 1000,
+          amount: EMPLOYEE_COMMISSION_AMOUNT,
           status: "pending",
           created_at: now,
           activation_month: activationMonth,

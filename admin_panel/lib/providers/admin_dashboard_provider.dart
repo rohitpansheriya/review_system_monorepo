@@ -309,6 +309,9 @@ class AdminDashboardProvider extends ChangeNotifier {
 
   // ── 2. EMPLOYEE MANAGEMENT ────────────────────────────────────────────────
   Future<void> fetchEmployees() async {
+    // Proactively reconcile and migrate any legacy commission amounts to ₹150
+    migrateLegacyCommissionRates();
+
     final snap = await _db.collection('employees').get();
     _employees = snap.docs.map(EmployeeProfileModel.fromDoc).toList();
 
@@ -1382,6 +1385,47 @@ class AdminDashboardProvider extends ChangeNotifier {
       payoutReference: payoutReference,
       adminUid: adminUid,
     );
+  }
+
+  /// One-time / background migration: ensures all existing employee commission
+  /// records in Firestore reflect the standard ₹150 rate (AppConstants.commissionAmountPerActivation)
+  /// and updates employee `total_commissions_earned` totals.
+  Future<void> migrateLegacyCommissionRates() async {
+    try {
+      final snap = await _db.collection('employee_commissions').get();
+      final batch = _db.batch();
+      bool hasChanges = false;
+      final targetAmount = AppConstants.commissionAmountPerActivation.toDouble();
+      final Map<String, double> empTotals = {};
+
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final currentAmount = (data['amount'] as num?)?.toDouble() ?? 0.0;
+        final empId = data['employee_id'] as String?;
+        final status = data['status'] as String? ?? 'pending';
+
+        if (currentAmount != targetAmount) {
+          batch.update(doc.reference, {'amount': targetAmount});
+          hasChanges = true;
+        }
+
+        if (empId != null && empId.isNotEmpty && status != 'cancelled' && status != 'voided' && status != 'reverted') {
+          empTotals[empId] = (empTotals[empId] ?? 0.0) + targetAmount;
+        }
+      }
+
+      for (final entry in empTotals.entries) {
+        final empRef = _db.collection('employees').doc(entry.key);
+        batch.update(empRef, {
+          'total_commissions_earned': entry.value,
+        });
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        await batch.commit();
+      }
+    } catch (_) {}
   }
 }
 

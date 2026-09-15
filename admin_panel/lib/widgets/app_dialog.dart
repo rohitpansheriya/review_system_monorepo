@@ -32,18 +32,23 @@ class AppModalDialog extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final primaryColor = iconColor ?? colorScheme.primary;
     final displayIcon = icon ?? headerIcon;
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
 
     return Dialog(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       elevation: 12,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 40,
+        vertical: 24,
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: colorScheme.outlineVariant, width: 1.2),
       ),
       child: Container(
         constraints: BoxConstraints(maxWidth: maxWidth),
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,17 +58,17 @@ class AppModalDialog extends StatelessWidget {
               children: [
                 if (displayIcon != null) ...[
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(
-                      child: Icon(displayIcon, size: 22, color: primaryColor),
+                      child: Icon(displayIcon, size: 20, color: primaryColor),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                 ],
                 Expanded(
                   child: Column(
@@ -73,7 +78,7 @@ class AppModalDialog extends StatelessWidget {
                         title,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: 17,
+                          fontSize: isMobile ? 15 : 17,
                           color: colorScheme.onSurface,
                         ),
                       ),
@@ -99,9 +104,9 @@ class AppModalDialog extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             const Divider(height: 1),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
 
             // Content
             Flexible(
@@ -112,10 +117,16 @@ class AppModalDialog extends StatelessWidget {
 
             // Actions
             if (actions != null && actions!.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: actions!,
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: actions!,
+                ),
               ),
             ],
           ],
@@ -124,3 +135,4 @@ class AppModalDialog extends StatelessWidget {
     );
   }
 }
+

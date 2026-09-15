@@ -83,7 +83,7 @@ class AppConstants {
   static const int renewalDays = 365;
 
   // ── Employee commission per activation (₹) ──────────────────────────────────
-  static const int commissionAmountPerActivation = 250;
+  static const int commissionAmountPerActivation = 150;
 
   // ── Category template phrase pool versioning ────────────────────────────────
   /// Set to true to surface v2/v3 pool version management in UI.

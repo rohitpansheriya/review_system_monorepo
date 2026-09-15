@@ -27,7 +27,7 @@ import {brevoApiKey} from "./secrets.js";
  * Configurable per-activation commission amount (₹).
  * Change this single value to adjust employee commission across the platform.
  */
-const EMPLOYEE_COMMISSION_AMOUNT = 250;
+export const EMPLOYEE_COMMISSION_AMOUNT = 150;
 
 /**
  * Assigns a sequential business code atomically.
@@ -812,34 +812,42 @@ export const markCommissionsPaidBulk = onCall(
       payoutReference?: string;
     };
 
-    if (!employeeId || !month || !payoutReference?.trim()) {
+    if (!employeeId || !payoutReference?.trim()) {
       throw new HttpsError(
         "invalid-argument",
-        "employeeId, month (YYYY-MM), and payoutReference are required."
-      );
-    }
-
-    // Validate month format
-    if (!/^\d{4}-\d{2}$/.test(month)) {
-      throw new HttpsError(
-        "invalid-argument",
-        "month must be in 'YYYY-MM' format."
+        "employeeId and payoutReference are required."
       );
     }
 
     const db = getFirestore();
-    const snapshot = await db
+    let query: FirebaseFirestore.Query = db
       .collection("employee_commissions")
       .where("employee_id", "==", employeeId)
-      .where("activation_month", "==", month)
-      .where("status", "==", "pending")
-      .get();
+      .where("status", "==", "pending");
+
+    if (month && month !== "all" && /^\d{4}-\d{2}$/.test(month)) {
+      query = query.where("activation_month", "==", month);
+    }
+
+    let snapshot = await query.get();
+
+    // Fallback: if month filter returned 0, check all pending for this employee
+    if (snapshot.empty && month && month !== "all") {
+      const fallbackSnap = await db
+        .collection("employee_commissions")
+        .where("employee_id", "==", employeeId)
+        .where("status", "==", "pending")
+        .get();
+      if (!fallbackSnap.empty) {
+        snapshot = fallbackSnap;
+      }
+    }
 
     if (snapshot.empty) {
       return {
         success: true,
         count: 0,
-        message: "No pending commissions found for this employee and month.",
+        message: "No pending commissions found for this employee.",
       };
     }
 
@@ -1159,4 +1167,61 @@ export const adminRevertBranchActivation = onCall(
     return {success: true, businessId, branchId};
   }
 );
+
+// ---------------------------------------------------------------------------
+// 9. recalculateAndMigrateCommissions (Callable — Admin only)
+// ---------------------------------------------------------------------------
+export const recalculateAndMigrateCommissions = onCall(
+  {region: "asia-south1"},
+  async (request): Promise<{success: boolean; updatedCommissions: number; affectedEmployees: number}> => {
+    if (!request.auth?.uid || request.auth.token?.role !== "admin") {
+      throw new HttpsError("permission-denied", "Only admins can execute commission migrations.");
+    }
+
+    const db = getFirestore();
+    const commsSnap = await db.collection("employee_commissions").get();
+    const batch = db.batch();
+    let updatedCount = 0;
+
+    const empTotals: Record<string, number> = {};
+
+    for (const doc of commsSnap.docs) {
+      const data = doc.data();
+      const empId = data.employee_id as string | undefined;
+      const currentAmount = data.amount as number | undefined;
+      const status = data.status as string | undefined;
+
+      if (currentAmount !== EMPLOYEE_COMMISSION_AMOUNT) {
+        batch.update(doc.ref, {amount: EMPLOYEE_COMMISSION_AMOUNT});
+        updatedCount++;
+      }
+
+      if (empId && status !== "cancelled" && status !== "voided" && status !== "reverted") {
+        empTotals[empId] = (empTotals[empId] || 0) + EMPLOYEE_COMMISSION_AMOUNT;
+      }
+    }
+
+    for (const [empId, total] of Object.entries(empTotals)) {
+      const empRef = db.collection("employees").doc(empId);
+      batch.update(empRef, {
+        total_commissions_earned: total,
+      });
+    }
+
+    await batch.commit();
+
+    logger.info("recalculateAndMigrateCommissions: complete", {
+      adminUid: request.auth.uid,
+      updatedCommissions: updatedCount,
+      affectedEmployees: Object.keys(empTotals).length,
+    });
+
+    return {
+      success: true,
+      updatedCommissions: updatedCount,
+      affectedEmployees: Object.keys(empTotals).length,
+    };
+  }
+);
+
 

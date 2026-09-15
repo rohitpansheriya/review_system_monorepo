@@ -2,8 +2,10 @@ import 'dart:convert';
 // ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../core/constants.dart';
 import '../../models/employee_commission_model.dart';
 import '../../models/employee_profile_model.dart';
 import '../../providers/admin_dashboard_provider.dart';
@@ -425,38 +427,8 @@ class _AdminCommissionQueueScreenState
           ),
         ),
 
-        // ── One-Click Payout Button ─────────────────────────────────
-        if (_selectedEmployeeId != null && _monthFilter != null)
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 4),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _showBulkPayoutDialog(
-                  context,
-                  provider,
-                  adminUid,
-                  _selectedEmployeeId!,
-                  _monthFilter!,
-                ),
-                icon: const Icon(Icons.payments_rounded, size: 18),
-                label: Text(
-                  'Pay All Pending for ${_getEmployeeName(employees, _selectedEmployeeId!)} (${DateFormat.yMMM().format(DateTime.parse('$_monthFilter-01'))})',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF059669),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ),
-          ),
-
         // ── Commission List & Summaries ───────────────────────────
-        Expanded(child: _buildCommissionStream(context, provider, scheme, isMobile)),
+        Expanded(child: _buildCommissionStream(context, provider, scheme, isMobile, adminUid)),
       ],
     );
   }
@@ -466,6 +438,7 @@ class _AdminCommissionQueueScreenState
     AdminDashboardProvider provider,
     ColorScheme scheme,
     bool isMobile,
+    String adminUid,
   ) {
     // Universal reactive commission stream
     final stream = provider.watchCommissions(
@@ -545,6 +518,48 @@ class _AdminCommissionQueueScreenState
           ),
         );
 
+        Widget? bulkPayButton;
+        if (_selectedEmployeeId != null) {
+          final empName = _getEmployeeName(provider.employees, _selectedEmployeeId!);
+          final empPendingList = commissions.where((c) => c.isPending && (c.employeeId == _selectedEmployeeId)).toList();
+          final empPendingCount = empPendingList.length;
+          final empPendingAmount = empPendingList.fold<double>(0, (sum, c) => sum + c.amount);
+
+          bulkPayButton = SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: empPendingCount == 0
+                  ? null
+                  : () => _showBulkPayoutDialog(
+                        context: context,
+                        provider: provider,
+                        adminUid: adminUid,
+                        employeeId: _selectedEmployeeId!,
+                        month: _monthFilter ?? (empPendingList.isNotEmpty && empPendingList.first.activationMonth.isNotEmpty ? empPendingList.first.activationMonth : DateFormat('yyyy-MM').format(DateTime.now())),
+                        commissions: commissions,
+                        pendingAmount: empPendingAmount,
+                        pendingCount: empPendingCount,
+                      ),
+              icon: const Icon(Icons.payments_rounded, size: 18),
+              label: Text(
+                empPendingCount > 0
+                    ? 'Pay All Pending (₹${empPendingAmount.toStringAsFixed(0)} • $empPendingCount ${empPendingCount == 1 ? "branch" : "branches"}) for $empName'
+                    : 'All Commissions Paid for $empName',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFFF1F5F9),
+                disabledForegroundColor: const Color(0xFF94A3B8),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          );
+        }
+
         return Column(
           children: [
             // Responsive Summary & Export Bar
@@ -560,14 +575,27 @@ class _AdminCommissionQueueScreenState
                         summaryBadges,
                         const SizedBox(height: 8),
                         exportButton,
+                        if (bulkPayButton != null) ...[
+                          const SizedBox(height: 8),
+                          bulkPayButton,
+                        ],
                       ],
                     )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(child: summaryBadges),
-                        const SizedBox(width: 16),
-                        exportButton,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(child: summaryBadges),
+                            const SizedBox(width: 16),
+                            exportButton,
+                          ],
+                        ),
+                        if (bulkPayButton != null) ...[
+                          const SizedBox(height: 8),
+                          bulkPayButton,
+                        ],
                       ],
                     ),
             ),
@@ -593,16 +621,40 @@ class _AdminCommissionQueueScreenState
     return emp.isNotEmpty ? emp.first.name : uid;
   }
 
-  void _showBulkPayoutDialog(
-    BuildContext context,
-    AdminDashboardProvider provider,
-    String adminUid,
-    String employeeId,
-    String month,
-  ) {
+  void _showBulkPayoutDialog({
+    required BuildContext context,
+    required AdminDashboardProvider provider,
+    required String adminUid,
+    required String employeeId,
+    required String month,
+    double? pendingAmount,
+    int? pendingCount,
+    List<EmployeeCommissionModel>? commissions,
+  }) {
     final payoutCtrl = TextEditingController();
     bool isProcessing = false;
     String? dialogError;
+
+    final employee = provider.employees.where((e) => e.uid == employeeId).firstOrNull;
+    final empName = employee?.name ?? _getEmployeeName(provider.employees, employeeId);
+    final monthDate = DateTime.tryParse('$month-01') ?? DateTime.now();
+    final monthFormatted = (month.isNotEmpty && month != 'all')
+        ? DateFormat.yMMMM().format(monthDate)
+        : DateFormat.yMMMM().format(DateTime.now());
+
+    final commList = commissions ?? [];
+    final pendingList = commList
+        .where((c) =>
+            c.isPending &&
+            (employeeId.isEmpty || c.employeeId == employeeId))
+        .toList();
+
+    final actualCount = pendingList.isNotEmpty
+        ? pendingList.length
+        : (pendingCount ?? 0);
+    final actualAmount = pendingList.isNotEmpty
+        ? pendingList.fold<double>(0, (s, c) => s + c.amount)
+        : (pendingAmount ?? (actualCount * AppConstants.commissionAmountPerActivation));
 
     showDialog(
       context: context,
@@ -610,66 +662,387 @@ class _AdminCommissionQueueScreenState
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDlgState) => AppModalDialog(
           icon: Icons.payments_rounded,
-          iconColor: Colors.green,
-          title: 'Bulk Payout — Mark as Paid',
-          subtitle: 'Disburse all pending commissions for ${_getEmployeeName(provider.employees, employeeId)}.',
-          maxWidth: 440,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+          iconColor: const Color(0xFF059669),
+          title: 'Disburse Batch Payout',
+          subtitle: 'Verify bank beneficiary details and submit the transaction reference ID.',
+          maxWidth: 520,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. Employee Info & KYC Badge Card
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF059669).withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: const Color(0xFF059669),
+                        child: Text(
+                          empName.isNotEmpty ? empName[0].toUpperCase() : 'E',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              empName,
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF0F172A)),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              employee?.phone ?? employee?.email ?? 'ID: ${employeeId.substring(0, employeeId.length > 8 ? 8 : employeeId.length)}',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (employee != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: employee.documentsVerified == 'verified'
+                                ? const Color(0xFFD1FAE5)
+                                : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: employee.documentsVerified == 'verified'
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFFF59E0B),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                employee.documentsVerified == 'verified'
+                                    ? Icons.verified_rounded
+                                    : Icons.pending_rounded,
+                                size: 12,
+                                color: employee.documentsVerified == 'verified'
+                                    ? const Color(0xFF059669)
+                                    : const Color(0xFFD97706),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                employee.documentsVerified == 'verified' ? 'KYC Verified' : 'KYC Pending',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: employee.documentsVerified == 'verified'
+                                      ? const Color(0xFF059669)
+                                      : const Color(0xFFD97706),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_month, color: Colors.green, size: 20),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Period: ${DateFormat.yMMM().format(DateTime.parse('$month-01'))}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: payoutCtrl,
-                enabled: !isProcessing,
-                decoration: const InputDecoration(
-                  labelText: 'Payout Reference (UTR / Txn ID) *',
-                  hintText: 'e.g. UTIB1234567890',
-                  prefixIcon: Icon(Icons.receipt_outlined),
-                ),
-              ),
-              if (dialogError != null) ...[
                 const SizedBox(height: 12),
-                Text(
-                  dialogError!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13),
+
+                // 2. Unified Summary Metrics Card
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Top Row: Payout Period & Activations
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE2E8F0),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Icon(Icons.calendar_month_rounded, size: 14, color: Color(0xFF475569)),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Payout Period',
+                                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        monthFormatted,
+                                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF0F172A)),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(width: 1, height: 32, color: const Color(0xFFE2E8F0), margin: const EdgeInsets.symmetric(horizontal: 8)),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE2E8F0),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Icon(Icons.storefront_rounded, size: 14, color: Color(0xFF475569)),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Activations',
+                                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '$actualCount ${actualCount == 1 ? "branch" : "branches"}',
+                                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF0F172A)),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // Bottom Highlighted Payout Amount Banner
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFECFDF5),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFA7F3D0)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.account_balance_wallet_rounded, size: 16, color: Color(0xFF059669)),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Total Payout Amount',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF065F46)),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '₹${actualAmount.toStringAsFixed(0)}',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF047857)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 12),
+
+                // 3. Beneficiary Payout Destination Box
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.account_balance_rounded, size: 15, color: Color(0xFF334155)),
+                              SizedBox(width: 6),
+                              Text(
+                                'Beneficiary Bank / UPI Details',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF334155)),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              employee?.payoutMethod.label ?? 'Bank IMPS',
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (employee != null && employee.bankAccountNo != null && employee.bankAccountNo!.isNotEmpty) ...[
+                        _buildCopyableDetailRow(
+                          context: context,
+                          label: 'Account No',
+                          value: employee.bankAccountNo!,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildCopyableDetailRow(
+                          context: context,
+                          label: 'IFSC Code',
+                          value: employee.bankIfsc ?? '—',
+                        ),
+                      ],
+                      if (employee != null && employee.upiId != null && employee.upiId!.isNotEmpty) ...[
+                        if (employee.bankAccountNo != null && employee.bankAccountNo!.isNotEmpty)
+                          const SizedBox(height: 8),
+                        _buildCopyableDetailRow(
+                          context: context,
+                          label: 'UPI VPA',
+                          value: employee.upiId!,
+                        ),
+                      ],
+                      if (employee == null ||
+                          ((employee.bankAccountNo == null || employee.bankAccountNo!.isEmpty) &&
+                              (employee.upiId == null || employee.upiId!.isEmpty))) ...[
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFFD97706)),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'No bank account or UPI details configured in profile.',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFFD97706)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // 4. Payment Reference Form Input
+                TextField(
+                  controller: payoutCtrl,
+                  enabled: !isProcessing,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    labelText: 'Payout Reference (UTR / IMPS / Txn ID) *',
+                    hintText: 'e.g. UTIB20260914992 or 423984029381',
+                    prefixIcon: const Icon(Icons.receipt_long_rounded, size: 20),
+                    helperText: 'Permanent audit record for all $actualCount commission items.',
+                    helperMaxLines: 2,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
+                if (dialogError != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFDC2626)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            dialogError!,
+                            style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
           actions: [
             OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                minimumSize: const Size(0, 42),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                side: const BorderSide(color: Color(0xFFCBD5E1)),
+              ),
               onPressed: isProcessing ? null : () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
+              child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
-            FilledButton(
+            FilledButton.icon(
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                minimumSize: const Size(0, 42),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: isProcessing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check_circle_rounded, size: 18),
+              label: Text(
+                isProcessing ? 'Recording…' : 'Mark as Paid (₹${actualAmount.toStringAsFixed(0)})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
               onPressed: isProcessing
                   ? null
                   : () async {
                       final ref = payoutCtrl.text.trim();
                       if (ref.isEmpty) {
-                        setDlgState(() => dialogError = 'Payout reference is required.');
+                        setDlgState(() => dialogError = 'Please enter the transaction reference / UTR number.');
                         return;
                       }
                       setDlgState(() {
@@ -690,8 +1063,8 @@ class _AdminCommissionQueueScreenState
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('✅ $count commissions marked as paid.'),
-                              backgroundColor: Colors.green,
+                              content: Text('✅ $count commissions marked as paid (Ref: $ref).'),
+                              backgroundColor: const Color(0xFF059669),
                             ),
                           );
                         }
@@ -704,16 +1077,82 @@ class _AdminCommissionQueueScreenState
                         }
                       }
                     },
-              child: isProcessing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('Mark All as Paid'),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCopyableDetailRow({
+    required BuildContext context,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 78,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+            ),
+          ),
+          const Text(' : ', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+          const SizedBox(width: 2),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: value));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('📋 Copied $label: $value'),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: const Color(0xFF1E293B),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFC7D2FE)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.copy_rounded, size: 12, color: Color(0xFF4F46E5)),
+                  SizedBox(width: 4),
+                  Text(
+                    'Copy',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF4F46E5), fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -789,6 +1228,8 @@ class _CommissionCard extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF0F172A),
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Row(
@@ -804,6 +1245,7 @@ class _CommissionCard extends StatelessWidget {
                                 color: scheme.primary,
                               ),
                               overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                         ],
@@ -921,17 +1363,23 @@ class _SummaryCard extends StatelessWidget {
                     color: color,
                   ),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 3),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: color,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+              maxLines: 1,
             ),
           ),
         ],

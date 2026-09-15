@@ -92,6 +92,7 @@ export {
   onBusinessActivated,
   onBranchActivated,
   markCommissionsPaidBulk,
+  recalculateAndMigrateCommissions,
 } from "./commissions.js";
 export {
   createEmployeeAccount,

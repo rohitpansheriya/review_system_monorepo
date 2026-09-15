@@ -142,7 +142,7 @@ class FirestoreService {
                   'business_id': businessId,
                   'branch_id': bDoc.id,
                   'business_name': '$brandName ($branchName)',
-                  'amount': 1000.0,
+                  'amount': AppConstants.commissionAmountPerActivation.toDouble(),
                   'status': 'pending',
                   'created_at': FieldValue.serverTimestamp(),
                   'activation_month': activationMonth,
@@ -160,7 +160,7 @@ class FirestoreService {
               'employee_id': newEmployeeId,
               'business_id': businessId,
               'business_name': brandName,
-              'amount': 1000.0,
+              'amount': AppConstants.commissionAmountPerActivation.toDouble(),
               'status': 'pending',
               'created_at': FieldValue.serverTimestamp(),
               'activation_month': activationMonth,
@@ -1065,12 +1065,33 @@ class FirestoreService {
       return Map<String, dynamic>.from(result.data as Map);
     } catch (_) {
       // Direct Firestore fallback
-      final snap = await _db
+      Query query = _db
           .collection(AppConstants.colEmployeeCommissions)
           .where('employee_id', isEqualTo: employeeId)
-          .where('activation_month', isEqualTo: month)
-          .where('status', isEqualTo: 'pending')
-          .get();
+          .where('status', isEqualTo: 'pending');
+
+      if (month.isNotEmpty && month != 'all') {
+        final monthSnap = await query.where('activation_month', isEqualTo: month).get();
+        if (monthSnap.docs.isNotEmpty) {
+          final batch = _db.batch();
+          for (final doc in monthSnap.docs) {
+            batch.update(doc.reference, {
+              'status': 'paid',
+              'paid_at': FieldValue.serverTimestamp(),
+              'paid_by': adminUid,
+              'payout_reference': payoutReference,
+            });
+          }
+          await batch.commit();
+          return {
+            'success': true,
+            'count': monthSnap.docs.length,
+            'totalAmount': monthSnap.docs.length * AppConstants.commissionAmountPerActivation,
+          };
+        }
+      }
+
+      final snap = await query.get();
 
       if (snap.docs.isEmpty) {
         return {'success': true, 'count': 0, 'message': 'No pending commissions found.'};

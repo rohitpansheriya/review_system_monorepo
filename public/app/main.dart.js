@@ -59698,7 +59698,7 @@ return B.k.ca(s.eo(new A.aY(Date.now(),0,!1)).a,864e8)<=30},
 LC(a){var s=a.b,r=s==null?null:s.e,q=A.nH(2,'Hello AppNexa Support Team,\nI am the business owner of "'+(r==null?"My Business":r)+'". I need assistance with my smart review standee dashboard.',B.av,!1)
 s=window
 s.toString
-B.bR.kS(s,"https://wa.me/918866390389?text="+q,"_blank")},
+B.bR.kS(s,"https://wa.me/919265500479?text="+q,"_blank")},
 Jx(a){var s=null
 return A.cN(s,s,B.f3,s,s,new A.aRg(a),s,s,s,"Log out",s)}}
 A.aRq.prototype={
@@ -60659,7 +60659,7 @@ apj(a){if(a==null||a===this.d)return
 this.F(new A.aSg(this,a))},
 aqm(){var s=window
 s.toString
-B.bR.kS(s,"https://wa.me/918866390389?text=Hello%20AppNexa%20Support,%20I%20would%20like%20to%20request%20a%20change%20to%20my%20review%20routing%20configuration.","_blank")},
+B.bR.kS(s,"https://wa.me/919265500479?text=Hello%20AppNexa%20Support,%20I%20would%20like%20to%20request%20a%20change%20to%20my%20review%20routing%20configuration.","_blank")},
 H(a1){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e=this,d=null,c=A.aG(a1,!0,t.DX),b=A.v(a1),a=b.ax,a0=c.c
 if(a0.length===0)return B.LE
 if(e.d==null)e.d=B.b.gZ(a0).a

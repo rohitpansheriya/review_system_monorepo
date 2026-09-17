@@ -363,7 +363,7 @@ function ownerGracePeriodReminderHtml(
     "        <!-- Support Footer -->",
     "        <div style=\"font-size:12px;color:#64748b;line-height:1.6;\">",
     "          <strong>Need help or paying via cash / bank transfer?</strong><br/>",
-    "          Call/WhatsApp our support desk at <a href=\"tel:+918866390389\" style=\"color:#1b3a8c;font-weight:bold;text-decoration:none;\">+91 8866390389</a> or email <a href=\"mailto:support@appnexa.co.in\" style=\"color:#1b3a8c;text-decoration:none;\">support@appnexa.co.in</a>.",
+    "          Call/WhatsApp our support desk at <a href=\"tel:+919265500479\" style=\"color:#1b3a8c;font-weight:bold;text-decoration:none;\">+91 9265500479</a> or email <a href=\"mailto:support@appnexa.co.in\" style=\"color:#1b3a8c;text-decoration:none;\">support@appnexa.co.in</a>.",
     "        </div>",
     "      </div>",
     "    </div>",
@@ -419,7 +419,7 @@ function ownerReminderHtml(brandName: string, daysDiff: number, paymentLinkUrl: 
     "      </div>",
     "      <hr style=\"border:none;border-top:1px solid #e2e8f0;margin:24px 0;\" />",
     "      <div style=\"font-size:12px;color:#64748b;line-height:1.6;\">",
-    "        Need help or prefer paying via bank transfer? Call/WhatsApp: <a href=\"tel:+918866390389\" style=\"color:#1b3a8c;font-weight:bold;text-decoration:none;\">+91 8866390389</a>.",
+    "        Need help or prefer paying via bank transfer? Call/WhatsApp: <a href=\"tel:+919265500479\" style=\"color:#1b3a8c;font-weight:bold;text-decoration:none;\">+91 9265500479</a>.",
     "      </div>",
     "    </div>",
     "    <div style=\"background:#f1f5f9;padding:14px 28px;text-align:center;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;\">",
@@ -1057,7 +1057,7 @@ export async function sendOwnerWelcomeEmail(
     "Set up your Owner password & access your live dashboard here:\n" +
     `${setupPasswordLink}\n\n` +
     `Owner Portal: https://appnexa.co.in/app (Login with: ${ownerEmail})\n\n` +
-    "Need help? Contact support on WhatsApp: +91 8866390389 or email support@appnexa.co.in\n\n" +
+    "Need help? Contact support on WhatsApp: +91 9265500479 or email support@appnexa.co.in\n\n" +
     "AppNexa Technologies";
 
   const branchReceiptRowsHtml = branches.length > 0 ?
@@ -1193,7 +1193,7 @@ export async function sendOwnerWelcomeEmail(
     "              <p style=\"margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #475569;\">AppNexa Technologies</p>",
     "              <p style=\"margin: 0 0 12px 0; font-size: 12px; color: #94A3B8;\">Smart NFC & QR Review Management System</p>",
     "              <p style=\"margin: 0; font-size: 12px; color: #64748B;\">",
-    "                WhatsApp: <a href=\"https://wa.me/918866390389\" style=\"color: #4F46E5; text-decoration: none;\">+91 8866390389</a> · ",
+    "                WhatsApp: <a href=\"https://wa.me/919265500479\" style=\"color: #4F46E5; text-decoration: none;\">+91 9265500479</a> · ",
     "                Email: <a href=\"mailto:support@appnexa.co.in\" style=\"color: #4F46E5; text-decoration: none;\">support@appnexa.co.in</a> · ",
     "                Web: <a href=\"https://appnexa.co.in\" style=\"color: #4F46E5; text-decoration: none;\">appnexa.co.in</a>",
     "              </p>",
@@ -1436,7 +1436,7 @@ function getPasswordResetEmailHtml(email: string, resetLink: string): string {
     "              <!-- Support Footer -->",
     "              <div style=\"font-size: 12px; color: #64748B; line-height: 1.6;\">",
     "                <strong>Need assistance?</strong><br/>",
-    "                Call or WhatsApp our support team at <a href=\"tel:+918866390389\" style=\"color: #1B3A8C; font-weight: bold; text-decoration: none;\">+91 8866390389</a> or email <a href=\"mailto:support@appnexa.co.in\" style=\"color: #1B3A8C; text-decoration: none;\">support@appnexa.co.in</a>.",
+    "                Call or WhatsApp our support team at <a href=\"tel:+919265500479\" style=\"color: #1B3A8C; font-weight: bold; text-decoration: none;\">+91 9265500479</a> or email <a href=\"mailto:support@appnexa.co.in\" style=\"color: #1B3A8C; text-decoration: none;\">support@appnexa.co.in</a>.",
     "              </div>",
     "            </td>",
     "          </tr>",

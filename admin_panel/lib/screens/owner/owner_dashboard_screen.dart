@@ -459,7 +459,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final msg = Uri.encodeComponent(
       'Hello AppNexa Support Team,\nI am the business owner of "$bizName". I need assistance with my smart review standee dashboard.',
     );
-    final url = 'https://wa.me/918866390389?text=$msg';
+    final url = 'https://wa.me/919265500479?text=$msg';
     html.window.open(url, '_blank');
   }
 

@@ -39,7 +39,7 @@ class _OwnerStarRoutingTabState extends State<OwnerStarRoutingTab> {
 
   void _openWhatsAppSupport() {
     const supportUrl =
-        'https://wa.me/918866390389?text=Hello%20AppNexa%20Support,%20I%20would%20like%20to%20request%20a%20change%20to%20my%20review%20routing%20configuration.';
+        'https://wa.me/919265500479?text=Hello%20AppNexa%20Support,%20I%20would%20like%20to%20request%20a%20change%20to%20my%20review%20routing%20configuration.';
     html.window.open(supportUrl, '_blank');
   }
 

@@ -89,4 +89,8 @@ class AppConstants {
   /// Set to true to surface v2/v3 pool version management in UI.
   static const bool enableMultiplePoolVersions = false;
   static const String defaultPoolVersion       = 'v1';
+
+  // ── Official Support Contact ────────────────────────────────────────────────
+  static const String supportPhone = '+91 9265500479';
+  static const String supportWhatsAppNumber = '919265500479';
 }

@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Rohit R. Pansheriya | AppNexa Technologies</title>
+  <meta name="description" content="Digital Visiting Card of Rohit R. Pansheriya, Founder & Director at AppNexa Technologies, Surat.">
+  <meta name="theme-color" content="#030b1e">
+
+  <!-- Open Graph / Meta -->
+  <meta property="og:type" content="profile">
+  <meta property="og:title" content="Rohit R. Pansheriya | AppNexa Technologies">
+  <meta property="og:description" content="Digital Business Card & Quick Contact Details. Founder at AppNexa Technologies.">
+  <meta property="og:url" content="https://appnexa.co.in/profile">
+  <meta property="og:image" content="https://appnexa.co.in/assets/images/rohit-profile.jpg">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #030a1a;
+      --bg-card: rgba(13, 24, 48, 0.72);
+      --bg-card-hover: rgba(18, 34, 68, 0.85);
+      --border-card: rgba(0, 163, 224, 0.22);
+      --border-card-glow: rgba(0, 163, 224, 0.45);
+      --primary: #0084ff;
+      --primary-cyan: #00d2ff;
+      --gradient-accent: linear-gradient(135deg, #0066ff 0%, #00d2ff 100%);
+      --gradient-gold: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+      --text-white: #ffffff;
+      --text-muted: #94a3b8;
+      --text-sub: #cbd5e1;
+      --success: #10b981;
+      --whatsapp: #25D366;
+      --instagram: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-white);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 0;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Ambient Background Glows */
+    .ambient-glow-1 {
+      position: fixed;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(0, 132, 255, 0.28) 0%, rgba(0, 210, 255, 0.08) 45%, transparent 70%);
+      filter: blur(50px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .ambient-glow-2 {
+      position: fixed;
+      bottom: -150px;
+      right: -100px;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(0, 102, 255, 0.2) 0%, transparent 70%);
+      filter: blur(60px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Main Container / Mobile Card Viewport */
+    .card-wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 460px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: linear-gradient(180deg, rgba(8, 17, 36, 0.95) 0%, rgba(3, 10, 26, 0.98) 100%);
+      border-left: 1px solid rgba(255, 255, 255, 0.06);
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(0, 132, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Cover Banner */
+    .card-banner {
+      position: relative;
+      height: 180px;
+      background: linear-gradient(135deg, #021330 0%, #04295e 50%, #015099 100%);
+      overflow: hidden;
+      border-bottom: 1px solid rgba(0, 210, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px 24px;
+    }
+
+    .banner-pattern {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+      background-size: 16px 16px;
+      opacity: 0.6;
+    }
+
+    .header-cover-logo {
+      position: relative;
+      z-index: 1;
+      width: 82%;
+      max-width: 360px;
+      height: auto;
+      object-fit: contain;
+      display: block;
+      filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
+    }
+
+    .banner-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: none;
+    }
+
+    .banner-badge svg {
+      width: 14px;
+      height: 14px;
+      fill: #38bdf8;
+    }
+
+    /* Profile Avatar & Header Info */
+    .profile-header {
+      position: relative;
+      padding: 0 24px;
+      margin-top: -55px;
+      text-align: center;
+    }
+
+    .avatar-wrapper {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      padding: 4px;
+      background: linear-gradient(135deg, #00d2ff, #0066ff, #38bdf8);
+      box-shadow: 0 10px 25px rgba(0, 132, 255, 0.35);
+    }
+
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #021330;
+      border: 3px solid #030a1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .online-indicator {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      width: 18px;
+      height: 18px;
+      background: #10b981;
+      border: 3px solid #030a1a;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #10b981;
+    }
+
+    .profile-name {
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .verified-icon {
+      width: 20px;
+      height: 20px;
+      fill: #00d2ff;
+      filter: drop-shadow(0 0 6px rgba(0, 210, 255, 0.6));
+    }
+
+    .profile-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #38bdf8;
+      margin-bottom: 2px;
+    }
+
+    .profile-company {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .profile-location {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Primary Action Buttons (Save Contact + Share) */
+    .primary-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 20px 24px;
+    }
+
+    .btn-save-contact {
+      grid-column: span 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: var(--gradient-accent);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 1.02rem;
+      padding: 14px 20px;
+      border-radius: 14px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0, 132, 255, 0.35);
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-save-contact:hover, .btn-save-contact:active {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(0, 132, 255, 0.5);
+    }
+
+    .btn-save-contact svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
+
+    .btn-secondary-action {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(10px);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 0.88rem;
+      padding: 11px 14px;
+      border-radius: 12px;
+      text-decoration: none;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary-action:hover, .btn-secondary-action:active {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(0, 210, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary-action svg {
+      width: 17px;
+      height: 17px;
+      fill: currentColor;
+    }
+
+    /* Quick Connect Circular Icon Grid */
+    .quick-connect-section {
+      padding: 0 24px 20px;
+    }
+
+    .section-label {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748b;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .connect-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .connect-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 8px;
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      text-decoration: none;
+      color: var(--text-white);
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .connect-btn:hover, .connect-btn:active {
+      transform: translateY(-3px);
+      background: var(--bg-card-hover);
+      border-color: var(--border-card-glow);
+      box-shadow: 0 8px 20px rgba(0, 132, 255, 0.2);
+    }
+
+    .connect-icon-box {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      transition: transform 0.2s ease;
+    }
+
+    .connect-btn:hover .connect-icon-box {
+      transform: scale(1.1);
+    }
+
+    .icon-call { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .icon-whatsapp { background: var(--whatsapp); color: #fff; }
+    .icon-insta { background: var(--instagram); color: #fff; }
+    .icon-email { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .icon-web { background: linear-gradient(135deg, #0084ff 0%, #00d2ff 100%); }
+    .icon-maps { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .icon-qr { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
+
+    .connect-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-sub);
+    }
+
+    /* Content Cards Section */
+    .cards-section {
+      padding: 0 24px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .info-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .info-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .info-card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(0, 132, 255, 0.15);
+      border: 1px solid rgba(0, 210, 255, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #00d2ff;
+    }
+
+    .info-card-title {
+      font-size: 0.96rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .info-card-text {
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: var(--text-sub);
+    }
+
+    /* Contact Details List Items */
+    .contact-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s;
+    }
+
+    .contact-item:hover, .contact-item:active {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(0, 210, 255, 0.3);
+    }
+
+    .contact-item-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .contact-item-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.06);
+      color: #38bdf8;
+    }
+
+    .contact-item-details {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .contact-item-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .contact-item-value {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .contact-item-action {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #38bdf8;
+      padding-left: 8px;
+    }
+
+    /* AppNexa Brand Showcase Card */
+    .brand-feature-card {
+      background: linear-gradient(135deg, rgba(2, 29, 58, 0.85) 0%, rgba(3, 10, 26, 0.95) 100%);
+      border: 1px solid rgba(0, 163, 224, 0.3);
+      border-radius: 18px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .brand-feature-logo {
+      height: 32px;
+      width: auto;
+      margin: 0 auto 12px;
+      display: block;
+    }
+
+    .brand-feature-desc {
+      font-size: 0.82rem;
+      color: var(--text-sub);
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    .btn-explore-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 132, 255, 0.15);
+      border: 1px solid rgba(0, 210, 255, 0.4);
+      color: #38bdf8;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 8px 16px;
+      border-radius: 20px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-explore-brand:hover {
+      background: rgba(0, 132, 255, 0.3);
+      color: #ffffff;
+    }
+
+    /* QR Code Showcase Card */
+    .qr-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 22px;
+      text-align: center;
+    }
+
+    .qr-image-wrapper {
+      position: relative;
+      width: 190px;
+      height: 190px;
+      margin: 0 auto 14px;
+      padding: 8px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .qr-image-wrapper img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 10px;
+    }
+
+    .qr-instruction {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .qr-subtext {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* Footer */
+    .card-footer {
+      margin-top: auto;
+      padding: 24px 24px 32px;
+      text-align: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .footer-copy {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .footer-tagline {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #38bdf8;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* Toast Notification */
+    .toast-msg {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid #38bdf8;
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .toast-msg.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* QR Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      background: #08152e;
+      border: 1px solid #38bdf8;
+      border-radius: 20px;
+      padding: 24px;
+      max-width: 320px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+      transform: scale(0.9);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-overlay.open .modal-box {
+      transform: scale(1);
+    }
+
+    .modal-close-btn {
+      margin-top: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 8px 20px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glow Effects -->
+  <div class="ambient-glow-1"></div>
+  <div class="ambient-glow-2"></div>
+
+  <!-- Main Card Container -->
+  <main class="card-wrapper">
+
+    <!-- Top Banner -->
+    <div class="card-banner">
+      <div class="banner-pattern"></div>
+      <img src="assets/images/appnexa-logo-white.png?v=2" alt="AppNexa Technologies" class="header-cover-logo">
+    </div>
+
+    <!-- Profile Header & Identity -->
+    <section class="profile-header">
+      <div class="avatar-wrapper">
+        <!-- Profile Picture or initials fallback -->
+        <img src="assets/images/rohit-profile.jpg?v=1" alt="Rohit R. Pansheriya" class="avatar-img" id="profileAvatarImg" onerror="this.style.display='none'; document.getElementById('avatarFallback').style.display='flex';">
+        <div id="avatarFallback" class="avatar-img" style="display:none;">RP</div>
+        <div class="online-indicator" title="Available"></div>
+      </div>
+
+      <h1 class="profile-name">
+        Rohit R. Pansheriya
+        <svg class="verified-icon" viewBox="0 0 24 24" title="Verified AppNexa Identity">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+      </h1>
+      <div class="profile-company">
+        <span>AppNexa Technologies</span>
+      </div>
+      <div class="profile-location">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        Surat, Gujarat, India
+      </div>
+    </section>
+
+    <!-- Primary Action Buttons -->
+    <section class="primary-actions">
+      <!-- 1-Tap Save Contact vCard Button -->
+      <button class="btn-save-contact" id="btnSaveContact" onclick="downloadVCard()">
+        <svg viewBox="0 0 24 24">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+        </svg>
+        Save Contact to Phone
+      </button>
+
+      <!-- Share Contact Button -->
+      <button class="btn-secondary-action" id="btnShareCard" onclick="shareProfile()">
+        <svg viewBox="0 0 24 24">
+          <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+        </svg>
+        Share Profile
+      </button>
+
+      <!-- View QR Modal Button -->
+      <button class="btn-secondary-action" onclick="openQRModal()">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-5 0h2v4h-2v-4zm2 2h3v2h-3v-2zm3 3h3v3h-3v-3zm-2 0h2v3h-2v-3zm-3 1h2v2h-2v-2z"/>
+        </svg>
+        Show QR Code
+      </button>
+    </section>
+
+    <!-- Quick Connect Icons Grid -->
+    <section class="quick-connect-section">
+      <div class="section-label">Quick Connect</div>
+      <div class="connect-grid">
+        <!-- Direct Call -->
+        <a href="tel:+919265500479" class="connect-btn" title="Call Rohit">
+          <div class="connect-icon-box icon-call">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+          </div>
+          <span class="connect-label">Call</span>
+        </a>
+
+        <!-- WhatsApp -->
+        <a href="https://wa.me/919265500479?text=Hello%20Rohit%2C%20I%20visited%20your%20AppNexa%20Digital%20Card." target="_blank" rel="noopener" class="connect-btn" title="WhatsApp Chat">
+          <div class="connect-icon-box icon-whatsapp">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2M12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 15 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67M9.53 7.03C9.36 7.03 9.09 7.1 8.87 7.34C8.65 7.58 8.04 8.16 8.04 9.33C8.04 10.5 8.9 11.63 9.02 11.79C9.14 11.95 10.66 14.37 13.04 15.31C15.03 16.09 15.43 15.93 15.86 15.89C16.29 15.85 17.25 15.32 17.45 14.76C17.65 14.2 17.65 13.72 17.59 13.62C17.53 13.52 17.37 13.46 17.12 13.34C16.87 13.22 15.65 12.62 15.43 12.54C15.2 12.45 15.04 12.41 14.87 12.66C14.71 12.91 14.24 13.46 14.09 13.62C13.95 13.79 13.8 13.81 13.55 13.69C13.3 13.56 12.5 13.3 11.55 12.45C10.81 11.79 10.31 10.97 10.16 10.72C10.02 10.47 10.15 10.34 10.27 10.22C10.38 10.11 10.52 9.92 10.65 9.78C10.77 9.63 10.81 9.53 10.89 9.37C10.97 9.2 10.93 9.06 10.87 8.94C10.81 8.81 10.34 7.64 10.14 7.17C9.94 6.7 9.74 6.77 9.58 6.76L9.53 7.03Z"/></svg>
+          </div>
+          <span class="connect-label">WhatsApp</span>
+        </a>
+
+        <!-- Instagram -->
+        <a href="https://www.instagram.com/rohit_pansheriya?utm_source=qr&stkn=OWFia3J2dm03cDMw" target="_blank" rel="noopener" class="connect-btn" title="Instagram Profile">
+          <div class="connect-icon-box icon-insta">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          </div>
+          <span class="connect-label">Instagram</span>
+        </a>
+
+        <!-- Email -->
+        <a href="mailto:appnexatechnologies@gmail.com" class="connect-btn" title="Send Email">
+          <div class="connect-icon-box icon-email">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          </div>
+          <span class="connect-label">Email</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Cards Section -->
+    <section class="cards-section">
+
+      <!-- About Me Card -->
+      <article class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
+          <h2 class="info-card-title">About Me</h2>
+        </div>
+        <p class="info-card-text">
+          I'm Rohit Pansheriya from AppNexa Technologies in Surat. I'm committed to building strong partnerships through quality products, reliable service, and a personal approach that keeps clients coming back.
+        </p>
+      </article>
+
+      <!-- Contact Details Card -->
+      <article class="info-card">
+        <div class="info-card-header">
+          <div class="info-card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg>
+          </div>
+          <h2 class="info-card-title">Direct Contact Details</h2>
+        </div>
+
+        <div class="contact-list">
+          <!-- Phone -->
+          <div class="contact-item" onclick="copyToClipboard('9265500479', 'Phone number copied!')" style="cursor:pointer;" title="Click to copy number">
+            <div class="contact-item-left">
+              <div class="contact-item-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+              </div>
+              <div class="contact-item-details">
+                <span class="contact-item-label">Mobile Number</span>
+                <span class="contact-item-value">+91 92655 00479</span>
+              </div>
+            </div>
+            <a href="tel:+919265500479" class="contact-item-action" onclick="event.stopPropagation();" title="Call Now">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </a>
+          </div>
+
+          <!-- Email -->
+          <div class="contact-item" onclick="copyToClipboard('appnexatechnologies@gmail.com', 'Email address copied!')" style="cursor:pointer;" title="Click to copy email">
+            <div class="contact-item-left">
+              <div class="contact-item-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+              </div>
+              <div class="contact-item-details">
+                <span class="contact-item-label">Official Email</span>
+                <span class="contact-item-value">appnexatechnologies@gmail.com</span>
+              </div>
+            </div>
+            <a href="mailto:appnexatechnologies@gmail.com" class="contact-item-action" onclick="event.stopPropagation();" title="Send Email">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </a>
+          </div>
+
+          <!-- Website -->
+          <a href="https://appnexa.co.in" target="_blank" rel="noopener" class="contact-item">
+            <div class="contact-item-left">
+              <div class="contact-item-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+              </div>
+              <div class="contact-item-details">
+                <span class="contact-item-label">Website</span>
+                <span class="contact-item-value">appnexa.co.in</span>
+              </div>
+            </div>
+            <div class="contact-item-action">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </div>
+          </a>
+
+          <!-- Address -->
+          <a href="https://maps.google.com/?q=378,+Tirupati+Society-1,+Yogichowk,+Surat" target="_blank" rel="noopener" class="contact-item">
+            <div class="contact-item-left">
+              <div class="contact-item-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+              </div>
+              <div class="contact-item-details">
+                <span class="contact-item-label">Office Location</span>
+                <span class="contact-item-value" style="font-size:0.82rem; white-space:normal;">378, Tirupati Society-1, Yogichowk, Surat.</span>
+              </div>
+            </div>
+            <div class="contact-item-action">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </div>
+          </a>
+        </div>
+      </article>
+
+      <!-- AppNexa Company Feature Showcase -->
+      <article class="brand-feature-card">
+        <img src="assets/images/appnexa-logo-white.png?v=2" alt="AppNexa Technologies" class="brand-feature-logo" style="height:36px;">
+        <p class="brand-feature-desc">
+          Smart Contactless Google Review Acceleration Systems &amp; NFC Counter Standees for Modern Businesses.
+        </p>
+        <a href="https://appnexa.co.in" target="_blank" rel="noopener" class="btn-explore-brand">
+          Visit AppNexa Platform
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+      </article>
+
+      <!-- QR Code Card -->
+      <article class="qr-card">
+        <div class="qr-image-wrapper">
+          <img src="assets/images/rohit-profile-qr.png?v=5" alt="AppNexa Contact QR Code">
+        </div>
+        <div class="qr-instruction">Scan to Save Contact or Share</div>
+        <div class="qr-subtext">Direct NFC &amp; QR Identity by AppNexa Technologies</div>
+        <a href="assets/images/rohit-profile-qr.png?v=5" download="Rohit-Pansheriya-AppNexa-QR.png" class="btn-secondary-action" style="display:inline-flex; padding:8px 18px; font-size:0.8rem;">
+          <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+          Download QR Image
+        </a>
+      </article>
+
+    </section>
+
+    <!-- Footer -->
+    <footer class="card-footer">
+      <p class="footer-copy">&copy; 2026 AppNexa Technologies. All rights reserved.</p>
+      <p class="footer-tagline">Connect &bull; Build &bull; Evolve</p>
+    </footer>
+
+  </main>
+
+  <!-- QR Popup Modal -->
+  <div class="modal-overlay" id="qrModal" onclick="closeQRModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <h3 style="font-size:1.1rem; font-weight:700; color:#fff; margin-bottom:12px;">Rohit's Digital QR Card</h3>
+      <div style="background:#fff; padding:10px; border-radius:14px; width:200px; height:200px; margin:0 auto 14px;">
+        <img src="assets/images/rohit-profile-qr.png?v=5" alt="QR Code" style="width:100%; height:100%; display:block; border-radius:8px;">
+      </div>
+      <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:12px;">Point any smartphone camera to view or save this contact profile.</p>
+      <button class="modal-close-btn" onclick="closeQRModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- Toast Element -->
+  <div class="toast-msg" id="toastMsg">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#10b981"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+    <span id="toastText">Contact info copied!</span>
+  </div>
+
+  <script>
+    // 1. Download vCard (.vcf) directly into phonebook
+    function downloadVCard() {
+      const vCardData = [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        'N:Pansheriya;Rohit;R.;;',
+        'FN:Rohit R. Pansheriya',
+        'ORG:AppNexa Technologies',
+        'TEL;TYPE=CELL,VOICE;PREF=1:+919265500479',
+        'EMAIL;TYPE=WORK,INTERNET:appnexatechnologies@gmail.com',
+        'URL;TYPE=WORK:https://appnexa.co.in',
+        'URL;TYPE=Instagram:https://www.instagram.com/rohit_pansheriya?utm_source=qr&stkn=OWFia3J2dm03cDMw',
+        'X-SOCIALPROFILE;TYPE=Instagram:https://www.instagram.com/rohit_pansheriya?utm_source=qr&stkn=OWFia3J2dm03cDMw',
+        'ADR;TYPE=WORK:;;378, Tirupati Society-1, Yogichowk;Surat;Gujarat;395006;India',
+        'NOTE:AppNexa Technologies — Smart Google Review NFC & QR Counter Standees',
+        'END:VCARD'
+      ].join('\r\n');
+
+      const blob = new Blob([vCardData], { type: 'text/vcard;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Rohit_Pansheriya_AppNexa.vcf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast('Contact file ready! Tap to save in Contacts.');
+    }
+
+    // 2. Share Profile Link via Native Web Share or Clipboard
+    async function shareProfile() {
+      const shareData = {
+        title: 'Rohit R. Pansheriya | AppNexa Technologies',
+        text: 'Contact card of Rohit R. Pansheriya (AppNexa Technologies):',
+        url: window.location.href
+      };
+
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+          showToast('Profile shared successfully!');
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            copyToClipboard(window.location.href, 'Profile link copied to clipboard!');
+          }
+        }
+      } else {
+        copyToClipboard(window.location.href, 'Profile link copied to clipboard!');
+      }
+    }
+
+    // 3. Clipboard helper
+    function copyToClipboard(text, message) {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(message || 'Copied to clipboard!');
+        }).catch(() => {
+          fallbackCopy(text, message);
+        });
+      } else {
+        fallbackCopy(text, message);
+      }
+    }
+
+    function fallbackCopy(text, message) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(message || 'Copied to clipboard!');
+      } catch (err) {
+        showToast('Press and hold to copy.');
+      }
+      document.body.removeChild(ta);
+    }
+
+    // 4. Toast Notification
+    let toastTimeout;
+    function showToast(msg) {
+      const toast = document.getElementById('toastMsg');
+      const toastText = document.getElementById('toastText');
+      toastText.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // 5. QR Modal Controls
+    function openQRModal() {
+      document.getElementById('qrModal').classList.add('open');
+    }
+
+    function closeQRModal(e) {
+      if (!e || e.target.id === 'qrModal' || e.target.classList.contains('modal-close-btn')) {
+        document.getElementById('qrModal').classList.remove('open');
+      }
+    }
+  </script>
+</body>
+</html>

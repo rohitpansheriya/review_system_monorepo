@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker_web/image_picker_web.dart';
 import 'package:provider/provider.dart';
+import '../../core/image_utils.dart';
 import '../../core/constants.dart';
 import '../../core/phone_field.dart';
 import '../../core/string_utils.dart';
@@ -137,26 +138,13 @@ class _EnrollScreenState extends State<EnrollScreen> {
     }
   }
 
-  // ── Change 4: Logo with dimension validation ────────────────────────────────
+  // ── Logo with dimension validation & client-side auto-resizing ────────────
   Future<void> _pickLogoWithValidation() async {
     final result = await ImagePickerWeb.getImageInfo();
     if (result == null || !mounted) return;
 
     final bytes = result.data;
     if (bytes == null) return;
-
-    // Check file size (max 2MB = 2097152 bytes)
-    if (bytes.length > 2 * 1024 * 1024) {
-      final sizeMb = (bytes.length / (1024 * 1024)).toStringAsFixed(2);
-      if (mounted) {
-        setState(() {
-          _logoRejectionMessage =
-              'Logo file size exceeds 2MB limit (selected: $sizeMb MB). '
-              'Please choose a smaller image file.';
-        });
-      }
-      return;
-    }
 
     // Decode image dimensions client-side via dart:ui.
     try {
@@ -189,10 +177,11 @@ class _EnrollScreenState extends State<EnrollScreen> {
       setState(() => _logoRejectionMessage = null);
     }
 
-    final ext  = (result.fileName ?? '').split('.').last.toLowerCase();
-    final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+    // Client-side auto-resize and compress to lightweight, crisp PNG
+    final optimizedBytes = await ImageUtils.resizeAndCompressLogo(bytes, maxDimension: 512);
+
     if (!mounted) return;
-    context.read<EnrollProvider>().setLogo(bytes, mime);
+    context.read<EnrollProvider>().setLogo(optimizedBytes, 'image/png');
   }
 
   void _focusFirstError([String? specificError]) {

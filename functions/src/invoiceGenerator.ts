@@ -6,6 +6,7 @@
  */
 
 import PDFDocument from "pdfkit";
+import {APPNEXA_LOGO_BUFFER} from "./invoiceLogo.js";
 
 export interface InvoiceBranchItem {
   name: string;
@@ -43,15 +44,19 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Buffer> {
       doc.on("end", () => resolve(Buffer.concat(buffers)));
       doc.on("error", (err: Error) => reject(err));
 
-      const primaryColor = "#4F46E5";
+      const primaryColor = "#00458B";
       const darkColor = "#1E293B";
       const grayColor = "#64748B";
       const lightBg = "#F8FAFC";
 
       // ── Header Background Banner ──────────────────────────────
-      doc.rect(40, 40, 515, 70).fill(lightBg);
-      doc.fillColor(primaryColor).fontSize(22).font("Helvetica-Bold").text("AppNexa", 55, 55);
-      doc.fillColor(grayColor).fontSize(10).font("Helvetica").text("Smart Review Management System", 55, 82);
+      doc.rect(40, 40, 515, 72).fill(lightBg);
+      try {
+        doc.image(APPNEXA_LOGO_BUFFER, 55, 48, {width: 140});
+      } catch {
+        doc.fillColor(primaryColor).fontSize(20).font("Helvetica-Bold").text("AppNexa Technologies", 55, 52);
+      }
+      doc.fillColor(grayColor).fontSize(8.5).font("Helvetica").text("Smart Review Management System", 55, 91);
 
       // Invoice Title & Status
       doc.fillColor(darkColor).fontSize(14).font("Helvetica-Bold").text("INVOICE / RECEIPT", 380, 55, {align: "right", width: 160});

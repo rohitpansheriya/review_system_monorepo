@@ -36,6 +36,9 @@ class AdminDashboardProvider extends ChangeNotifier {
   int _renewalsDue7 = 0;
   int _renewalsDue1 = 0;
 
+  int _testBusinessesCount = 0;
+  int _testActiveBusinessesCount = 0;
+
   double _revenueSnapshot = 0.0;
   double _onlineRevenue = 0.0;
   double _cashRevenue = 0.0;
@@ -96,6 +99,8 @@ class AdminDashboardProvider extends ChangeNotifier {
   int get graceBusinessesCount => _graceBusinessesCount;
   int get pendingDraftsCount => _pendingDraftsCount;
   int get totalEmployeesCount => _totalEmployeesCount;
+  int get testBusinessesCount => _testBusinessesCount;
+  int get testActiveBusinessesCount => _testActiveBusinessesCount;
 
   int get renewalsDue30 => _renewalsDue30;
   int get renewalsDue15 => _renewalsDue15;
@@ -302,6 +307,24 @@ class AdminDashboardProvider extends ChangeNotifier {
       businessId: businessId,
       branchId: branchId,
       reason: reason,
+    );
+    await refreshPlatformStats();
+    await fetchAllBusinesses();
+  }
+
+  /// Converts a test business to a live business.
+  Future<void> convertTestBusinessToLive({
+    required String businessId,
+    required String paymentMode,
+    required bool isCurrentlyActive,
+    int? activeBranchCount,
+    String? adminUid,
+  }) async {
+    await _firestoreService.convertTestBusinessToLive(
+      businessId: businessId,
+      paymentMode: paymentMode,
+      isCurrentlyActive: isCurrentlyActive,
+      adminUid: adminUid,
     );
     await refreshPlatformStats();
     await fetchAllBusinesses();
@@ -757,9 +780,6 @@ class AdminDashboardProvider extends ChangeNotifier {
     _businessBranches.clear();
     _businessBranchStats.clear();
 
-    int totalActiveBranches = 0;
-    int totalPendingBranches = 0;
-
     // Concurrently fetch branches and compute metrics for all businesses in parallel
     final branchTasks = snap.docs.map((doc) async {
       final bizData = doc.data();
@@ -919,6 +939,8 @@ class AdminDashboardProvider extends ChangeNotifier {
           deleted: bDeleted,
           total: bActive + bGrace + bSuspended + bPending + bDeleted,
         ),
+        isTest,
+        bizStatus,
         bActive,
         bPending,
         revEntry,
@@ -929,21 +951,61 @@ class AdminDashboardProvider extends ChangeNotifier {
     _revenueEntries.clear();
     final monthSet = <String>{};
 
+    int liveActiveBranches = 0;
+    int livePendingBranches = 0;
+    int testBizCount = 0;
+    int testActiveBizCount = 0;
+    int livePayingBizCount = 0;
+    int liveActiveBizCount = 0;
+    int liveGraceBizCount = 0;
+
     for (final r in results) {
-      _businessBranches[r.$1] = r.$2;
-      _businessBranchStats[r.$1] = r.$3;
-      totalActiveBranches += r.$4;
-      totalPendingBranches += r.$5;
-      if (r.$6 != null) {
-        _revenueEntries.add(r.$6!);
-        monthSet.add(r.$6!.month);
+      final bizId = r.$1;
+      final branchesList = r.$2;
+      final branchStats = r.$3;
+      final isTestBiz = r.$4;
+      final statusBiz = r.$5;
+      final activeCount = r.$6;
+      final pendingCount = r.$7;
+      final rev = r.$8;
+
+      _businessBranches[bizId] = branchesList;
+      _businessBranchStats[bizId] = branchStats;
+
+      if (isTestBiz) {
+        testBizCount++;
+        if (statusBiz == 'active') {
+          testActiveBizCount++;
+        }
+      } else {
+        final isDraft = statusBiz == 'pending_payment' || statusBiz == AppConstants.statusPendingPayment;
+        if (!isDraft && (statusBiz == 'active' || statusBiz == 'grace_period' || statusBiz == 'deleted')) {
+          livePayingBizCount++;
+        }
+        if (statusBiz == 'active') {
+          liveActiveBizCount++;
+        } else if (statusBiz == 'grace_period') {
+          liveGraceBizCount++;
+        }
+        liveActiveBranches += activeCount;
+        livePendingBranches += pendingCount;
+      }
+
+      if (rev != null) {
+        _revenueEntries.add(rev);
+        monthSet.add(rev.month);
       }
     }
 
     final sortedMonths = monthSet.toList()..sort((a, b) => b.compareTo(a));
     _availableRevenueMonths = sortedMonths;
-    _totalActiveBranches = totalActiveBranches;
-    _totalPendingBranches = totalPendingBranches;
+    _totalBusinessesCount = livePayingBizCount;
+    _activeBusinessesCount = liveActiveBizCount;
+    _graceBusinessesCount = liveGraceBizCount;
+    _testBusinessesCount = testBizCount;
+    _testActiveBusinessesCount = testActiveBizCount;
+    _totalActiveBranches = liveActiveBranches;
+    _totalPendingBranches = livePendingBranches;
 
     _recalculateRevenue();
     notifyListeners();

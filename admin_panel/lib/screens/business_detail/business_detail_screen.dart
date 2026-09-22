@@ -573,6 +573,246 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
     }
   }
 
+  void _showConvertToLiveDialog(
+    BuildContext context,
+    BusinessModel biz, {
+    required bool isCurrentlyActive,
+    required int activeBranchCount,
+  }) {
+    String selectedMode = 'cash'; // default
+    bool isProcessing = false;
+    String? errorMessage;
+
+    showDialog(
+      context: context,
+      barrierDismissible: !isProcessing,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AppModalDialog(
+            maxWidth: 520,
+            icon: Icons.rocket_launch_rounded,
+            iconColor: const Color(0xFFD97706),
+            title: 'Convert to Live Business',
+            subtitle: biz.brandName,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Converting this business to Live will keep the permanent Business ID (${biz.displayCode}) and all Branch IDs intact. Already printed QR standees and review URLs will continue working seamlessly.',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF92400E),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Select Payment Method for Live Account:',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 10),
+
+                // Cash Option
+                InkWell(
+                  onTap: isProcessing ? null : () => setDialogState(() => selectedMode = 'cash'),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: selectedMode == 'cash' ? AppColors.activeBg : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selectedMode == 'cash' ? AppColors.activeFg : Colors.grey.shade300,
+                        width: selectedMode == 'cash' ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Radio<String>(
+                          value: 'cash',
+                          groupValue: selectedMode,
+                          activeColor: AppColors.activeFg,
+                          onChanged: isProcessing ? null : (val) => setDialogState(() => selectedMode = val!),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Cash Payment (Keep Active & Count in Revenue)',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                isCurrentlyActive
+                                    ? 'No change required for payment method. It will remain active and immediately add ₹${(biz.amountPaid ?? (activeBranchCount * 1999)).toStringAsFixed(0)} to platform revenue and active subscriptions.'
+                                    : 'Activates the business as paid via cash and adds setup fee to live platform revenue.',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.3),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Online Option
+                InkWell(
+                  onTap: isProcessing ? null : () => setDialogState(() => selectedMode = 'online'),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: selectedMode == 'online' ? AppColors.primary.withValues(alpha: 0.05) : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selectedMode == 'online' ? AppColors.primary : Colors.grey.shade300,
+                        width: selectedMode == 'online' ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Radio<String>(
+                          value: 'online',
+                          groupValue: selectedMode,
+                          activeColor: AppColors.primary,
+                          onChanged: isProcessing ? null : (val) => setDialogState(() => selectedMode = val!),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Online Payment (Razorpay Payment Link)',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                isCurrentlyActive
+                                    ? 'Converts active business into Pending Payment so you or the employee can generate and send an official Razorpay online payment link to the owner.'
+                                    : 'Already in Pending Payment status. Converts to live account ready for online Razorpay collection without changing activation status.',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.3),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            errorMessage!,
+                            style: const TextStyle(fontSize: 12, color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isProcessing ? null : () => Navigator.of(dialogCtx).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                onPressed: isProcessing
+                    ? null
+                    : () async {
+                        setDialogState(() {
+                          isProcessing = true;
+                          errorMessage = null;
+                        });
+                        try {
+                          final auth = context.read<AppAuthProvider>();
+                          final provider = context.read<AdminDashboardProvider>();
+                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+                          await provider.convertTestBusinessToLive(
+                            businessId: biz.id,
+                            paymentMode: selectedMode,
+                            isCurrentlyActive: isCurrentlyActive,
+                            activeBranchCount: activeBranchCount,
+                            adminUid: auth.uid,
+                          );
+                          if (dialogCtx.mounted) {
+                            Navigator.of(dialogCtx).pop();
+                          }
+                          if (mounted) {
+                            scaffoldMessenger.showSnackBar(
+                              SnackBar(
+                                content: Text('🎉 "${biz.brandName}" converted to Live Business successfully!'),
+                                backgroundColor: AppColors.activeFg,
+                              ),
+                            );
+                            await _refreshBusiness();
+                          }
+                        } catch (e) {
+                          setDialogState(() {
+                            isProcessing = false;
+                            errorMessage = e.toString().replaceAll('Exception: ', '');
+                          });
+                        }
+                      },
+                icon: isProcessing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.rocket_launch_rounded, size: 16),
+                label: Text(isProcessing ? 'Converting...' : 'Convert to Live'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final biz    = _business;
@@ -620,6 +860,29 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
           },
         ),
         actions: [
+          if (isAdmin && biz.isTestAccount)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: ElevatedButton.icon(
+                onPressed: () => _showConvertToLiveDialog(
+                  context,
+                  biz,
+                  isCurrentlyActive: isFullyActive || isPartialPending,
+                  activeBranchCount: activeBranchCount,
+                ),
+                icon: const Icon(Icons.rocket_launch_rounded, size: 16),
+                label: const Text('Convert to Live'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             onPressed: _refreshBusiness,
             icon: const Icon(Icons.refresh, size: 20),
@@ -644,6 +907,23 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg - 4),
         children: [
+          // ── Top Test Business Banner ───────────────────────────────────
+          if (biz.isTestAccount) ...[
+            _TestBusinessBanner(
+              business: biz,
+              isAdmin: isAdmin,
+              isCurrentlyActive: isFullyActive || isPartialPending,
+              activeBranchCount: activeBranchCount,
+              onConvertTap: () => _showConvertToLiveDialog(
+                context,
+                biz,
+                isCurrentlyActive: isFullyActive || isPartialPending,
+                activeBranchCount: activeBranchCount,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+
           // ── Top Status Banner ──────────────────────────────────────────
           if (isPendingPayment) ...[
             _PendingPaymentPanel(
@@ -954,6 +1234,113 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
 }
 
 // ── Top Status Banners ────────────────────────────────────────────────────────
+
+class _TestBusinessBanner extends StatelessWidget {
+  final BusinessModel business;
+  final bool isAdmin;
+  final bool isCurrentlyActive;
+  final int activeBranchCount;
+  final VoidCallback? onConvertTap;
+
+  const _TestBusinessBanner({
+    required this.business,
+    required this.isAdmin,
+    required this.isCurrentlyActive,
+    required this.activeBranchCount,
+    this.onConvertTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm + 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(AppRadius.lg - 4),
+        border: Border.all(
+          color: const Color(0xFFF59E0B),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.science_rounded, color: Color(0xFFB45309), size: 22),
+          ),
+          const SizedBox(width: AppSpacing.sm + 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Test Business Account',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF92400E),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD97706),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'TEST MODE',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'This business operates in test mode. It is excluded from platform revenue & active business counters. All printed QR codes and standees are permanent and will keep working upon conversion.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFB45309),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isAdmin) ...[
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              onPressed: onConvertTap,
+              icon: const Icon(Icons.rocket_launch_rounded, size: 16),
+              label: const Text('Convert to Live'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD97706),
+                foregroundColor: Colors.white,
+                elevation: 1,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 class _FullyActiveBanner extends StatelessWidget {
   final BusinessModel business;
@@ -1673,7 +2060,7 @@ class _BranchCardState extends State<_BranchCard> {
   }
 
   Future<void> _downloadQr() async {
-    final path = widget.branch.plainQrStoragePath;
+    final path = widget.branch.qrCodeId ?? widget.branch.plainQrStoragePath;
     if (path == null) return;
     setState(() {
       _qrLoading = true;
@@ -2111,9 +2498,9 @@ class _BranchCardState extends State<_BranchCard> {
 
           const SizedBox(height: AppSpacing.md),
 
-          // ── Change 1: Plain printable QR download (active branches) ───
+          // ── QR download (active branches) ───
           _PlainQrRow(
-            plainQrStoragePath: branch.plainQrStoragePath,
+            plainQrStoragePath: branch.qrCodeId ?? branch.plainQrStoragePath,
             qrLoading:          _qrLoading,
             qrError:            _qrError,
             onDownload:         _downloadQr,

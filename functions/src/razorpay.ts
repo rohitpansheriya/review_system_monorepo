@@ -64,7 +64,7 @@ import {
   reviewDomain,
   adminEmail,
 } from "./secrets.js";
-import {buildQrForBranch, buildPlainQrForBranch} from "./qrGenerator.js";
+import {buildQrForBranch} from "./qrGenerator.js";
 import {
   sendPaymentLinkEmail,
   sendOwnerWelcomeEmail,
@@ -1002,7 +1002,6 @@ async function handleSuccessfulPayment(
       if (!isRenewal) {
         try {
           await buildQrForBranch(businessId, branchId, branchRef);
-          await buildPlainQrForBranch(businessId, branchId, branchRef);
         } catch (qrErr) {
           logger.error("handleSuccessfulPayment: branch QR failed", {businessId, branchId, qrErr});
         }
@@ -1044,7 +1043,7 @@ async function handleSuccessfulPayment(
         }
 
         if (!isRenewal) {
-          // Standee QR (branded, print-ready, 4×6 — doc 09 pipeline).
+          // QR code generation
           try {
             await buildQrForBranch(
               businessId,
@@ -1052,21 +1051,8 @@ async function handleSuccessfulPayment(
               branchDoc.ref
             );
           } catch (branchErr) {
-            logger.error("handleSuccessfulPayment: standee QR generation failed for branch", {
+            logger.error("handleSuccessfulPayment: QR generation failed for branch", {
               businessId, branchId: branchDoc.id, err: branchErr,
-            });
-          }
-
-          // Plain printable QR (instant digital deliverable).
-          try {
-            await buildPlainQrForBranch(
-              businessId,
-              branchDoc.id,
-              branchDoc.ref
-            );
-          } catch (plainErr) {
-            logger.error("handleSuccessfulPayment: plain QR generation failed for branch", {
-              businessId, branchId: branchDoc.id, err: plainErr,
             });
           }
         }

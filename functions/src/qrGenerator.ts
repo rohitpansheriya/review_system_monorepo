@@ -421,34 +421,19 @@ export const onBranchCreated = onDocumentCreated(
       return;
     }
 
-    // Generate branded standee QR (doc 09 pipeline).
+    // Generate QR code.
     try {
       const result = await buildQrForBranch(
         businessId,
         branchId,
         event.data.ref
       );
-      logger.info("onBranchCreated: standee QR ready", result);
+      logger.info("onBranchCreated: QR ready", result);
     } catch (err) {
-      logger.error("onBranchCreated: standee QR generation failed", {
+      logger.error("onBranchCreated: QR generation failed", {
         err, businessId, branchId,
       });
       // Non-fatal — branch doc is still valid without a QR.
-    }
-
-    // Change 1: Also generate plain printable QR (instant digital deliverable).
-    try {
-      const plainResult = await buildPlainQrForBranch(
-        businessId,
-        branchId,
-        event.data.ref
-      );
-      logger.info("onBranchCreated: plain QR ready", plainResult);
-    } catch (err) {
-      logger.error("onBranchCreated: plain QR generation failed", {
-        err, businessId, branchId,
-      });
-      // Non-fatal.
     }
   }
 );
@@ -516,25 +501,10 @@ export const generateBranchQr = onCall(
       );
     }
 
-    // Generate both QR types (standee + plain printable).
+    // Generate single QR code.
     const result = await buildQrForBranch(businessId, branchId, branchRef);
 
-    // Change 1: also generate / regenerate plain printable QR.
-    let plainDownloadUrl: string | null = null;
-    try {
-      const plainResult = await buildPlainQrForBranch(businessId, branchId, branchRef);
-      const plainExpiresAt = new Date();
-      plainExpiresAt.setHours(plainExpiresAt.getHours() + 1);
-      const plainFile = getStorage().bucket().file(plainResult.plainQrStoragePath);
-      [plainDownloadUrl] = await plainFile.getSignedUrl({
-        action: "read",
-        expires: plainExpiresAt,
-      });
-    } catch (plainErr) {
-      logger.warn("generateBranchQr: plain QR generation failed (non-fatal)", {plainErr});
-    }
-
-    // Return 1-hour signed URL for standee QR immediate download/preview.
+    // Return 1-hour signed URL for QR immediate download/preview.
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
     const file = getStorage().bucket().file(result.qrStoragePath);
@@ -543,6 +513,6 @@ export const generateBranchQr = onCall(
       expires: expiresAt,
     });
 
-    return {...result, downloadUrl, plainDownloadUrl};
+    return {...result, downloadUrl, plainDownloadUrl: downloadUrl};
   }
 );

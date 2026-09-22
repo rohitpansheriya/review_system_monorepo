@@ -68,9 +68,9 @@ class _ShareBusinessQrState extends State<ShareBusinessQr> {
     html.window.open(url, '_blank');
   }
 
-  /// Downloads the plain QR PNG via Storage URL.
+  /// Downloads the QR PNG via Storage URL.
   Future<void> _downloadQr() async {
-    final path = widget.branch.plainQrStoragePath;
+    final path = widget.branch.qrCodeId ?? widget.branch.plainQrStoragePath;
     if (path == null) return;
     setState(() {
       _qrDownloading = true;
@@ -178,7 +178,7 @@ class _ShareBusinessQrState extends State<ShareBusinessQr> {
               ),
 
               // 2. Download QR
-              if (branch.plainQrStoragePath != null)
+              if (branch.qrCodeId != null || branch.plainQrStoragePath != null)
                 _ActionChip(
                   icon: Icons.download_outlined,
                   label: _qrDownloading ? 'Loading...' : 'Download QR',

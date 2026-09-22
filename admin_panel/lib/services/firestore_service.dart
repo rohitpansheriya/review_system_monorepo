@@ -642,6 +642,91 @@ class FirestoreService {
     });
   }
 
+  /// Converts a test business to a live business.
+  /// Assigns an official live sequential sequence code (APT-01XXX) via atomic counter.
+  /// If paymentMode == 'cash':
+  ///   - Sets is_test_account = false (adds immediately to live revenue)
+  ///   - If was pending_payment, activates via confirmCashAndActivate
+  /// If paymentMode == 'online':
+  ///   - If currently active, reverts to pending_payment so online link can be collected
+  ///   - If already in pending_payment, leaves in pending_payment
+  ///   - Sets is_test_account = false
+  Future<void> convertTestBusinessToLive({
+    required String businessId,
+    required String paymentMode, // 'cash' | 'online'
+    required bool isCurrentlyActive,
+    String? adminUid,
+  }) async {
+    try {
+      final fn = FirebaseFunctions.instanceFor(region: 'asia-south1');
+      await fn.httpsCallable(AppConstants.fnConvertTestBusinessToLiveAdmin).call({
+        'businessId': businessId,
+        'paymentMode': paymentMode,
+      });
+      return;
+    } catch (_) {
+      // Direct Firestore transaction fallback — atomic counter increment
+      final bizRef = _db.collection(AppConstants.colBusinesses).doc(businessId);
+      final counterRef = _db.collection('counters').doc('business_counter');
+
+      String assignedCode = '';
+      int nextNum = 1001;
+
+      await _db.runTransaction((tx) async {
+        final bizSnap = await tx.get(bizRef);
+        if (!bizSnap.exists) throw Exception('Business not found');
+
+        final counterSnap = await tx.get(counterRef);
+        if (counterSnap.exists) {
+          final data = counterSnap.data();
+          final current = data?['last_number'];
+          if (current is int && current >= 1000) {
+            nextNum = current + 1;
+          }
+        }
+
+        final existingCode = bizSnap.data()?['business_code'] as String?;
+        if (existingCode != null && existingCode.startsWith('APT-')) {
+          assignedCode = existingCode;
+        } else {
+          final padded = nextNum.toString().padLeft(5, '0');
+          assignedCode = 'APT-$padded';
+          tx.set(
+            counterRef,
+            {'last_number': nextNum, 'updated_at': FieldValue.serverTimestamp()},
+            SetOptions(merge: true),
+          );
+        }
+
+        final updateData = <String, dynamic>{
+          'is_test_account': false,
+          'converted_to_live_at': FieldValue.serverTimestamp(),
+          'business_code': assignedCode,
+          'business_number': nextNum,
+        };
+
+        tx.update(bizRef, updateData);
+      });
+
+      if (paymentMode == 'online') {
+        if (isCurrentlyActive) {
+          await adminRevertBusinessActivation(
+            businessId: businessId,
+            reason: 'Converted from test mode to live online payment',
+          );
+        }
+      } else {
+        // Cash payment
+        if (!isCurrentlyActive) {
+          await confirmCashAndActivate(
+            businessId: businessId,
+            adminUid: adminUid ?? 'admin',
+          );
+        }
+      }
+    }
+  }
+
   // ── Delete — pending_payment drafts only ─────────────────────────────────
 
   /// Deletes a draft business (pending_payment) and ALL its branch subdocs.

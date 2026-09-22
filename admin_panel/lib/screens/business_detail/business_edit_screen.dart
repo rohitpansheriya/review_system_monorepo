@@ -30,6 +30,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker_web/image_picker_web.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants.dart';
+import '../../core/image_utils.dart';
 import '../../core/phone_field.dart';
 import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
@@ -212,12 +213,13 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
       // Dimension decode failed — allow the upload
     }
 
-    final ext  = (result.fileName ?? '').split('.').last.toLowerCase();
-    final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+    // Auto-resize and compress logo client-side to max 512px
+    final optimizedBytes = await ImageUtils.resizeAndCompressLogo(bytes, maxDimension: 512);
+
     if (mounted) {
       setState(() {
-        _logoBytes    = bytes;
-        _logoMimeType = mime;
+        _logoBytes    = optimizedBytes;
+        _logoMimeType = 'image/png';
         _logoRejection = null;
       });
     }

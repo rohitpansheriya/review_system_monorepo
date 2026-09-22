@@ -19,7 +19,7 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import {getFirestore, Timestamp, FieldValue, DocumentSnapshot} from "firebase-admin/firestore";
-import {buildQrForBranch, buildPlainQrForBranch} from "./qrGenerator.js";
+import {buildQrForBranch} from "./qrGenerator.js";
 import {provisionOwnerAccount} from "./razorpay.js";
 import {brevoApiKey} from "./secrets.js";
 
@@ -212,7 +212,6 @@ export const confirmCashPaymentAdmin = onCall(
     for (const branchDoc of targetBranches) {
       try {
         await buildQrForBranch(businessId, branchDoc.id, branchDoc.ref);
-        await buildPlainQrForBranch(businessId, branchDoc.id, branchDoc.ref);
       } catch (qrErr) {
         logger.error("confirmCashPaymentAdmin: QR generation failed", {businessId, branchId: branchDoc.id, qrErr});
       }
@@ -388,7 +387,6 @@ export const adminCashActivateBranch = onCall(
     // QR generation
     try {
       await buildQrForBranch(businessId, branchId, branchRef);
-      await buildPlainQrForBranch(businessId, branchId, branchRef);
     } catch (qrErr) {
       logger.error("adminCashActivateBranch: QR generation failed", {businessId, branchId, qrErr});
     }
@@ -492,34 +490,18 @@ export const onBusinessActivated = onDocumentUpdated(
         businessId, branchCount: branchesSnap.size,
       });
       for (const branchDoc of branchesSnap.docs) {
-        // Standee QR (branded, print-ready)
         try {
           const result = await buildQrForBranch(
             businessId,
             branchDoc.id,
             branchDoc.ref
           );
-          logger.info("onBusinessActivated: standee QR generated", {
+          logger.info("onBusinessActivated: QR generated", {
             businessId, branchId: branchDoc.id, qrPath: result.qrStoragePath,
           });
         } catch (branchErr) {
-          logger.error("onBusinessActivated: standee QR failed for branch", {
+          logger.error("onBusinessActivated: QR failed for branch", {
             businessId, branchId: branchDoc.id, err: branchErr,
-          });
-        }
-        // Plain printable QR
-        try {
-          const plainResult = await buildPlainQrForBranch(
-            businessId,
-            branchDoc.id,
-            branchDoc.ref
-          );
-          logger.info("onBusinessActivated: plain QR generated", {
-            businessId, branchId: branchDoc.id, path: plainResult.plainQrStoragePath,
-          });
-        } catch (plainErr) {
-          logger.error("onBusinessActivated: plain QR failed for branch", {
-            businessId, branchId: branchDoc.id, err: plainErr,
           });
         }
       }
@@ -708,7 +690,6 @@ export const onBranchActivated = onDocumentUpdated(
     if (branchRef && !afterData.qr_code_id) {
       try {
         await buildQrForBranch(businessId, branchId, branchRef);
-        await buildPlainQrForBranch(businessId, branchId, branchRef);
       } catch (qrErr) {
         logger.error("onBranchActivated: QR generation failed", {businessId, branchId, qrErr});
       }
@@ -1220,6 +1201,133 @@ export const recalculateAndMigrateCommissions = onCall(
       success: true,
       updatedCommissions: updatedCount,
       affectedEmployees: Object.keys(empTotals).length,
+    };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// 10. convertTestBusinessToLiveAdmin (Callable — Admin only)
+// ---------------------------------------------------------------------------
+export const convertTestBusinessToLiveAdmin = onCall(
+  {region: "asia-south1"},
+  async (request): Promise<{success: boolean; businessId: string; businessCode: string; paymentMode: string}> => {
+    if (!request.auth?.uid || request.auth.token?.role !== "admin") {
+      throw new HttpsError("permission-denied", "Only admins can convert test businesses.");
+    }
+
+    const {businessId, paymentMode} = (request.data || {}) as {
+      businessId?: string;
+      paymentMode?: string; // 'cash' | 'online'
+    };
+
+    if (!businessId || typeof businessId !== "string") {
+      throw new HttpsError("invalid-argument", "businessId is required.");
+    }
+
+    const mode = paymentMode === "online" ? "online" : "cash";
+    const db = getFirestore();
+    const bizRef = db.collection("businesses").doc(businessId);
+    const bizSnap = await bizRef.get();
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", `Business ${businessId} not found.`);
+    }
+
+    const bizData = bizSnap.data() || {};
+    const isCurrentlyActive = bizData.subscription_status === "active";
+    const now = Timestamp.now();
+
+    // 1. Assign sequential business code (APT-01XXX) from live atomic counter
+    const assignedCode = await assignBusinessCode(db, bizRef, false);
+
+    // 2. Handle Payment Mode
+    if (mode === "online") {
+      if (isCurrentlyActive) {
+        // Revert to pending_payment so online link can be collected
+        const batch = db.batch();
+        batch.update(bizRef, {
+          is_test_account: false,
+          converted_to_live_at: now,
+          subscription_status: "pending_payment",
+          payment_mode: "pending",
+          setup_fee_paid: 0,
+          amount_paid: 0,
+          active_branches_count: 0,
+          has_inactive_branches: true,
+          cash_payment_confirmed_at: FieldValue.delete(),
+          cash_confirmed_by_admin: FieldValue.delete(),
+          reverted_at: now,
+          reverted_by: request.auth.uid,
+          revert_reason: "Converted from test mode to live online payment",
+        });
+
+        const branchesSnap = await bizRef.collection("branches").get();
+        for (const branchDoc of branchesSnap.docs) {
+          batch.update(branchDoc.ref, {
+            subscription_status: "pending_payment",
+            payment_mode: "pending",
+            setup_fee_paid: FieldValue.delete(),
+            amount_paid: FieldValue.delete(),
+            cash_payment_confirmed_at: FieldValue.delete(),
+            cash_confirmed_by_admin: FieldValue.delete(),
+            standee_status: "ordered",
+            reverted_at: now,
+            reverted_by: request.auth.uid,
+            revert_reason: "Converted from test mode to live online payment",
+          });
+        }
+        await batch.commit();
+      } else {
+        await bizRef.update({
+          is_test_account: false,
+          converted_to_live_at: now,
+        });
+      }
+    } else {
+      // Cash payment
+      if (!isCurrentlyActive) {
+        // Confirm cash and activate
+        const batch = db.batch();
+        batch.update(bizRef, {
+          is_test_account: false,
+          converted_to_live_at: now,
+          subscription_status: "active",
+          payment_mode: "cash",
+          cash_payment_confirmed_at: now,
+          cash_confirmed_by_admin: request.auth.uid,
+          renewal_date: Timestamp.fromDate(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
+        });
+
+        const branchesSnap = await bizRef.collection("branches").get();
+        for (const branchDoc of branchesSnap.docs) {
+          batch.update(branchDoc.ref, {
+            subscription_status: "active",
+            payment_mode: "cash",
+            cash_payment_confirmed_at: now,
+            cash_confirmed_by_admin: request.auth.uid,
+            renewal_date: Timestamp.fromDate(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
+          });
+        }
+        await batch.commit();
+      } else {
+        await bizRef.update({
+          is_test_account: false,
+          converted_to_live_at: now,
+        });
+      }
+    }
+
+    logger.info("convertTestBusinessToLiveAdmin: successfully converted", {
+      businessId,
+      assignedCode,
+      paymentMode: mode,
+      adminUid: request.auth.uid,
+    });
+
+    return {
+      success: true,
+      businessId,
+      businessCode: assignedCode,
+      paymentMode: mode,
     };
   }
 );

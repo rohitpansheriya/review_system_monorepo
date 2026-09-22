@@ -68,26 +68,26 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 0 16px 48px;
+      padding: 0 16px 40px;
     }
 
     .screen {
       display: none;
       width: 100%;
-      max-width: 480px;
+      max-width: 460px;
       animation: screenFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     .screen.active {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
     }
 
     @keyframes screenFadeIn {
       from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(8px);
       }
       to {
         opacity: 1;
@@ -101,7 +101,7 @@
       background: var(--c-surface);
       border: 1px solid var(--c-border);
       border-radius: var(--radius-lg);
-      padding: 22px 20px;
+      padding: 20px 18px;
       box-shadow: 0 1px 3px rgba(60, 64, 67, 0.08), 0 1px 2px rgba(60, 64, 67, 0.12);
     }
 
@@ -111,9 +111,9 @@
       border: 1px solid rgba(147, 197, 253, 0.25) !important;
       border-top: 1.5px solid rgba(191, 219, 254, 0.45) !important;
       border-radius: var(--radius-lg);
-      padding: 28px 20px 24px;
-      box-shadow: 0 16px 36px -6px rgba(11, 21, 40, 0.3),
-                  0 6px 16px rgba(30, 58, 138, 0.25),
+      padding: 24px 18px 20px;
+      box-shadow: 0 14px 32px -6px rgba(11, 21, 40, 0.28),
+                  0 6px 16px rgba(30, 58, 138, 0.22),
                   inset 0 1px 0 rgba(255, 255, 255, 0.2);
       position: relative;
       overflow: hidden;
@@ -192,7 +192,7 @@
     .thank-you-card {
       width: 100%;
       text-align: center;
-      padding: 38px 22px;
+      padding: 36px 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -202,25 +202,25 @@
     /* ─── Header band ────────────────────────────────────────────────── */
     .header-band {
       width: 100%;
-      max-width: 480px;
+      max-width: 460px;
       display: flex;
       align-items: center;
-      gap: 14px;
-      padding: 20px 4px 12px;
+      gap: 12px;
+      padding: 16px 4px 10px;
     }
 
     .biz-logo-container {
       position: relative;
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       border-radius: var(--radius-md);
       overflow: hidden;
       flex-shrink: 0;
     }
 
     .biz-logo {
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       border-radius: var(--radius-md);
       object-fit: cover;
       border: 1px solid var(--c-border);
@@ -241,8 +241,8 @@
     }
 
     .biz-logo-placeholder {
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       border-radius: var(--radius-md);
       background: linear-gradient(135deg, #1a73e8, #1557d0);
       color: #fff;
@@ -250,7 +250,7 @@
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 22px;
+      font-size: 20px;
       box-shadow: 0 2px 8px rgba(26, 115, 232, 0.25);
       user-select: none;
     }
@@ -262,7 +262,7 @@
     }
 
     .biz-name {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
       color: #202124;
       white-space: nowrap;
@@ -271,9 +271,9 @@
     }
 
     .biz-branch {
-      font-size: 13px;
+      font-size: 12.5px;
       color: var(--c-text-muted);
-      margin-top: 2px;
+      margin-top: 1px;
     }
 
     /* ─── Language Bar ───────────────────────────────────────────────── */
@@ -282,9 +282,9 @@
       align-items: center;
       justify-content: space-between;
       width: 100%;
-      max-width: 480px;
-      margin-bottom: 8px;
-      padding: 6px 14px;
+      max-width: 460px;
+      margin-bottom: 6px;
+      padding: 6px 12px;
       background: var(--c-surface);
       border: 1px solid var(--c-border);
       border-radius: var(--radius-md);
@@ -324,30 +324,22 @@
     .screen-title {
       font-size: 19px;
       font-weight: 700;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       color: var(--c-text);
     }
 
     .screen-sub {
       font-size: 14px;
       color: var(--c-text-muted);
-      line-height: 1.5;
-    }
-
-    .section-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--c-text);
-      margin-bottom: 12px;
-      letter-spacing: 0.1px;
+      line-height: 1.45;
     }
 
     /* ─── Stars Component (Google Review Style) ───────────────────────── */
     .star-grid {
       display: flex;
       justify-content: center;
-      gap: 10px;
-      margin: 16px 0 8px;
+      gap: 8px;
+      margin: 14px 0 6px;
     }
 
     .star-btn {
@@ -364,11 +356,11 @@
     }
 
     .star-btn:hover {
-      transform: scale(1.18);
+      transform: scale(1.16);
     }
 
     .star-btn:active {
-      transform: scale(1.28);
+      transform: scale(1.26);
     }
 
     .star-btn.lit {
@@ -378,7 +370,7 @@
 
     .rating-badge {
       display: inline-block;
-      margin-top: 6px;
+      margin-top: 4px;
       padding: 4px 14px;
       border-radius: 16px;
       font-size: 13px;
@@ -404,7 +396,7 @@
     .dynamic-container {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
       width: 100%;
     }
 
@@ -412,18 +404,18 @@
       display: none;
       width: 100%;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
     .dynamic-section.active {
       display: flex;
-      animation: dynamicSectionIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: dynamicSectionIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     @keyframes dynamicSectionIn {
       0% {
         opacity: 0;
-        transform: translateY(14px) scale(0.99);
+        transform: translateY(10px) scale(0.99);
       }
       100% {
         opacity: 1;
@@ -431,28 +423,26 @@
       }
     }
 
-    /* ─── Phrase Selection & AI Generator (Dual Options Style) ───────── */
-    .phrase-main-question {
-      font-size: 14.5px;
-      font-weight: 800;
-      color: #0f172a;
-      background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
-      border: 1px solid #bfdbfe;
-      border-left: 4px solid #2563eb;
-      padding: 10px 14px;
-      border-radius: 10px;
-      margin-bottom: 12px;
-      line-height: 1.45;
+    /* ─── High-Star Review Box ────────────────────────────────────────── */
+    .review-box-card {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.03);
+    }
+
+    .review-box-header {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 8px;
     }
 
-    .phrase-main-question .question-icon {
-      font-size: 16px;
-      flex-shrink: 0;
-    }
-
+    /* AI Generated Review Button */
     .btn-ai-generate {
       position: relative;
       overflow: hidden;
@@ -461,15 +451,15 @@
       gap: 6.5px;
       background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #1d4ed8 100%);
       color: #ffffff;
-      padding: 7px 16px;
+      padding: 6.5px 14px;
       border-radius: 9999px;
-      font-size: 12.5px;
+      font-size: 12px;
       font-weight: 600;
       font-family: inherit;
       border: 1px solid #60a5fa;
       box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
       cursor: pointer;
-      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background 0.2s ease;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
@@ -493,33 +483,18 @@
     }
 
     @keyframes btnShimmerSweep {
-      0% {
-        left: -120%;
-      }
-      38% {
-        left: 210%;
-      }
-      100% {
-        left: 210%;
-      }
+      0% { left: -120%; }
+      38% { left: 210%; }
+      100% { left: 210%; }
     }
 
     .btn-ai-generate:hover {
-      transform: translateY(-1.5px);
-      background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
-      border-color: #93c5fd;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
     }
 
     .btn-ai-generate:active {
       transform: scale(0.97);
-    }
-
-    .btn-ai-generate.active {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
-      border-color: #bfdbfe;
-      box-shadow: 0 0 0 2.5px rgba(59, 130, 246, 0.4), 0 4px 14px rgba(30, 58, 138, 0.35);
-      font-weight: 700;
     }
 
     .btn-ai-generate.pulse-active {
@@ -528,173 +503,149 @@
 
     @keyframes aiPulse {
       0% { transform: scale(0.97); }
-      50% { transform: scale(1.03); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.45), 0 8px 20px rgba(37, 99, 235, 0.4); }
+      50% { transform: scale(1.04); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4), 0 8px 18px rgba(37, 99, 235, 0.35); }
       100% { transform: scale(1); }
     }
 
     .btn-ai-generate .ai-sparkle {
-      font-size: 13.5px;
+      font-size: 13px;
       line-height: 1;
       display: inline-block;
       animation: sparkleSpin 3s infinite ease-in-out;
     }
 
     @keyframes sparkleSpin {
-      0%, 100% {
-        transform: scale(1) rotate(0deg);
-      }
-      50% {
-        transform: scale(1.28) rotate(16deg);
-      }
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(1.28) rotate(16deg); }
     }
 
-    .topic-divider {
-      display: flex;
-      align-items: center;
-      text-align: center;
-      color: #64748b;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      margin: 26px 0 20px;
-      text-transform: uppercase;
-    }
-
-    .topic-divider::before,
-    .topic-divider::after {
-      content: '';
-      flex: 1;
-      border-bottom: 1.5px solid #e2e8f0;
-    }
-
-    .topic-divider::before {
-      margin-right: 14px;
-    }
-
-    .topic-divider::after {
-      margin-left: 14px;
-    }
-
-    .topic-prompt-question {
-      font-size: 15px;
-      font-weight: 800;
-      color: #0f172a;
-      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0fdfa 100%);
-      border: 1px solid #bbf7d0;
-      border-left: 4px solid #10b981;
-      padding: 12px 16px;
-      border-radius: 10px;
-      margin: 20px 0 18px;
-      line-height: 1.45;
-      letter-spacing: -0.01em;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      box-shadow: 0 2px 10px rgba(16, 185, 129, 0.08);
-    }
-
-    .topic-prompt-question .topic-prompt-icon {
-      font-size: 17px;
-      flex-shrink: 0;
-    }
-
-    #chip-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .chip {
-      background: #f0f7ff;
-      border: 1.5px solid #bfdbfe;
-      color: #1e293b;
-      padding: 6.5px 14px;
-      border-radius: 9999px;
-      font-size: 12.5px;
+    /* Refresh Button Pill on Right */
+    .btn-refresh-pill {
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      color: #334155;
+      font-size: 12px;
       font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 9999px;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+      gap: 5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
 
-    .chip:hover {
-      background: #e0f2fe;
-      border-color: #93c5fd;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+    .btn-refresh-pill:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+      color: #0f172a;
+      transform: translateY(-1px);
     }
 
-    .chip:active {
-      transform: scale(0.96);
+    .btn-refresh-pill:active {
+      background: #f1f5f9;
+      transform: scale(0.97);
     }
 
-    .chip.selected {
-      background: #eff6ff;
-      border-color: #2563eb;
-      color: #1d4ed8;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
-      font-weight: 700;
+    .refresh-icon {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    .chip-emoji {
-      font-size: 13.5px;
-      line-height: 1;
+    .btn-refresh-pill:active .refresh-icon,
+    .refresh-icon.spinning {
+      transform: rotate(180deg);
     }
 
-    /* ─── Textarea & Buttons ─────────────────────────────────────────── */
     textarea {
-      width: 100%;
-      background: #ffffff;
-      border: 1px solid var(--c-border);
-      border-radius: var(--radius-sm);
-      color: var(--c-text);
+      width: 100% !important;
+      display: block;
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: var(--radius-md);
+      color: #0f172a;
       font-family: var(--font);
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.6;
-      padding: 12px 14px;
-      resize: vertical;
+      padding: 14px 16px;
       outline: none;
-      transition: border-color var(--transition), box-shadow var(--transition);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      box-sizing: border-box !important;
     }
 
     textarea:focus {
-      border-color: var(--c-accent);
-      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+      background: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
     }
 
+    textarea#review-text {
+      min-height: 135px;
+      resize: none;
+      overflow-y: hidden;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, height 0.15s ease;
+    }
+
+    textarea#wa-text {
+      min-height: 110px;
+      resize: vertical;
+      margin: 6px 0 2px;
+    }
+
+    .review-footer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2px;
+      font-size: 11.5px;
+      color: #64748b;
+    }
+
+    .review-stats-badge {
+      font-weight: 500;
+    }
+
+    .editable-hint {
+      font-weight: 500;
+      color: #94a3b8;
+    }
+
+    /* ─── Buttons & Action Controls ──────────────────────────────────── */
     .btn {
       width: 100%;
       padding: 14px;
-      border-radius: 24px;
+      border-radius: 28px;
       border: none;
       font-family: var(--font);
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: 0.25px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+      transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
 
     .btn-google {
-      background: #1a73e8;
-      color: #fff;
-      box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+      background: linear-gradient(135deg, #1a73e8 0%, #1557d0 100%);
+      color: #ffffff;
+      padding: 15px 20px;
+      box-shadow: 0 4px 14px rgba(26, 115, 232, 0.35), 0 1px 3px rgba(60, 64, 67, 0.15);
     }
 
     .btn-google:hover {
-      background: #1557d0;
-      box-shadow: 0 2px 6px rgba(60, 64, 67, 0.3), 0 6px 12px 4px rgba(60, 64, 67, 0.15);
+      background: linear-gradient(135deg, #1557d0 0%, #174ea6 100%);
+      box-shadow: 0 6px 18px rgba(26, 115, 232, 0.45);
       transform: translateY(-1px);
     }
 
@@ -706,6 +657,8 @@
     .btn-whatsapp {
       background: #25d366;
       color: #fff;
+      font-size: 14.5px;
+      font-weight: 600;
       box-shadow: 0 1px 3px rgba(37, 211, 102, 0.3), 0 4px 8px rgba(37, 211, 102, 0.15);
     }
 
@@ -723,6 +676,8 @@
       border: 1px solid var(--c-border);
       color: var(--c-text-muted);
       font-weight: 500;
+      font-size: 13.5px;
+      padding: 11px;
     }
 
     .btn-outline:hover {
@@ -741,11 +696,12 @@
       background: #f8f9fa;
       border: 1px solid var(--c-border);
       border-radius: var(--radius-md);
-      padding: 10px 14px;
+      padding: 9px 12px;
       cursor: pointer;
       user-select: none;
       transition: border-color var(--transition), background var(--transition);
       -webkit-tap-highlight-color: transparent;
+      margin-top: 2px;
     }
 
     .tos-card:hover {
@@ -764,7 +720,7 @@
       font-weight: 600;
       color: var(--c-text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.5px;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -796,7 +752,7 @@
     .tos-card.expanded .tos-body {
       max-height: 350px;
       opacity: 1;
-      margin-top: 10px;
+      margin-top: 8px;
     }
 
     .tos-list {
@@ -831,11 +787,11 @@
     }
 
     .big-icon {
-      font-size: 50px;
-      margin-bottom: 14px;
+      font-size: 48px;
+      margin-bottom: 12px;
     }
 
-    /* ─── Micro-Interactions, Live Stats, Empathy Tags & Confetti ───────── */
+    /* ─── Micro-Interactions, Empathy Tags & Confetti ─────────────────── */
     #confetti-canvas {
       position: fixed;
       top: 0;
@@ -846,47 +802,18 @@
       z-index: 999999;
     }
 
-    .review-stats-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 8px;
-      padding: 0 4px;
-      font-size: 12px;
-      color: #64748b;
-      font-weight: 500;
-    }
-
-    .review-stats-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: #f1f5f9;
-      padding: 3px 9px;
-      border-radius: 6px;
-      border: 1px solid #e2e8f0;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .review-stats-badge.pulse {
-      background: #dbeafe;
-      color: #1d4ed8;
-      border-color: #93c5fd;
-      transform: scale(1.06);
-    }
-
     .empathy-tag-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin: 14px 0 12px;
+      gap: 7px;
+      margin: 12px 0 10px;
     }
 
     .empathy-chip {
       background: #f8fafc;
       border: 1.5px solid #cbd5e1;
       color: #334155;
-      padding: 6.5px 13px;
+      padding: 6px 12px;
       border-radius: 20px;
       font-size: 12px;
       font-weight: 600;
@@ -953,13 +880,13 @@
     }
 
     @keyframes textGlow {
-      0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
-      50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.25); border-color: #2563eb; }
-      100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+      0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); background: #ffffff; }
+      50% { box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2); border-color: #2563eb; background: #eff6ff; }
+      100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); background: #f8fafc; }
     }
 
     .glow-highlight {
-      animation: textGlow 0.65s ease;
+      animation: textGlow 0.5s ease;
     }
 
     @keyframes starPop {
@@ -1029,8 +956,7 @@
         <div class="big-icon">✨</div>
         <div class="screen-title" id="lbl-done-title">Feedback Submitted!</div>
         <p class="screen-sub" id="lbl-done-sub">Thank you! Your feedback has been received and helps us serve you better.</p>
-        <div class="divider"></div>
-        <div style="font-size:13px; color:var(--c-text-muted);">You may now safely close this window.</div>
+        <div style="font-size:13px; color:var(--c-text-muted); margin-top:14px;">You may now safely close this window.</div>
       </div>
     </div>
 
@@ -1058,46 +984,41 @@
       <!-- Dynamic Section Container (Reveals & changes underneath stars with smooth animation) -->
       <div id="dynamic-content" class="dynamic-container" style="display:none;">
 
-        <!-- Section A: Google Maps Path (High Rating) -->
+        <!-- Section A: Google Maps Path (High Rating 4-5 Stars) -->
         <div id="section-high" class="dynamic-section">
           
-          <div class="card" id="phrase-selection-card">
-            <!-- Highlighted Question inspiring 1-Tap AI Review -->
-            <div class="phrase-main-question" id="lbl-main-question">
-              <span class="question-icon">⚡</span>
-              <span id="lbl-main-question-text">Want a quick 5-star review in 1 tap?</span>
-            </div>
-
-            <!-- Option 1: AI Generated Review Button (compact chip size) -->
-            <div style="margin-bottom: 2px;">
+          <!-- Single Review Box Card -->
+          <div class="review-box-card" id="review-card">
+            <!-- Header with AI Generated Review button on left & Refresh on right -->
+            <div class="review-box-header">
               <button type="button" class="btn-ai-generate" id="btn-ai-generate">
                 <span class="ai-sparkle">✨</span> <span id="lbl-ai-btn">AI Generated Review</span>
               </button>
+              <button type="button" class="btn-refresh-pill" id="btn-refresh-phrase" title="Generate another review">
+                <svg class="refresh-icon" id="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                <span id="lbl-refresh-phrase">Refresh</span>
+              </button>
             </div>
 
-            <!-- Divider -->
-            <div class="topic-divider">
-              <span id="lbl-pick-topic">OR PICK TOPICS MANUALLY</span>
-            </div>
-
-            <!-- Question inspiring customers to tap topic chips -->
-            <div class="topic-prompt-question">
-              <span class="topic-prompt-icon">💬</span>
-              <span id="lbl-topic-question">What made your experience special today?</span>
-            </div>
-
-            <!-- Option 2: Category Chips Grid -->
-            <div id="chip-grid"></div>
-          </div>
-
-          <div class="card" id="review-card">
-            <div class="section-title" id="lbl-your-review">Your review (feel free to edit)</div>
-            <textarea id="review-text" rows="5" placeholder="Write your review here, or select categories above for quick suggestions…"></textarea>
-            <div class="review-stats-bar">
+            <!-- Single editable review textarea -->
+            <textarea id="review-text" rows="4" placeholder="Write your review here or use suggestion…"></textarea>
+            
+            <div class="review-footer-bar">
               <span class="review-stats-badge" id="word-count-badge">📝 0 words</span>
-              <span class="review-stats-badge" id="char-count-badge">0 characters</span>
+              <span class="editable-hint" id="lbl-editable-hint">Tap text to edit</span>
             </div>
           </div>
+
+          <!-- Primary Call to Action Button: Large prominent Google button -->
+          <button type="button" class="btn btn-google" id="btn-google-post">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M21.35 11.1H12.18V13.83H18.69C18.36 17.64 15.19 19.27 12.19 19.27C8.36 19.27 5 16.25 5 12C5 7.9 8.2 4.73 12.2 4.73C15.29 4.73 17.1 6.7 17.1 6.7L19 4.72C19 4.72 16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12C2.03 17.05 6.16 22 12.25 22C17.6 22 21.5 18.33 21.5 12.91C21.5 11.76 21.35 11.1 21.35 11.1Z" />
+            </svg>
+            <span id="lbl-google-post">Copy & Post to Google</span>
+          </button>
 
           <!-- Expandable Review Integrity Policy -->
           <div class="card tos-card" id="tos-card" role="button" aria-expanded="false" tabindex="0">
@@ -1119,16 +1040,9 @@
             </div>
           </div>
 
-          <button class="btn btn-google" id="btn-google-post">
-            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M21.35 11.1H12.18V13.83H18.69C18.36 17.64 15.19 19.27 12.19 19.27C8.36 19.27 5 16.25 5 12C5 7.9 8.2 4.73 12.2 4.73C15.29 4.73 17.1 6.7 17.1 6.7L19 4.72C19 4.72 16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12C2.03 17.05 6.16 22 12.25 22C17.6 22 21.5 18.33 21.5 12.91C21.5 11.76 21.35 11.1 21.35 11.1Z" />
-            </svg>
-            <span id="lbl-google-post">Copy & Open Google Maps</span>
-          </button>
         </div>
 
-        <!-- Section B: Direct Feedback / Empathy Management Path (Low Rating) -->
+        <!-- Section B: Direct Feedback / Empathy Management Path (Low Rating 1-3 Stars) -->
         <div id="section-low-wa" class="dynamic-section">
           <div class="card" style="border-top: 3px solid #ef4444;">
             <div style="display:flex; align-items:center; gap:8px;">
@@ -1184,7 +1098,7 @@
         <div class="big-icon">✅</div>
         <div class="screen-title" id="lbl-posted-title">Almost there!</div>
         <p class="screen-sub" id="lbl-posted-sub">Your review has been copied. Opening Google Maps — just paste and post!</p>
-        <div style="margin-top:20px;">
+        <div style="margin-top:20px; width:100%;">
           <a id="btn-reopen-google" href="#" class="btn btn-google" style="text-decoration:none; display:inline-flex; justify-content:center; align-items:center; gap:8px;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
             <span id="lbl-reopen-google">Open Google Maps</span>
@@ -1201,7 +1115,7 @@
   <!-- ─── Firebase SDK (modular) ────────────────────────────────────────────── -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-    import { getFirestore, doc, getDoc, getDocs, addDoc, updateDoc, collection, increment, serverTimestamp, connectFirestoreEmulator }
+    import { getFirestore, doc, getDoc, getDocs, addDoc, collection, serverTimestamp, connectFirestoreEmulator }
       from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
     // ─── Firebase config (injected via firebase-config.js) ───────────────────
@@ -1219,6 +1133,17 @@
       connectFirestoreEmulator(db, '127.0.0.1', 8080);
     }
 
+    // ─── Fallback Curated Phrases (Instant, offline-safe resilience) ────────
+    const DEFAULT_FALLBACK_PHRASES = [
+      "Excellent service and wonderful experience! Highly recommended.",
+      "Outstanding quality and friendly staff. Will definitely visit again!",
+      "Great atmosphere, prompt service, and top-notch quality.",
+      "Really impressed with the hospitality and attention to detail. 5 stars!",
+      "Fantastic experience from start to finish. Keep up the great work!",
+      "Superb quality, clean ambiance, and courteous service.",
+      "Always a pleasure visiting here. Consistently great experience!"
+    ];
+
     // ─── UI Strings Dictionary (EN, HI, GU) ──────────────────────────────────
     const UI_STRINGS = {
       en: {
@@ -1226,14 +1151,11 @@
         landingTitle: "Thank you for visiting!",
         landingSub: "How was your experience today?",
         ratingLabels: ["1 Star • Disappointed", "2 Stars • Could be better", "3 Stars • Good", "4 Stars • Great!", "5 Stars • Excellent!"],
-        mainQuestion: "Want a quick 5-star review in 1 tap?",
         aiReviewBtn: "AI Generated Review",
-        pickTopic: "OR PICK TOPICS MANUALLY",
-        topicQuestion: "What made your experience special today?",
-        whatLoved: "What did you love? (select all that apply)",
-        yourReview: "Your review (feel free to edit)",
-        reviewPlaceholder: "Write your review here, or tap categories above for suggestions…",
-        googlePost: "Copy & Open Google Maps",
+        refreshPhrase: "Refresh",
+        editableHint: "Tap text to edit",
+        reviewPlaceholder: "Write your review here or use suggestion…",
+        googlePost: "Copy & Post to Google",
         postedTitle: "Almost there!",
         postedSub: "Your review has been copied. Opening Google Maps — just paste and post!",
         reopenGoogle: "Open Google Maps",
@@ -1259,14 +1181,11 @@
         landingTitle: "आने के लिए धन्यवाद!",
         landingSub: "आज आपका अनुभव कैसा रहा?",
         ratingLabels: ["1 स्टार • असंतोषजनक", "2 स्टार • बेहतर हो सकता है", "3 स्टार • अच्छा", "4 स्टार • बहुत अच्छा!", "5 स्टार • उत्कृष्ट!"],
-        mainQuestion: "क्या आप 1 टैप में तुरंत 5-स्टार समीक्षा चाहते हैं?",
         aiReviewBtn: "AI जनरेटेड समीक्षा",
-        pickTopic: "या विषय स्वयं चुनें",
-        topicQuestion: "आज आपके अनुभव को क्या खास बनाया?",
-        whatLoved: "आपको क्या पसंद आया? (सभी उपयुक्त चुनें)",
-        yourReview: "आपकी समीक्षा (आप संपादन कर सकते हैं)",
-        reviewPlaceholder: "अपनी समीक्षा यहां लिखें, या सुझावों के लिए ऊपर श्रेणियां चुनें…",
-        googlePost: "कॉपी करें और गूगल मैप्स खोलें",
+        refreshPhrase: "रिफ्रेश",
+        editableHint: "संपादन के लिए टैप करें",
+        reviewPlaceholder: "अपनी समीक्षा यहां लिखें या सुझाव का उपयोग करें…",
+        googlePost: "कॉपी करें और गूगल पर पोस्ट करें",
         postedTitle: "बस एक कदम दूर!",
         postedSub: "आपकी समीक्षा कॉपी हो गई है। गूगल मैप्स खुलेगा — बस पेस्ट करें और पोस्ट करें!",
         reopenGoogle: "गूगल मैप्स खोलें",
@@ -1292,14 +1211,11 @@
         landingTitle: "મુલાકાત માટે આભાર!",
         landingSub: "આજે તમારો અનુભવ કેવો રહ્યો?",
         ratingLabels: ["1 સ્ટાર • અસંતોષકારક", "2 સ્ટાર • સુધારી શકાય", "3 સ્ટાર • સારું", "4 સ્ટાર • ખૂબ સરસ!", "5 સ્ટાર • ઉત્તમ!"],
-        mainQuestion: "શું તમે 1 ટૅપમાં ઝડપી 5-સ્ટાર સમીક્ષા મેળવવા માંગો છો?",
         aiReviewBtn: "AI જનરેટેડ સમીક્ષા",
-        pickTopic: "અથવા વિષય જાતે પસંદ કરો",
-        topicQuestion: "આજે તમારો અનુભવ શેના કારણે ખાસ રહ્યો?",
-        whatLoved: "તમને શું પસંદ આવ્યું? (લાગુ પડતા તમામ પસંદ કરો)",
-        yourReview: "તમારી સમીક્ષા (તમે ફેરફાર કરી શકો છો)",
-        reviewPlaceholder: "તમારી સમીક્ષા અહીં લખો, અથવા સૂચનો માટે ઉપરના કેટેગરીઝ પસંદ કરો…",
-        googlePost: "કોપી કરો અને ગુગલ મેપ્સ ખોલો",
+        refreshPhrase: "રિફ્રેશ",
+        editableHint: "ફેરફાર કરવા માટે ટેપ કરો",
+        reviewPlaceholder: "તમારી સમીક્ષા અહીં લખો અથવા સૂચન વાપરો…",
+        googlePost: "કોપી કરો અને ગુગલ પર પોસ્ટ કરો",
         postedTitle: "બસ એક પગલું દૂર!",
         postedSub: "તમારી સમીક્ષા કોપી થઈ ગઈ છે. ગુગલ મેપ્સ ખુલશે — બસ પેસ્ટ કરો અને પોસ્ટ કરો!",
         reopenGoogle: "ગુગલ મેપ્સ ખોલો",
@@ -1335,8 +1251,8 @@
       assignedPoolVersion: 'v1',
       lang: 'en',
       starRating: 0,
-      selectedCategories: new Set(),
-      phraseMap: {},
+      currentReviewText: '',
+      hasUserEdited: false,
       sessionToken: null,
       submitted: false,
     };
@@ -1369,7 +1285,7 @@
         target.style.flexDirection = 'column';
         target.style.alignItems = 'stretch';
         target.style.width = '100%';
-        target.style.paddingTop = '24px';
+        target.style.paddingTop = '20px';
       } else {
         target.style.display = 'flex';
         target.classList.add('active');
@@ -1443,12 +1359,9 @@
       $('lbl-lang-label').textContent = dict.langLabel;
       $('lbl-landing-title').textContent = dict.landingTitle;
       $('lbl-landing-sub').textContent = dict.landingSub;
-      if ($('lbl-main-question-text')) $('lbl-main-question-text').textContent = dict.mainQuestion || "Want a quick 5-star review in 1 tap?";
       if ($('lbl-ai-btn')) $('lbl-ai-btn').textContent = dict.aiReviewBtn || "AI Generated Review";
-      if ($('lbl-pick-topic')) $('lbl-pick-topic').textContent = dict.pickTopic || "OR PICK TOPICS MANUALLY";
-      if ($('lbl-topic-question')) $('lbl-topic-question').textContent = dict.topicQuestion || "What made your experience special today?";
-      if ($('lbl-what-loved')) $('lbl-what-loved').textContent = dict.whatLoved;
-      $('lbl-your-review').textContent = dict.yourReview;
+      if ($('lbl-refresh-phrase')) $('lbl-refresh-phrase').textContent = dict.refreshPhrase || "Refresh";
+      if ($('lbl-editable-hint')) $('lbl-editable-hint').textContent = dict.editableHint || "Tap text to edit";
       $('review-text').placeholder = dict.reviewPlaceholder;
       $('lbl-google-post').textContent = dict.googlePost;
       $('lbl-posted-title').textContent = dict.postedTitle;
@@ -1478,17 +1391,6 @@
       if (state.starRating > 0) {
         updateRatingBadge(state.starRating);
       }
-
-      if (state.template) {
-        buildChips();
-        state.selectedCategories.forEach(catIdx => {
-          const cat = state.template.categories[catIdx];
-          if (cat) {
-            state.phraseMap[catIdx] = pickPhraseForCategory(cat);
-          }
-        });
-        rebuildReviewText();
-      }
     }
 
     document.querySelectorAll('.lang-btn').forEach(btn => {
@@ -1499,7 +1401,7 @@
       });
     });
 
-    // ─── Phrase Pool Resolution per Category / Lang / Version ─────────────────
+    // ─── Multi-Category Review Generator (Always 2–7 Categories) ──────────────
     function getCategoryPhrasePool(cat) {
       const lang = ENABLE_TRANSLATIONS ? state.lang : 'en';
       const ver = state.assignedPoolVersion;
@@ -1521,38 +1423,107 @@
       return cat.phrase_pool || [];
     }
 
-    function getCategoryDisplayName(cat) {
-      const lang = ENABLE_TRANSLATIONS ? state.lang : 'en';
-      if (lang !== 'en' && cat.translations && cat.translations[lang] && cat.translations[lang].name) {
-        return cat.translations[lang].name;
+    function generateMultiCategoryReview(excludeCurrent = true) {
+      if (!state.template || !Array.isArray(state.template.categories) || state.template.categories.length === 0) {
+        // Fallback to random default phrase
+        let fallback = DEFAULT_FALLBACK_PHRASES[Math.floor(Math.random() * DEFAULT_FALLBACK_PHRASES.length)];
+        if (excludeCurrent && fallback === state.currentReviewText && DEFAULT_FALLBACK_PHRASES.length > 1) {
+          fallback = DEFAULT_FALLBACK_PHRASES.filter(p => p !== state.currentReviewText)[0] || fallback;
+        }
+        return fallback;
       }
-      return cat.name;
+
+      const allCategories = [...state.template.categories];
+      const totalAvailable = allCategories.length;
+
+      // Weighted distribution: 60% time 1-3 categories, 40% time 4-7 categories
+      const isShort = Math.random() < 0.60;
+      let minCount, maxCount;
+      if (isShort) {
+        minCount = 1;
+        maxCount = Math.min(totalAvailable, 3);
+      } else {
+        minCount = Math.min(totalAvailable, 4);
+        maxCount = Math.min(totalAvailable, 7);
+      }
+
+      if (minCount > maxCount) minCount = maxCount;
+      const targetCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+
+      // Fisher-Yates shuffle categories
+      const shuffled = [...allCategories];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      const selectedCategories = shuffled.slice(0, targetCount);
+      const selectedPhrases = [];
+
+      selectedCategories.forEach(cat => {
+        const pool = getCategoryPhrasePool(cat);
+        if (pool && pool.length > 0) {
+          const phrase = pool[Math.floor(Math.random() * pool.length)];
+          if (phrase && typeof phrase === 'string' && phrase.trim().length > 0) {
+            selectedPhrases.push(phrase.trim());
+          }
+        }
+      });
+
+      let assembledText = selectedPhrases.join(' ');
+      if (!assembledText) {
+        assembledText = DEFAULT_FALLBACK_PHRASES[Math.floor(Math.random() * DEFAULT_FALLBACK_PHRASES.length)];
+      }
+
+      // If assembledText happens to match current exactly, re-roll phrase variants
+      if (excludeCurrent && assembledText === state.currentReviewText && selectedPhrases.length > 0) {
+        const altPhrases = [];
+        selectedCategories.forEach(cat => {
+          const pool = getCategoryPhrasePool(cat);
+          if (pool && pool.length > 1) {
+            const alt = pool[Math.floor(Math.random() * pool.length)];
+            altPhrases.push(alt.trim());
+          }
+        });
+        if (altPhrases.length > 0) {
+          assembledText = altPhrases.join(' ');
+        }
+      }
+
+      return assembledText;
     }
 
-    function getCategoryEmoji(name) {
-      if (!name) return '⭐';
-      const emojiRegex = /(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u;
-      if (emojiRegex.test(name)) return '';
+    function updateGeneratedReview(triggerType = null) {
+      const isUserAction = Boolean(triggerType);
+      const newText = generateMultiCategoryReview(isUserAction);
+      state.currentReviewText = newText;
+      state.hasUserEdited = false;
 
-      const lower = name.toLowerCase();
-      if (lower.includes('ice cream') || lower.includes('icecream') || lower.includes('dessert') || lower.includes('shake')) return '🍦';
-      if (lower.includes('taste') || lower.includes('food') || lower.includes('dining') || lower.includes('menu') || lower.includes('dish') || lower.includes('flavor')) return '🍽️';
-      if (lower.includes('quality') || lower.includes('standard') || lower.includes('fresh')) return '⭐';
-      if (lower.includes('service') || lower.includes('hospitality') || lower.includes('staff') || lower.includes('polite') || lower.includes('care') || lower.includes('welcome')) return '😊';
-      if (lower.includes('doctor') || lower.includes('clinic') || lower.includes('treatment') || lower.includes('health') || lower.includes('dental') || lower.includes('nurse')) return '👨‍⚕️';
-      if (lower.includes('speed') || lower.includes('fast') || lower.includes('quick') || lower.includes('delivery') || lower.includes('prompt')) return '⚡';
-      if (lower.includes('clean') || lower.includes('hygiene') || lower.includes('sanitization') || lower.includes('tidy')) return '🧼';
-      if (lower.includes('atmosphere') || lower.includes('ambiance') || lower.includes('vibe') || lower.includes('environment') || lower.includes('place') || lower.includes('decor')) return '🏪';
-      if (lower.includes('value') || lower.includes('price') || lower.includes('money') || lower.includes('cost') || lower.includes('affordable') || lower.includes('pocket')) return '💰';
-      if (lower.includes('hair') || lower.includes('salon') || lower.includes('style') || lower.includes('beauty') || lower.includes('spa')) return '✂️';
-      if (lower.includes('product') || lower.includes('collection') || lower.includes('retail') || lower.includes('shop') || lower.includes('variety')) return '🛍️';
-      return '⭐';
-    }
+      const ta = $('review-text');
+      if (ta) {
+        ta.value = newText;
+        if (isUserAction) {
+          ta.classList.add('glow-highlight');
+          setTimeout(() => ta.classList.remove('glow-highlight'), 500);
+        }
+      }
 
-    function pickPhraseForCategory(cat) {
-      const pool = getCategoryPhrasePool(cat);
-      if (!pool.length) return '';
-      return pool[Math.floor(Math.random() * pool.length)];
+      // Only trigger visual animation for the specific button that was clicked
+      if (triggerType === 'ai') {
+        const aiBtn = $('btn-ai-generate');
+        if (aiBtn) {
+          aiBtn.classList.add('pulse-active');
+          setTimeout(() => aiBtn.classList.remove('pulse-active'), 400);
+        }
+      } else if (triggerType === 'refresh') {
+        const icon = $('refresh-icon');
+        if (icon) {
+          icon.classList.add('spinning');
+          setTimeout(() => icon.classList.remove('spinning'), 400);
+        }
+      }
+
+      updateReviewStats();
     }
 
     // ─── Micro-Interactions: Haptics & Confetti Engine ───────────────────────
@@ -1561,9 +1532,9 @@
         const v = navigator.vibrate || navigator.webkitVibrate || navigator.mozVibrate || navigator.msVibrate;
         if (v) {
           if (type === 'light') {
-            navigator.vibrate(45); // 45ms is the optimal threshold for smartphone LRA/ERM vibration motors
+            navigator.vibrate(40);
           } else if (type === 'medium') {
-            navigator.vibrate([45, 35, 45]);
+            navigator.vibrate([40, 30, 40]);
           } else if (type === 'success') {
             navigator.vibrate([50, 40, 70]);
           }
@@ -1580,7 +1551,7 @@
       const ctx = canvas.getContext('2d');
       const colors = ['#1a73e8', '#ea4335', '#fbbc04', '#34a853', '#9333ea', '#ec4899', '#3b82f6'];
       const particles = [];
-      const particleCount = 110;
+      const particleCount = 100;
 
       for (let i = 0; i < particleCount; i++) {
         particles.push({
@@ -1608,11 +1579,11 @@
         particles.forEach(p => {
           p.x += p.vx;
           p.y += p.vy;
-          p.vy += 0.48; // gravity
-          p.vx *= 0.98; // air resistance
+          p.vy += 0.48;
+          p.vx *= 0.98;
           p.rotation += p.rotSpeed;
-          if (elapsed > 1100) {
-            p.opacity = Math.max(0, p.opacity - 0.035);
+          if (elapsed > 1000) {
+            p.opacity = Math.max(0, p.opacity - 0.04);
           }
 
           if (p.opacity > 0 && p.y < canvas.height + 50) {
@@ -1633,7 +1604,7 @@
           }
         });
 
-        if (alive && elapsed < 2500) {
+        if (alive && elapsed < 2200) {
           animationFrame = requestAnimationFrame(render);
         } else {
           cancelAnimationFrame(animationFrame);
@@ -1645,45 +1616,50 @@
       render();
     }
 
-    // ─── Live Word & Character Counter ───────────────────────────────────────
+    // ─── Live Word Counter & Auto-Resizing Box ─────────────────────────────
+    function autoResizeTextarea() {
+      const ta = $('review-text');
+      if (!ta) return;
+      ta.style.height = 'auto';
+      const targetH = Math.max(135, ta.scrollHeight);
+      ta.style.height = `${targetH}px`;
+    }
+
     function updateReviewStats() {
       const ta = $('review-text');
       const wordBadge = $('word-count-badge');
-      const charBadge = $('char-count-badge');
-      if (!ta || !wordBadge || !charBadge) return;
+      if (!ta) return;
 
+      autoResizeTextarea();
+
+      if (!wordBadge) return;
       const text = ta.value.trim();
       const words = text.length > 0 ? text.split(/\s+/).filter(Boolean).length : 0;
-      const chars = ta.value.length;
-
       wordBadge.textContent = `📝 ${words} word${words === 1 ? '' : 's'}`;
-      charBadge.textContent = `${chars} character${chars === 1 ? '' : 's'}`;
-
-      wordBadge.classList.add('pulse');
-      setTimeout(() => wordBadge.classList.remove('pulse'), 220);
     }
+
+    $('review-text').addEventListener('input', () => {
+      state.hasUserEdited = true;
+      state.currentReviewText = $('review-text').value;
+      updateReviewStats();
+    });
 
     // ─── WhatsApp Phone Number Formatter & Validator ────────────────────────
     function formatWaNumber(phone) {
       if (!phone) return '';
       let clean = String(phone).replace(/[^0-9]/g, '');
-      // Strip leading 0 if present (e.g. 09876543210 -> 9876543210)
       if (clean.startsWith('0')) clean = clean.substring(1);
 
-      // If exactly 10 digits starting with 6-9, prepend standard country code 91
       if (/^[6-9]\d{9}$/.test(clean)) {
         return '91' + clean;
       }
-      // If 12 digits starting with 91 followed by 6-9, it is already valid
       if (/^91[6-9]\d{9}$/.test(clean)) {
         return clean;
       }
-
-      // Invalid number format (e.g. 1234 or garbage) -> return empty to avoid broken URL
       return '';
     }
 
-    // ─── Empathy Issue Tags Selection ────────────────────────────────────────
+    // ─── Empathy Issue Tags Selection (Low Rating Path) ──────────────────────
     const selectedEmpathyTags = new Set();
     let empathyTagsInitialized = false;
 
@@ -1744,7 +1720,6 @@
         const prevRating = state.starRating;
         state.starRating = rating;
 
-        // If star rating changed, always reset negative feedback chips & details note
         if (prevRating !== rating) {
           resetNegativeFeedback();
         }
@@ -1767,7 +1742,7 @@
 
       dynamicContainer.style.display = 'flex';
 
-      // Hide all sub-sections first & remove active class
+      // Hide all sub-sections first
       [secHigh, secLowWa, secLowThanks].forEach(el => {
         el.classList.remove('active');
         el.style.display = 'none';
@@ -1776,8 +1751,10 @@
       let targetSection;
       if (route === 'google') {
         targetSection = secHigh;
-        buildChips();
-        rebuildReviewText();
+        // Pre-fill a multi-category review if empty or not manually typed
+        if (!state.hasUserEdited || !$('review-text').value.trim()) {
+          updateGeneratedReview(null);
+        }
       } else if (route === 'whatsapp') {
         targetSection = secLowWa;
         initEmpathyTags();
@@ -1787,174 +1764,73 @@
 
       if (targetSection) {
         targetSection.style.display = 'flex';
-        // Force reflow so the transition animation replays smoothly
-        void targetSection.offsetWidth;
+        void targetSection.offsetWidth; // Force reflow for smooth animation
         targetSection.classList.add('active');
       }
     }
 
-    // ─── Category chips & Text Assembly (Randomized Order) ───────────────────
-    function buildChips() {
-      if (!state.template || !state.shuffledCategories) return;
-      const grid = $('chip-grid');
-      grid.innerHTML = '';
-
-      state.shuffledCategories.forEach(({ cat, originalIdx }) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'chip';
-        const emoji = getCategoryEmoji(cat.name);
-        const displayName = getCategoryDisplayName(cat);
-
-        if (emoji) {
-          const spanEmoji = document.createElement('span');
-          spanEmoji.className = 'chip-emoji';
-          spanEmoji.textContent = emoji;
-          btn.appendChild(spanEmoji);
-          btn.appendChild(document.createTextNode(' '));
-        }
-
-        const spanText = document.createElement('span');
-        spanText.textContent = displayName;
-        btn.appendChild(spanText);
-
-        if (state.selectedCategories.has(originalIdx)) {
-          btn.classList.add('selected');
-        }
-        btn.addEventListener('pointerdown', () => triggerHaptic('light'), { passive: true });
-        btn.addEventListener('click', () => toggleChip(cat, originalIdx, btn));
-        grid.appendChild(btn);
-      });
-    }
-
-    function toggleChip(cat, idx, btn) {
-      triggerHaptic('light');
-      const aiBtn = $('btn-ai-generate');
-      if (aiBtn) aiBtn.classList.remove('active');
-
-      // If user was in AI generated mode, reset and start fresh with manual chips
-      if (state.isAiMode) {
-        state.isAiMode = false;
-        state.selectedCategories.clear();
-        state.phraseMap = {};
-        document.querySelectorAll('#chip-grid .chip').forEach(c => c.classList.remove('selected'));
-      }
-
-      if (state.selectedCategories.has(idx)) {
-        state.selectedCategories.delete(idx);
-        delete state.phraseMap[idx];
-        btn.classList.remove('selected');
-      } else {
-        state.selectedCategories.add(idx);
-        state.phraseMap[idx] = pickPhraseForCategory(cat);
-        btn.classList.add('selected');
-      }
-      rebuildReviewText();
-    }
-
-    function triggerAiReviewGeneration() {
-      if (!state.template || !state.shuffledCategories || !state.shuffledCategories.length) return;
+    // ─── AI Generate Button & Refresh Button Event Listeners ──────────────────
+    $('btn-ai-generate').addEventListener('click', () => {
       triggerHaptic('medium');
-
-      const aiBtn = $('btn-ai-generate');
-      if (aiBtn) {
-        aiBtn.classList.add('active');
-        aiBtn.classList.add('pulse-active');
-        setTimeout(() => aiBtn.classList.remove('pulse-active'), 400);
-      }
-
-      // Mark AI mode as active and DESELECT all manual category chips (mutual exclusion)
-      state.isAiMode = true;
-      state.selectedCategories.clear();
-      state.phraseMap = {};
-
-      const chips = document.querySelectorAll('#chip-grid .chip');
-      chips.forEach(btn => btn.classList.remove('selected'));
-
-      const allCats = [...state.shuffledCategories];
-      // Choose 3 to 5 categories at random
-      const minCount = Math.min(allCats.length, 3);
-      const maxCount = Math.min(allCats.length, 5);
-      const targetCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
-
-      // Fisher-Yates shuffle
-      const shuffled = [...allCats];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-
-      const selectedSubset = shuffled.slice(0, targetCount);
-      const generatedPhrases = [];
-
-      selectedSubset.forEach(({ cat }) => {
-        const phrase = pickPhraseForCategory(cat);
-        if (phrase) generatedPhrases.push(phrase);
-      });
-
-      const ta = $('review-text');
-      const card = $('review-card');
-      if (card) card.style.display = 'block';
-      if (ta) {
-        ta.value = generatedPhrases.join(' ');
-        ta.classList.add('glow-highlight');
-        setTimeout(() => ta.classList.remove('glow-highlight'), 600);
-      }
-      state.wasAutoGenerated = true;
-      updateReviewStats();
-    }
-
-    const btnAiGenerate = $('btn-ai-generate');
-    if (btnAiGenerate) {
-      btnAiGenerate.addEventListener('click', triggerAiReviewGeneration);
-    }
-
-    function rebuildReviewText() {
-      const ta = $('review-text');
-      const card = $('review-card');
-      card.style.display = 'block';
-
-      // Keep AI-generated review text intact
-      if (state.isAiMode) {
-        const aiBtn = $('btn-ai-generate');
-        if (aiBtn) aiBtn.classList.add('active');
-        updateReviewStats();
-        return;
-      }
-
-      if (!state.selectedCategories.size) {
-        if (state.wasAutoGenerated) {
-          ta.value = '';
-          state.wasAutoGenerated = false;
-        }
-        updateReviewStats();
-        return;
-      }
-      const phrases = [];
-      state.shuffledCategories.forEach(({ originalIdx }) => {
-        if (state.selectedCategories.has(originalIdx) && state.phraseMap[originalIdx]) {
-          phrases.push(state.phraseMap[originalIdx]);
-        }
-      });
-      ta.value = phrases.join(' ');
-      state.wasAutoGenerated = true;
-      updateReviewStats();
-    }
-
-    $('review-text').addEventListener('input', () => {
-      state.wasAutoGenerated = false;
-      state.isAiMode = false;
-      const aiBtn = $('btn-ai-generate');
-      if (aiBtn) aiBtn.classList.remove('active');
-      updateReviewStats();
+      updateGeneratedReview('ai');
     });
+
+    $('btn-refresh-phrase').addEventListener('click', () => {
+      triggerHaptic('light');
+      updateGeneratedReview('refresh');
+    });
+
+    // ─── Robust Cross-Browser Clipboard Helper ──────────────────────────────
+    async function copyTextToClipboard(text) {
+      if (!text) return true;
+      let copied = false;
+
+      // Method 1: Modern Async Clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          copied = true;
+        } catch (err) {
+          console.warn('Clipboard API writeText failed, falling back to execCommand', err);
+        }
+      }
+
+      // Method 2: execCommand fallback (especially for in-app browsers, iOS WebViews, older devices)
+      if (!copied) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.top = '0';
+          ta.style.left = '0';
+          ta.style.width = '2em';
+          ta.style.height = '2em';
+          ta.style.padding = '0';
+          ta.style.border = 'none';
+          ta.style.outline = 'none';
+          ta.style.boxShadow = 'none';
+          ta.style.background = 'transparent';
+          ta.style.opacity = '0.01';
+          ta.setAttribute('readonly', '');
+          document.body.appendChild(ta);
+
+          ta.focus();
+          ta.select();
+          ta.setSelectionRange(0, text.length);
+
+          copied = document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch (err) {
+          console.warn('execCommand copy failed', err);
+        }
+      }
+
+      return copied;
+    }
 
     // ─── Log scan to Firestore (per-business subcollection; aggregated by Cloud Function) ─
     async function logScan({ actionTaken }) {
       try {
-        // Write individual immutable scan doc to businesses/{bizId}/scans/{auto-id}
-        // Server-side onScanCreated trigger safely aggregates stats_summary on the branch
-        // expire_at enables 100% free automated background deletion via Firestore TTL (2 days)
         const expireAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
         await addDoc(collection(db, 'businesses', state.businessId, 'scans'), {
           branch_id: state.branchId,
@@ -2030,7 +1906,7 @@
       showScreen('done');
     });
 
-    // ─── Google Maps / Copy button with Confetti & Direct Navigation ───────────
+    // ─── Primary Button: "Copy & Post to Google" ──────────────────────────────
     $('btn-google-post').addEventListener('click', async () => {
       if (state.isPosting) return;
       state.isPosting = true;
@@ -2041,21 +1917,9 @@
       const btn = $('btn-google-post');
       const reviewText = $('review-text').value.trim();
 
-      // Robust clipboard copying for iOS Safari, WebViews & modern mobile browsers
+      // Robust clipboard copying for iOS Safari, WebViews & all mobile browsers
       if (reviewText) {
-        try {
-          if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(reviewText);
-          } else {
-            throw new Error('Fallback needed');
-          }
-        } catch {
-          const ta = $('review-text');
-          ta.focus();
-          ta.select();
-          ta.setSelectionRange(0, 99999);
-          document.execCommand('copy');
-        }
+        await copyTextToClipboard(reviewText);
       }
 
       btn.classList.add('copying');
@@ -2086,7 +1950,6 @@
       } else if (placeId) {
         targetUrl = `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
       } else {
-        // Graceful fallback: Search on Google Maps by business brand + branch + address
         const searchQuery = [brandName, branchName, address].filter(Boolean).join(' ');
         targetUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery || 'Google Review')}`;
       }
@@ -2099,10 +1962,9 @@
       setTimeout(() => {
         showScreen('posted');
         if (targetUrl) {
-          // Direct navigation: never blocked by iOS Safari / Camera QR scanner pop-up blockers
           window.location.href = targetUrl;
         }
-      }, 650);
+      }, 600);
     });
 
     // ─── Expandable Terms of Service / Integrity Policy Accordion ────────────
@@ -2131,7 +1993,6 @@
         businessId = parts[1];
         branchId = parts[2];
       } else if (parts.length === 2 && parts[0] === 'r') {
-        // Handle direct /r/branchId if businessId is provided in query parameter (?biz=...)
         const urlParams = new URLSearchParams(window.location.search);
         businessId = urlParams.get('biz') || urlParams.get('businessId');
         branchId = parts[1];
@@ -2170,7 +2031,7 @@
         state.business = bizSnap.data();
         state.branch = branchSnap.data();
 
-        // Check subscription status — Only active businesses and branches are allowed to collect reviews
+        // Check subscription status
         const bizStatus = state.business.subscription_status;
         const branchStatus = state.branch.subscription_status;
         if (bizStatus !== 'active' || (branchStatus && branchStatus !== 'active')) {
@@ -2197,19 +2058,6 @@
         }
 
         state.template = tplSnap.exists() ? tplSnap.data() : null;
-        if (state.template && Array.isArray(state.template.categories)) {
-          // Shuffle categories with Fisher-Yates algorithm so chip positions are randomized per visit
-          state.shuffledCategories = state.template.categories.map((cat, originalIdx) => ({
-            cat,
-            originalIdx
-          }));
-          for (let i = state.shuffledCategories.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [state.shuffledCategories[i], state.shuffledCategories[j]] = [state.shuffledCategories[j], state.shuffledCategories[i]];
-          }
-        } else {
-          state.shuffledCategories = [];
-        }
 
         // Populate header immediately
         const brandName = state.business.brand_name || 'Business';

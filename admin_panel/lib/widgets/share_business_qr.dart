@@ -45,9 +45,17 @@ class _ShareBusinessQrState extends State<ShareBusinessQr> {
   String? _qrError;
   bool _linkCopied = false;
 
-  /// The review URL: https://appnexa.co.in/r/{businessId}/{branchId}
-  String get _reviewUrl =>
-      'https://$_kReviewDomain/r/${widget.branch.businessId}/${widget.branch.id}';
+  /// The review URL: dynamic in emulator/localhost, or https://appnexa.co.in/r/{businessId}/{branchId}
+  String get _reviewUrl {
+    try {
+      final host = html.window.location.host;
+      if (host.contains('localhost') || host.contains('127.0.0.1')) {
+        final origin = html.window.location.origin;
+        return '$origin/r/${widget.branch.businessId}/${widget.branch.id}';
+      }
+    } catch (_) {}
+    return 'https://$_kReviewDomain/r/${widget.branch.businessId}/${widget.branch.id}';
+  }
 
   /// Formats a phone number for wa.me: strips '+', ensures starts with '91'.
   String _waNumber(String phone) {

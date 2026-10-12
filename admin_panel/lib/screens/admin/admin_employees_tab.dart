@@ -7,8 +7,12 @@
 //   - Employee Offboarding: Deactivating bulk-reassigns businesses to "admin" (preserving enrolled_by_original).
 //   - Document & Payout Verification: Admin marks documents_verified = "verified" / "rejected".
 
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/phone_field.dart';
 import '../../core/theme.dart';
@@ -20,6 +24,34 @@ import '../../widgets/app_empty_state.dart';
 
 class AdminEmployeesTab extends StatelessWidget {
   const AdminEmployeesTab({super.key});
+
+  Future<void> _viewDocument(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    EmployeeDocument doc,
+  ) async {
+    final scaffold = ScaffoldMessenger.of(context);
+    try {
+      final url = await provider.getDocumentDownloadUrl(doc.storagePath);
+      if (url != null && url.isNotEmpty) {
+        html.window.open(url, '_blank');
+      } else {
+        scaffold.showSnackBar(
+          const SnackBar(
+            content: Text('Document link not found. Please verify upload.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      scaffold.showSnackBar(
+        SnackBar(
+          content: Text('Failed to open document: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   void _showCreateEmployeeDialog(BuildContext context, AdminDashboardProvider provider) {
     final emailCtrl = TextEditingController();
@@ -337,46 +369,175 @@ class AdminEmployeesTab extends StatelessWidget {
                             const Divider(height: 32),
 
                             if (!emp.isAdmin) ...[
-                              // Document & Payout Verification Action
-                              Wrap(
-                                alignment: WrapAlignment.spaceBetween,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  Text(
-                                    'KYC Document Status: ${emp.documentsVerified.toUpperCase()}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      OutlinedButton.icon(
-                                        onPressed: () async {
-                                          await provider.verifyEmployeeDocuments(
-                                            employeeUid: emp.uid,
-                                            status: 'rejected',
+                              // Document & Payout Verification Card
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerLowest,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: colorScheme.outlineVariant),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Status header & Action Buttons
+                                    Wrap(
+                                      alignment: WrapAlignment.spaceBetween,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 12,
+                                      runSpacing: 10,
+                                      children: [
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.verified_user_outlined, size: 20, color: AppColors.primary),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'KYC & Payout Verification',
+                                              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            AppBadge.kyc(emp.documentsVerified),
+                                          ],
+                                        ),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            OutlinedButton.icon(
+                                              onPressed: () async {
+                                                await provider.verifyEmployeeDocuments(
+                                                  employeeUid: emp.uid,
+                                                  status: 'rejected',
+                                                );
+                                              },
+                                              icon: const Icon(Icons.close, size: 16),
+                                              label: const Text('Reject KYC Docs'),
+                                              style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
+                                            ),
+                                            ElevatedButton.icon(
+                                              onPressed: () async {
+                                                await provider.verifyEmployeeDocuments(
+                                                  employeeUid: emp.uid,
+                                                  status: 'verified',
+                                                );
+                                              },
+                                              icon: const Icon(Icons.check, size: 16),
+                                              label: const Text('Verify KYC Docs'),
+                                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 12),
+
+                                    // Payout Details
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.surface,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: colorScheme.outlineVariant),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            emp.payoutMethod == PayoutMethod.bank
+                                                ? Icons.account_balance_outlined
+                                                : Icons.qr_code_2_rounded,
+                                            size: 18,
+                                            color: colorScheme.primary,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              emp.payoutMethod == PayoutMethod.bank
+                                                  ? 'Payout (Bank): A/C ${emp.bankAccountNo?.isNotEmpty == true ? emp.bankAccountNo : "Pending"} • IFSC: ${emp.bankIfsc?.isNotEmpty == true ? emp.bankIfsc : "Pending"}'
+                                                  : 'Payout (UPI): ${emp.upiId?.isNotEmpty == true ? emp.upiId : "Pending"}',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 14),
+
+                                    // Uploaded Document Photos
+                                    Text(
+                                      'Uploaded Document Photos (${emp.documents.length}):',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (emp.documents.isEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        child: Text(
+                                          'No document photos uploaded yet by this employee.',
+                                          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                                        ),
+                                      )
+                                    else
+                                      ListView.separated(
+                                        shrinkWrap: true,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        itemCount: emp.documents.length,
+                                        separatorBuilder: (_, __) => const SizedBox(height: 6),
+                                        itemBuilder: (context, dIdx) {
+                                          final doc = emp.documents[dIdx];
+                                          final isPdf = doc.storagePath.toLowerCase().endsWith('.pdf');
+                                          final dateStr = doc.uploadedAt != null
+                                              ? DateFormat('d MMM yyyy, HH:mm').format(doc.uploadedAt!)
+                                              : 'Recent';
+
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.surface,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: colorScheme.outlineVariant),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  isPdf ? Icons.picture_as_pdf_outlined : Icons.image_outlined,
+                                                  size: 20,
+                                                  color: isPdf ? Colors.red : AppColors.primary,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        doc.documentType.isNotEmpty ? doc.documentType : 'KYC Document',
+                                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                                      ),
+                                                      Text(
+                                                        'Uploaded: $dateStr',
+                                                        style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                FilledButton.tonalIcon(
+                                                  onPressed: () => _viewDocument(context, provider, doc),
+                                                  icon: const Icon(Icons.open_in_new, size: 16),
+                                                  label: Text(isPdf ? 'Open PDF' : 'Open Photo'),
+                                                  style: FilledButton.styleFrom(
+                                                    visualDensity: VisualDensity.compact,
+                                                    textStyle: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           );
                                         },
-                                        icon: const Icon(Icons.close, size: 16),
-                                        label: const Text('Reject KYC Docs'),
-                                        style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
                                       ),
-                                      ElevatedButton.icon(
-                                        onPressed: () async {
-                                          await provider.verifyEmployeeDocuments(
-                                            employeeUid: emp.uid,
-                                            status: 'verified',
-                                          );
-                                        },
-                                        icon: const Icon(Icons.check, size: 16),
-                                        label: const Text('Verify KYC Docs'),
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                               const Divider(height: 32),
                             ],

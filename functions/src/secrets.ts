@@ -110,3 +110,13 @@ export const adminEmail = defineString(
 export const reviewDomain = defineString("REVIEW_DOMAIN", {
   default: "appnexa.co.in",
 });
+
+// ─── Groq AI ──────────────────────────────────────────────────────────
+
+/**
+ * Groq API Key for llama-3.1-8b-instant inference.
+ * Set via: firebase functions:secrets:set GROQ_API_KEY
+ */
+export const groqApiKey = defineSecret("GROQ_API_KEY");
+
+

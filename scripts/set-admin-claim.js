@@ -10,7 +10,9 @@
 // Make sure you are logged in:  firebase login
 // And using the right project:  firebase use review-system-prod-49b7a
 
-const { initializeApp, applicationDefault } = require('firebase-admin/app');
+const fs = require('fs');
+const path = require('path');
+const { initializeApp, cert, applicationDefault } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore } = require('firebase-admin/firestore');
 
@@ -24,9 +26,17 @@ if (!email) {
   process.exit(1);
 }
 
+const serviceKeyPath = path.resolve(__dirname, '..', 'serviceAccountKey.json');
+let credential;
+if (fs.existsSync(serviceKeyPath)) {
+  credential = cert(require(serviceKeyPath));
+} else {
+  credential = applicationDefault();
+}
+
 initializeApp({
   projectId: 'review-system-prod-49b7a',
-  credential: applicationDefault(),
+  credential,
 });
 
 const auth = getAuth();

@@ -12,6 +12,7 @@ import '../models/business_model.dart';
 import '../models/employee_commission_model.dart';
 import '../models/employee_model.dart';
 import '../models/employee_profile_model.dart';
+import '../core/step_category_presets.dart';
 import '../core/string_utils.dart';
 
 class FirestoreService {
@@ -183,21 +184,43 @@ class FirestoreService {
   List<Map<String, dynamic>>? _cachedTemplates;
 
   /// Returns all templates with in-memory caching for instant UI response.
-  /// If collection is empty, returns [].
-  /// Never throws — graceful empty-state per doc 07 constraint.
+  /// Seamlessly combines templates from Firestore with all 50 built-in
+  /// StepCategoryPresets so the category picker is never empty.
   Future<List<Map<String, dynamic>>> getCategoryTemplates({bool forceRefresh = false}) async {
     if (!forceRefresh && _cachedTemplates != null && _cachedTemplates!.isNotEmpty) {
       return _cachedTemplates!;
     }
+
+    final List<Map<String, dynamic>> result = [];
+    final Set<String> seenIds = {};
+
     try {
       final snap = await _db.collection(AppConstants.colTemplates).get();
-      _cachedTemplates = snap.docs
-          .map((d) => {'id': d.id, ...d.data()})
-          .toList();
-      return _cachedTemplates!;
-    } catch (_) {
-      return _cachedTemplates ?? [];
+      for (final doc in snap.docs) {
+        final data = {'id': doc.id, ...doc.data()};
+        result.add(data);
+        seenIds.add(doc.id);
+      }
+    } catch (_) {}
+
+    // Augment with the 50 built-in StepCategoryPresets
+    for (final preset in StepCategoryPresets.all) {
+      if (!seenIds.contains(preset.id)) {
+        result.add({
+          'id': preset.id,
+          'name': preset.name,
+          'business_type': preset.name,
+          'sector': preset.sector,
+          'archetype': preset.archetype,
+          'step_categories': preset.toStepCategoriesMap(),
+          'services': preset.toServicesList(),
+        });
+        seenIds.add(preset.id);
+      }
     }
+
+    _cachedTemplates = result;
+    return result;
   }
 
   // ── Duplicate Place ID guard ────────────────────────────────────
@@ -310,6 +333,11 @@ class FirestoreService {
     required String ownerName,
     required String ownerPhone,
     bool isTestAccount = false,
+    String reviewLanguagePreference = 'english',
+    Map<String, List<String>>? customStepCategories,
+    Map<String, List<String>>? customServiceTags,
+    String? customArchetype,
+    List<String>? negativeFeedbackChips,
     required List<BranchDraft> branches,
   }) async {
     assert(branches.isNotEmpty, 'Must enroll at least one branch');
@@ -321,12 +349,29 @@ class FirestoreService {
     final cleanBrandName = StringUtils.toTitleCase(brandName);
     final cleanOwnerName = StringUtils.toTitleCase(ownerName);
 
+    // Auto-detect and pre-assign best matching 3-Step industry dictionary if not custom
+    final preset = StepCategoryPresets.detectBestPreset(categoryType, templateId);
+    final finalStepCategories = customStepCategories ?? preset.toStepCategoriesMap();
+    final finalArchetype = customArchetype ?? preset.archetype;
+    final finalNegativeChips = negativeFeedbackChips ?? List<String>.from(preset.negativeChips);
+    final finalServices = preset.toServicesList(
+      customStep1: finalStepCategories['step1'],
+      customServiceTags: customServiceTags,
+    );
+
     // 1 — Business document (draft — status = pending_payment, NO renewal clock)
     batch.set(bizRef, {
       'brand_name':                   cleanBrandName,
       'logo_url':                     logoUrl,
       'category_type':                categoryType,
       'default_category_template_id': templateId,
+      'archetype':                    finalArchetype,
+      'step_categories':              finalStepCategories,
+      'services':                     finalServices,
+      'negative_feedback_chips':      finalNegativeChips,
+      'has_custom_phrases':           true,
+      'phrases_customized_at':        FieldValue.serverTimestamp(),
+      'review_language_preference':   reviewLanguagePreference,
       'enrolled_by':                  employeeId,
       'enrolled_by_original':         employeeId,
       'currently_managed_by':         employeeId,
@@ -381,6 +426,13 @@ class FirestoreService {
 
   /// Payment-status filter enum shared between provider and service.
   // (Defined here so service and provider share the same type without a third file.)
+
+  /// Fetches a single business by ID.
+  Future<BusinessModel?> getBusiness(String businessId) async {
+    final doc = await _db.collection(AppConstants.colBusinesses).doc(businessId).get();
+    if (!doc.exists) return null;
+    return BusinessModel.fromDoc(doc);
+  }
 
   /// Fetches ONE page of businesses for an employee.
   ///
@@ -442,17 +494,35 @@ class FirestoreService {
     return doc.exists ? doc : null;
   }
 
-  /// Returns all branches for a given business as a one-shot read.
-  /// Used by BusinessDetailScreen and BusinessEditScreen.
-  Future<List<BranchModel>> getBranches(String businessId) async {
+  // ── Branch In-Memory Cache ───────────────────────────────────────────────
+  static final Map<String, List<BranchModel>> _branchesCache = {};
+
+  /// Returns cached branches immediately if present (for instantaneous UI rendering).
+  List<BranchModel>? getCachedBranches(String businessId) {
+    return _branchesCache[businessId];
+  }
+
+  /// Invalidates cached branches for a given business ID.
+  void invalidateBranchesCache(String businessId) {
+    _branchesCache.remove(businessId);
+  }
+
+  /// Returns all branches for a given business.
+  /// Uses memory cache for instant response unless [forceRefresh] is true.
+  Future<List<BranchModel>> getBranches(String businessId, {bool forceRefresh = false}) async {
+    if (!forceRefresh && _branchesCache.containsKey(businessId)) {
+      return _branchesCache[businessId]!;
+    }
     final snap = await _db
         .collection(AppConstants.colBusinesses)
         .doc(businessId)
         .collection(AppConstants.colBranches)
         .get();
-    return snap.docs
+    final branches = snap.docs
         .map((doc) => BranchModel.fromDoc(doc, businessId: businessId))
         .toList();
+    _branchesCache[businessId] = branches;
+    return branches;
   }
 
   // ── Edit — employee can fix enrollment mistakes ───────────────────────────
@@ -465,6 +535,11 @@ class FirestoreService {
     required String logoUrl,
     required String categoryType,
     String? templateId,
+    Map<String, List<String>>? stepCategories,
+    List<String>? negativeFeedbackChips,
+    String? archetype,
+    String? reviewLanguagePreference,
+    bool? hasCustomPhrases,
     required String ownerName,
     required String ownerEmail,
     required String ownerPhone,
@@ -488,6 +563,34 @@ class FirestoreService {
       'owner_email':                  cleanEmail,
       'owner_phone':                  ownerPhone.trim(),
     };
+
+    if (stepCategories != null) {
+      updateData['step_categories'] = stepCategories;
+      final preset = StepCategoryPresets.detectBestPreset(categoryType, templateId);
+      final s1 = stepCategories['step1'] ?? [];
+      final s2 = stepCategories['step2'] ?? [];
+      final s3 = stepCategories['step3'] ?? [];
+      updateData['services'] = s1.map((s) {
+        final clean = s.trim();
+        final tags = preset.serviceTags[clean] ?? [...s2, ...s3];
+        return {
+          'id': clean.replaceAll(RegExp(r'^[^\w\s]+|\s+'), ' ').trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_'),
+          'label': clean,
+          'tags': tags,
+        };
+      }).toList();
+      updateData['has_custom_phrases'] = hasCustomPhrases ?? true;
+      updateData['phrases_customized_at'] = FieldValue.serverTimestamp();
+    }
+    if (negativeFeedbackChips != null) {
+      updateData['negative_feedback_chips'] = negativeFeedbackChips;
+    }
+    if (archetype != null && archetype.isNotEmpty) {
+      updateData['archetype'] = archetype;
+    }
+    if (reviewLanguagePreference != null && reviewLanguagePreference.isNotEmpty) {
+      updateData['review_language_preference'] = reviewLanguagePreference;
+    }
 
     if (enrolledBy != null && enrolledBy.isNotEmpty) {
       updateData['enrolled_by'] = enrolledBy;
@@ -550,6 +653,7 @@ class FirestoreService {
         .collection(AppConstants.colBranches)
         .doc(branchId)
         .update(data);
+    invalidateBranchesCache(businessId);
   }
 
   /// Adds a new branch to an existing business in pending_payment status.
@@ -573,6 +677,7 @@ class FirestoreService {
     }
 
     await branchRef.set(data);
+    invalidateBranchesCache(businessId);
     return branchRef.id;
   }
 
@@ -588,6 +693,7 @@ class FirestoreService {
       'branchId': branchId,
       if (notes != null) 'notes': notes,
     });
+    invalidateBranchesCache(businessId);
   }
 
   /// Creates a Razorpay order for activating a specific branch (₹1999).
@@ -640,6 +746,7 @@ class FirestoreService {
       'branchId': branchId,
       if (reason != null) 'reason': reason,
     });
+    invalidateBranchesCache(businessId);
   }
 
   /// Converts a test business to a live business.
@@ -893,6 +1000,7 @@ class FirestoreService {
     await fn
         .httpsCallable(AppConstants.fnDeleteBusinessAdmin)
         .call({'businessId': businessId, 'deleteOwnerAuth': deleteOwnerAuth});
+    invalidateBranchesCache(businessId);
   }
 
   /// Calls the deleteBranchAdmin Cloud Function to completely delete a single branch,
@@ -902,6 +1010,7 @@ class FirestoreService {
     await fn
         .httpsCallable(AppConstants.fnDeleteBranchAdmin)
         .call({'businessId': businessId, 'branchId': branchId});
+    invalidateBranchesCache(businessId);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -1244,19 +1353,15 @@ class FirestoreService {
     String storagePath,
     String documentType,
   ) async {
-    final newDoc = EmployeeDocument(
-      storagePath:  storagePath,
-      documentType: documentType,
-      uploadedAt:   null, // server timestamp set via FieldValue below
-    );
+    final nowTimestamp = Timestamp.now();
     await _db
         .collection(AppConstants.colEmployees)
         .doc(uid)
         .update({
       'documents': FieldValue.arrayUnion([{
-        'path':          newDoc.storagePath,
-        'document_type': newDoc.documentType,
-        'uploaded_at':   FieldValue.serverTimestamp(),
+        'path':          storagePath,
+        'document_type': documentType,
+        'uploaded_at':   nowTimestamp,
       }]),
       // Reset verification on every new document upload.
       'documents_verified': 'pending',

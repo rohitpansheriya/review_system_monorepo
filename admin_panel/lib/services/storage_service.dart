@@ -12,10 +12,10 @@ class StorageService {
   StorageService({FirebaseStorage? storage})
       : _storage = storage ?? FirebaseStorage.instance;
 
-  /// Resizes and compresses logo bytes client-side to max 512px, then uploads to Storage.
+  /// Resizes and compresses logo bytes client-side to max 384px, then uploads to Storage.
   /// Path: logos/{uuid}.png
   Future<String> uploadLogo(Uint8List bytes, String mimeType) async {
-    final optimizedBytes = await ImageUtils.resizeAndCompressLogo(bytes, maxDimension: 512);
+    final optimizedBytes = await ImageUtils.resizeAndCompressLogo(bytes, maxDimension: 384);
     const path = 'logos';
     final filePath = '$path/${const Uuid().v4()}.png';
     final ref  = _storage.ref(filePath);
@@ -44,7 +44,21 @@ class StorageService {
   /// Returns a download URL for an arbitrary Storage path.
   /// Used to fetch KYC document links on demand.
   Future<String> getDownloadUrl(String storagePath) async {
-    return _storage.ref(storagePath).getDownloadURL();
+    final cleanPath = storagePath.trim();
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return cleanPath;
+    }
+    return _storage.ref(cleanPath).getDownloadURL();
+  }
+
+  /// Downloads raw bytes of an uploaded document using Firebase Storage SDK.
+  /// Max size: 20MB. Used for secure, CORS-free in-memory previews on Web.
+  Future<Uint8List?> getDocumentBytes(String storagePath, {int maxSize = 20 * 1024 * 1024}) async {
+    try {
+      return await _storage.ref(storagePath).getData(maxSize);
+    } catch (_) {
+      return null;
+    }
   }
 
   static String _extFor(String mimeType) {

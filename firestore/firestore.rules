@@ -88,6 +88,13 @@ service cloud.firestore {
                 'logo_url',
                 'category_type',
                 'default_category_template_id',
+                'archetype',
+                'step_categories',
+                'custom_step_categories',
+                'negative_feedback_chips',
+                'has_custom_phrases',
+                'phrases_customized_at',
+                'review_language_preference',
                 'owner_name',
                 'owner_email',
                 'owner_phone'
@@ -287,12 +294,22 @@ service cloud.firestore {
     // Client-side creates are DENIED. Recipients may only update read/dismissed status.
 
     match /notifications/{notifId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.recipient == request.auth.uid);
+      allow read: if isAdmin()
+        || (
+          isSignedIn()
+          && (
+            resource.data.recipient == request.auth.uid
+            || ('email' in request.auth.token && resource.data.recipient == request.auth.token.email)
+          )
+        );
       allow create: if false;
       allow update: if isAdmin()
         || (
           isSignedIn()
-          && resource.data.recipient == request.auth.uid
+          && (
+            resource.data.recipient == request.auth.uid
+            || ('email' in request.auth.token && resource.data.recipient == request.auth.token.email)
+          )
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'dismissed', 'read_at', 'dismissed_at'])
         );
       allow delete: if isAdmin();
@@ -358,6 +375,15 @@ service cloud.firestore {
     match /orphan_payments/{paymentId} {
       allow read, update: if isAdmin();
       allow create, delete: if false;
+    }
+
+    // ─── review_cache/{docId} ───────────────────────────────────────────────
+    // Shared review cache keyed by SHA256(sortedChips + '::' + language).
+    // Read: public (customer review page).
+    // Write: Cloud Functions (Admin SDK bypasses rules) & Admin/Employee.
+    match /review_cache/{docId} {
+      allow read: if true;
+      allow write: if isEmployeeOrAdmin();
     }
 
     // ─── Default-Deny Fallback ─────────────────────────────────────────────

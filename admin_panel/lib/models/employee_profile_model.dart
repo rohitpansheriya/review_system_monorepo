@@ -47,7 +47,7 @@ class EmployeeDocument {
         'document_type': documentType,
         'uploaded_at':   uploadedAt != null
             ? Timestamp.fromDate(uploadedAt!)
-            : FieldValue.serverTimestamp(),
+            : Timestamp.now(),
       };
 }
 

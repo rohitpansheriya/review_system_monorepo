@@ -30,6 +30,7 @@ import '../../providers/enroll_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_brand_title.dart';
 import 'branch_form_widget.dart';
+import 'enroll_chip_customizer.dart';
 
 class EnrollScreen extends StatefulWidget {
   const EnrollScreen({super.key});
@@ -178,7 +179,7 @@ class _EnrollScreenState extends State<EnrollScreen> {
     }
 
     // Client-side auto-resize and compress to lightweight, crisp PNG
-    final optimizedBytes = await ImageUtils.resizeAndCompressLogo(bytes, maxDimension: 512);
+    final optimizedBytes = await ImageUtils.resizeAndCompressLogo(bytes, maxDimension: 384);
 
     if (!mounted) return;
     context.read<EnrollProvider>().setLogo(optimizedBytes, 'image/png');
@@ -432,6 +433,7 @@ class _EnrollScreenState extends State<EnrollScreen> {
                       )
                     else
                       DropdownButtonFormField<String>(
+                        isExpanded:    true,
                         dropdownColor: Colors.white,
                         borderRadius:  BorderRadius.circular(14),
                         elevation:     8,
@@ -444,24 +446,59 @@ class _EnrollScreenState extends State<EnrollScreen> {
                         items: _templates
                             .map((t) => DropdownMenuItem<String>(
                                   value: t['id'] as String,
-                                  child: Text(t['business_type'] as String? ??
-                                      t['name'] as String? ??
-                                      t['id'] as String),
+                                  child: Text(
+                                    t['business_type'] as String? ??
+                                        t['name'] as String? ??
+                                        t['id'] as String,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ))
                             .toList(),
                         onChanged: (v) {
                           if (v == null) return;
-                          enroll.templateId = v;
                           final match = _templates.firstWhere(
                             (t) => t['id'] == v,
                             orElse: () => {'business_type': v},
                           );
-                          enroll.categoryType =
-                              match['business_type'] as String? ??
-                                  match['name'] as String? ??
-                                  v;
+                          final catType = match['business_type'] as String? ??
+                              match['name'] as String? ??
+                              v;
+                          enroll.applyCategoryPreset(catType, v);
                         },
                       ),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // Review Language Preference (Default: English Only)
+                    DropdownButtonFormField<String>(
+                      value: enroll.reviewLanguagePreference,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                      decoration: const InputDecoration(
+                        labelText: 'Review Language Preference',
+                        prefixIcon: Icon(Icons.translate_rounded),
+                        helperText: 'Select what language reviews will be generated and served in.',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'english',
+                          child: Text('English Only (Default)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'hinglish',
+                          child: Text('Hinglish Only (Roman script)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'mixed',
+                          child: Text('Mixed (English + Hinglish)'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) enroll.setReviewLanguagePreference(v);
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // ── 3-Step Guided Review Offerings & Chips Customizer ────
+                    const EnrollChipCustomizer(),
                     const SizedBox(height: AppSpacing.md),
 
                     // Logo picker with dimension validation (Change 4)

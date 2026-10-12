@@ -28,14 +28,14 @@ async function run() {
   // ── 0. Admin user ───────────────────────────────────────────────────────────
   let adminUid;
   try {
-    const existing = await auth.getUserByEmail('admin@test.com');
+    const existing = await auth.getUserByEmail('testadmin@test.com');
     adminUid = existing.uid;
     console.log(`  ℹ️  Admin user already exists: ${adminUid}`);
   } catch (_) {
     const user = await auth.createUser({
-      email:       'admin@test.com',
+      email:       'testadmin@test.com',
       password:    'Test1234!',
-      displayName: 'Admin',
+      displayName: 'Test Admin',
     });
     adminUid = user.uid;
     console.log(`  ✅ Created admin user: ${adminUid}`);
@@ -152,7 +152,7 @@ async function run() {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('✅  Seed complete. Use these credentials in the Flutter panel:\n');
   console.log('  Admin User (Full Platform Admin Access):');
-  console.log('    Email:    admin@test.com');
+  console.log('    Email:    testadmin@test.com');
   console.log('    Password: Test1234!');
   console.log('    UID:     ', adminUid);
   console.log('');

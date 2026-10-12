@@ -32,6 +32,8 @@ import 'package:provider/provider.dart';
 import '../../core/constants.dart';
 import '../../core/image_utils.dart';
 import '../../core/phone_field.dart';
+import '../../core/step_category_presets.dart';
+import '../../core/string_utils.dart';
 import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 import '../../models/branch_model.dart';
@@ -42,9 +44,9 @@ import '../../providers/admin_dashboard_provider.dart';
 import '../../providers/my_businesses_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/storage_service.dart';
-import '../../core/string_utils.dart';
 import '../../widgets/app_empty_state.dart';
 import '../enroll/branch_form_widget.dart';
+import 'business_phrases_editor_dialog.dart';
 
 class BusinessEditScreen extends StatefulWidget {
   final BusinessModel business;
@@ -54,7 +56,8 @@ class BusinessEditScreen extends StatefulWidget {
   State<BusinessEditScreen> createState() => _BusinessEditScreenState();
 }
 
-class _BusinessEditScreenState extends State<BusinessEditScreen> {
+class _BusinessEditScreenState extends State<BusinessEditScreen>
+    with SingleTickerProviderStateMixin {
   // ── Scroll controller (Bug 1) ────────────────────────────────────────────
   final _scrollCtrl = ScrollController();
 
@@ -75,6 +78,18 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
   bool   _templatesLoading = true;
   String _selectedCategoryType = '';
   String? _selectedTemplateId;
+  String? _selectedArchetype;
+  String _reviewLanguagePreference = 'english';
+
+  // ── 3-Step Guided Review & Negative Chips State ─────────────────────────
+  late TabController _tabController;
+  final TextEditingController _addChipCtrl = TextEditingController();
+  final FocusNode _addChipFocus = FocusNode();
+  final List<String> _step1Chips = [];
+  final List<String> _step2Chips = [];
+  final List<String> _step3Chips = [];
+  final List<String> _negativeChips = [];
+  bool _isChipsCustomized = false;
 
   // ── Enrolled by employee (admin edit) ────────────────────────────────────
   List<EmployeeProfileModel> _employees = [];
@@ -102,14 +117,53 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
+
     final biz = widget.business;
-    _brandNameCtrl        = TextEditingController(text: biz.brandName);
-    _ownerNameCtrl        = TextEditingController(text: biz.ownerName  ?? '');
-    _ownerEmailCtrl       = TextEditingController(text: biz.ownerEmail ?? '');
-    _ownerPhoneE164       = biz.ownerPhone ?? '';
-    _selectedCategoryType = biz.categoryType;
-    _selectedEnrolledBy   = biz.enrolledBy.isEmpty ? 'admin' : biz.enrolledBy;
-    _logoUrl              = biz.logoUrl;
+    _brandNameCtrl            = TextEditingController(text: biz.brandName);
+    _ownerNameCtrl            = TextEditingController(text: biz.ownerName  ?? '');
+    _ownerEmailCtrl           = TextEditingController(text: biz.ownerEmail ?? '');
+    _ownerPhoneE164           = biz.ownerPhone ?? '';
+    _selectedCategoryType     = biz.categoryType;
+    _selectedTemplateId       = biz.defaultCategoryTemplateId;
+    _selectedArchetype        = biz.archetype;
+    _selectedEnrolledBy       = biz.enrolledBy.isEmpty ? 'admin' : biz.enrolledBy;
+    _reviewLanguagePreference = biz.reviewLanguagePreference;
+    _logoUrl                  = biz.logoUrl;
+
+    if (biz.stepCategories != null && biz.hasStepCategories) {
+      _step1Chips.addAll(biz.stepCategories!['step1'] ?? []);
+      _step2Chips.addAll(biz.stepCategories!['step2'] ?? []);
+      _step3Chips.addAll(biz.stepCategories!['step3'] ?? []);
+      _selectedArchetype = biz.archetype ?? 'food_dining';
+      _isChipsCustomized = biz.hasCustomPhrases;
+    } else {
+      final preset = StepCategoryPresets.detectBestPreset(biz.categoryType, biz.defaultCategoryTemplateId);
+      _step1Chips.addAll(preset.step1);
+      _step2Chips.addAll(preset.step2);
+      _step3Chips.addAll(preset.step3);
+      _selectedArchetype = preset.archetype;
+      _isChipsCustomized = false;
+    }
+
+    if (biz.negativeFeedbackChips != null && biz.negativeFeedbackChips!.isNotEmpty) {
+      _negativeChips.addAll(biz.negativeFeedbackChips!);
+    } else {
+      final preset = StepCategoryPresets.detectBestPreset(biz.categoryType, biz.defaultCategoryTemplateId);
+      _negativeChips.addAll(preset.negativeChips);
+    }
+
+    final svc = context.read<FirestoreService>();
+    final cached = svc.getCachedBranches(biz.id);
+    if (cached != null && cached.isNotEmpty) {
+      _branchIds       = cached.map((b) => b.id).toList();
+      _branchDrafts    = cached.map(_branchToDraft).toList();
+      _branchesLoading = false;
+    }
+
     _loadTemplates();
     _loadEmployees();
     _loadBranches();
@@ -126,6 +180,9 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
 
   @override
   void dispose() {
+    _tabController.dispose();
+    _addChipCtrl.dispose();
+    _addChipFocus.dispose();
     _scrollCtrl.dispose();
     _brandNameCtrl.dispose();
     _ownerNameCtrl.dispose();
@@ -145,14 +202,129 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
     setState(() {
       _templates        = templates;
       _templatesLoading = false;
-      if (widget.business.defaultCategoryTemplateId != null) {
-        final match = templates.where(
-          (t) => t['id'] == widget.business.defaultCategoryTemplateId,
-        );
+
+      // 1. Match by ID if present
+      String? foundId;
+      if (_selectedTemplateId != null && _selectedTemplateId!.isNotEmpty) {
+        final match = templates.where((t) => t['id'] == _selectedTemplateId);
         if (match.isNotEmpty) {
-          _selectedTemplateId   = match.first['id'] as String?;
-          _selectedCategoryType = match.first['name'] as String? ?? _selectedCategoryType;
+          foundId = match.first['id'] as String?;
+          _selectedCategoryType = match.first['business_type'] as String? ??
+              match.first['name'] as String? ??
+              _selectedCategoryType;
         }
+      }
+
+      // 2. Match by category name
+      if (foundId == null && _selectedCategoryType.isNotEmpty) {
+        final match = templates.where((t) {
+          final bType = (t['business_type'] as String? ?? '').toLowerCase();
+          final name = (t['name'] as String? ?? '').toLowerCase();
+          final target = _selectedCategoryType.toLowerCase();
+          return bType == target || name == target;
+        });
+        if (match.isNotEmpty) {
+          foundId = match.first['id'] as String?;
+        }
+      }
+
+      // 3. Fallback to best preset detection
+      if (foundId == null) {
+        final detected = StepCategoryPresets.detectBestPreset(
+          _selectedCategoryType,
+          widget.business.defaultCategoryTemplateId,
+        );
+        final match = templates.where((t) => t['id'] == detected.id);
+        if (match.isNotEmpty) {
+          foundId = match.first['id'] as String?;
+        }
+      }
+
+      _selectedTemplateId = foundId;
+    });
+  }
+
+  void _applyCategoryPreset(String catType, String? tId) {
+    setState(() {
+      _selectedCategoryType = catType;
+      _selectedTemplateId = tId;
+      final preset = StepCategoryPresets.detectBestPreset(catType, tId);
+      _selectedArchetype = preset.archetype;
+      _step1Chips.clear();
+      _step2Chips.clear();
+      _step3Chips.clear();
+      _negativeChips.clear();
+      _step1Chips.addAll(preset.step1);
+      _step2Chips.addAll(preset.step2);
+      _step3Chips.addAll(preset.step3);
+      _negativeChips.addAll(preset.negativeChips);
+      _isChipsCustomized = false;
+    });
+  }
+
+  void _resetChipsToPreset() {
+    setState(() {
+      final preset = StepCategoryPresets.detectBestPreset(_selectedCategoryType, _selectedTemplateId);
+      _selectedArchetype = preset.archetype;
+      _step1Chips.clear();
+      _step2Chips.clear();
+      _step3Chips.clear();
+      _negativeChips.clear();
+      _step1Chips.addAll(preset.step1);
+      _step2Chips.addAll(preset.step2);
+      _step3Chips.addAll(preset.step3);
+      _negativeChips.addAll(preset.negativeChips);
+      _isChipsCustomized = false;
+    });
+  }
+
+  void _handleAddChip() {
+    final text = _addChipCtrl.text.trim();
+    if (text.isEmpty) return;
+    final currentStep = _tabController.index + 1;
+    final formatted = currentStep == 4
+        ? StringUtils.formatChipText(text)
+        : StringUtils.formatChipText(text, step: currentStep, archetype: _selectedArchetype);
+    if (formatted.isEmpty) return;
+
+    bool isDuplicate(List<String> list, String t) {
+      final cleanNew = StringUtils.stripLeadingEmoji(t).toLowerCase();
+      return list.any((item) => StringUtils.stripLeadingEmoji(item).toLowerCase() == cleanNew);
+    }
+
+    setState(() {
+      if (currentStep == 1 && !isDuplicate(_step1Chips, formatted)) {
+        _step1Chips.add(formatted);
+        _isChipsCustomized = true;
+      } else if (currentStep == 2 && !isDuplicate(_step2Chips, formatted)) {
+        _step2Chips.add(formatted);
+        _isChipsCustomized = true;
+      } else if (currentStep == 3 && !isDuplicate(_step3Chips, formatted)) {
+        _step3Chips.add(formatted);
+        _isChipsCustomized = true;
+      } else if (currentStep == 4 && !isDuplicate(_negativeChips, formatted)) {
+        _negativeChips.add(formatted);
+        _isChipsCustomized = true;
+      }
+      _addChipCtrl.clear();
+      _addChipFocus.requestFocus();
+    });
+  }
+
+  void _handleRemoveChip(int step, String chip) {
+    setState(() {
+      if (step == 1) {
+        _step1Chips.remove(chip);
+        _isChipsCustomized = true;
+      } else if (step == 2) {
+        _step2Chips.remove(chip);
+        _isChipsCustomized = true;
+      } else if (step == 3) {
+        _step3Chips.remove(chip);
+        _isChipsCustomized = true;
+      } else if (step == 4) {
+        _negativeChips.remove(chip);
+        _isChipsCustomized = true;
       }
     });
   }
@@ -213,8 +385,8 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
       // Dimension decode failed — allow the upload
     }
 
-    // Auto-resize and compress logo client-side to max 512px
-    final optimizedBytes = await ImageUtils.resizeAndCompressLogo(bytes, maxDimension: 512);
+    // Auto-resize and compress logo client-side to max 384px
+    final optimizedBytes = await ImageUtils.resizeAndCompressLogo(bytes, maxDimension: 384);
 
     if (mounted) {
       setState(() {
@@ -349,17 +521,28 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
       final cleanBrandName = StringUtils.toTitleCase(_brandNameCtrl.text.trim());
       final cleanOwnerName = StringUtils.toTitleCase(_ownerNameCtrl.text.trim());
 
+      final customStepCats = <String, List<String>>{
+        'step1': List<String>.from(_step1Chips),
+        'step2': List<String>.from(_step2Chips),
+        'step3': List<String>.from(_step3Chips),
+      };
+
       // 1 — Update business-level fields
       await svc.updateBusiness(
         widget.business.id,
-        brandName:    cleanBrandName,
-        logoUrl:      finalLogoUrl,
-        categoryType: _selectedCategoryType.trim(),
-        templateId:   _selectedTemplateId,
-        ownerName:    cleanOwnerName,
-        ownerEmail:   _ownerEmailCtrl.text.trim(),
-        ownerPhone:   _ownerPhoneE164.trim(),
-        enrolledBy:   auth.isAdmin ? _selectedEnrolledBy : null,
+        brandName:                cleanBrandName,
+        logoUrl:                  finalLogoUrl,
+        categoryType:             _selectedCategoryType.trim(),
+        templateId:               _selectedTemplateId,
+        stepCategories:           customStepCats,
+        negativeFeedbackChips:    List<String>.from(_negativeChips),
+        archetype:                _selectedArchetype,
+        reviewLanguagePreference: _reviewLanguagePreference,
+        hasCustomPhrases:         _isChipsCustomized || widget.business.hasCustomPhrases,
+        ownerName:                cleanOwnerName,
+        ownerEmail:               _ownerEmailCtrl.text.trim(),
+        ownerPhone:               _ownerPhoneE164.trim(),
+        enrolledBy:               auth.isAdmin ? _selectedEnrolledBy : null,
       );
 
       // 2 — Update existing branches OR insert newly added branches
@@ -396,6 +579,11 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
           logoUrl:                   finalLogoUrl,
           categoryType:              _selectedCategoryType.trim(),
           defaultCategoryTemplateId: _selectedTemplateId,
+          stepCategories:            customStepCats,
+          negativeFeedbackChips:     List<String>.from(_negativeChips),
+          archetype:                 _selectedArchetype,
+          reviewLanguagePreference:  _reviewLanguagePreference,
+          hasCustomPhrases:          _isChipsCustomized || widget.business.hasCustomPhrases,
           ownerName:                 _ownerNameCtrl.text.trim(),
           ownerEmail:                _ownerEmailCtrl.text.trim(),
           ownerPhone:                _ownerPhoneE164.trim(),
@@ -436,6 +624,270 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
+
+  Widget _buildChipCustomizer(ColorScheme scheme) {
+    final currentStep = _tabController.index + 1;
+    final currentList = currentStep == 1
+        ? _step1Chips
+        : (currentStep == 2
+            ? _step2Chips
+            : (currentStep == 3 ? _step3Chips : _negativeChips));
+
+    final stepHints = [
+      'e.g., 🍕 Wood-fired Pizza, ☕ Cold Brew, 💆 Balayage Hair Spa',
+      'e.g., 🧀 Rich Cheese Pull, ⚡ Fast Turnaround, 😋 Authentic Taste',
+      'e.g., ✨ Cozy Vibe, 😊 Attentive Staff, 🧼 Hygienic Seating',
+      'e.g., ⏳ Long Waiting Time, ❄️ Cold Food, 👥 Rude Behavior',
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: _isChipsCustomized
+              ? AppColors.primary
+              : scheme.outlineVariant.withValues(alpha: 0.5),
+          width: _isChipsCustomized ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Bar
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Review Offerings & Chips',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (_isChipsCustomized) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Customized',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Customize the 1-tap options customers will see on their review screen.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isChipsCustomized)
+                  TextButton.icon(
+                    onPressed: _resetChipsToPreset,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Reset', style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: scheme.onSurfaceVariant,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Open Advanced Simulator & Phrase Editor',
+                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                  onPressed: () async {
+                    final saved = await BusinessPhrasesEditorDialog.show(context, widget.business);
+                    if (saved == true && mounted) {
+                      final doc = await context.read<FirestoreService>().getBusiness(widget.business.id);
+                      if (doc != null && mounted) {
+                        setState(() {
+                          _step1Chips.clear();
+                          _step2Chips.clear();
+                          _step3Chips.clear();
+                          _negativeChips.clear();
+                          if (doc.stepCategories != null) {
+                            _step1Chips.addAll(doc.stepCategories!['step1'] ?? []);
+                            _step2Chips.addAll(doc.stepCategories!['step2'] ?? []);
+                            _step3Chips.addAll(doc.stepCategories!['step3'] ?? []);
+                          }
+                          if (doc.negativeFeedbackChips != null) {
+                            _negativeChips.addAll(doc.negativeFeedbackChips!);
+                          }
+                          _selectedArchetype = doc.archetype ?? _selectedArchetype;
+                          _isChipsCustomized = doc.hasCustomPhrases;
+                        });
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // Tab Navigation Bar
+          TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: scheme.onSurfaceVariant,
+            indicatorColor: AppColors.primary,
+            indicatorWeight: 3,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            unselectedLabelStyle: const TextStyle(fontSize: 13),
+            tabs: [
+              Tab(text: '1. Products & Services (${_step1Chips.length})'),
+              Tab(text: '2. Highlights (${_step2Chips.length})'),
+              Tab(text: '3. Experience (${_step3Chips.length})'),
+              Tab(text: '⚠️ Private Feedback (${_negativeChips.length})'),
+            ],
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Quick Add Input Box
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _addChipCtrl,
+                        focusNode: _addChipFocus,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          hintText: stepHints[_tabController.index],
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm,
+                          ),
+                          prefixIcon: const Icon(Icons.add, size: 18),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onSubmitted: (_) => _handleAddChip(),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    FilledButton(
+                      onPressed: _handleAddChip,
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: AppSpacing.md),
+
+                // Chip Cloud Area
+                if (currentList.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'No chips added for this step. Type above and click Add.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: currentList.map((chipText) {
+                      return Chip(
+                        label: Text(
+                          chipText,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () => _handleRemoveChip(currentStep, chipText),
+                        backgroundColor: scheme.surfaceContainerHigh,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(
+                            color: scheme.outlineVariant.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -518,40 +970,84 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                     _FieldError('Business name is required.'),
                   const SizedBox(height: 16),
 
-                  // Category template dropdown
+                  // Category dropdown with all 50+ presets and templates
                   _templatesLoading
-                      ? const CircularProgressIndicator()
+                      ? const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
                       : DropdownButtonFormField<String>(
-                          value:         _selectedTemplateId,
+                          value: _templates.any((t) => t['id'] == _selectedTemplateId)
+                              ? _selectedTemplateId
+                              : null,
+                          isExpanded:    true,
                           dropdownColor: Colors.white,
                           borderRadius:  BorderRadius.circular(14),
                           elevation:     8,
                           icon:          const Icon(Icons.keyboard_arrow_down_rounded),
                           decoration: const InputDecoration(
-                            labelText:  'Category template',
+                            labelText:  'Business category',
                             prefixIcon: Icon(Icons.category_outlined),
+                            helperText: 'Select industry category to load tailored review options',
                           ),
-                          hint:  const Text('Select a template'),
+                          hint:  const Text('Select a category'),
                           items: _templates.map((t) => DropdownMenuItem(
                             value: t['id'] as String,
-                            child: Text(t['name'] as String? ?? t['id'] as String),
+                            child: Text(
+                              t['business_type'] as String? ?? t['name'] as String? ?? t['id'] as String,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           )).toList(),
                           onChanged: (val) {
-                            setState(() {
-                              _selectedTemplateId = val;
-                              if (val != null) {
-                                final match = _templates.where((t) => t['id'] == val);
-                                if (match.isNotEmpty) {
-                                  _selectedCategoryType =
-                                      match.first['name'] as String? ?? val;
-                                }
-                              }
-                            });
+                            if (val == null) return;
+                            final match = _templates.firstWhere(
+                              (t) => t['id'] == val,
+                              orElse: () => {'business_type': val},
+                            );
+                            final catType = match['business_type'] as String? ??
+                                match['name'] as String? ??
+                                val;
+                            _applyCategoryPreset(catType, val);
                           },
                         ),
+                  const SizedBox(height: 16),
+
+                  // Review Language Preference
+                  DropdownButtonFormField<String>(
+                    value: _reviewLanguagePreference,
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    dropdownColor: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    elevation: 8,
+                    decoration: const InputDecoration(
+                      labelText: 'Review Language Preference',
+                      prefixIcon: Icon(Icons.translate_rounded),
+                      helperText: 'Select what language reviews will be generated and served in.',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'english',
+                        child: Text('English Only (Default)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'hinglish',
+                        child: Text('Hinglish Only (Roman script)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'mixed',
+                        child: Text('Mixed (English + Hinglish)'),
+                      ),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _reviewLanguagePreference = v);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── 3-Step Guided Review Offerings & Chips Customizer ──
+                  _buildChipCustomizer(scheme),
+                  const SizedBox(height: 16),
 
                   if (context.watch<AppAuthProvider>().isAdmin) ...[
-                    const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value:         _selectedEnrolledBy,
                       dropdownColor: Colors.white,
@@ -581,6 +1077,7 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
                         }
                       },
                     ),
+                    const SizedBox(height: 16),
                   ],
 
                   const SizedBox(height: 20),

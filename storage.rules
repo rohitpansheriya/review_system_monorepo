@@ -16,10 +16,12 @@ service firebase.storage {
     // Uploaded during enrollment (before the businesses doc exists, so the
     // path is a flat logos/{uuid}.ext rather than keyed by businessId).
     // Read is public — logos are displayed on the customer review page.
+    // Restricted to image types (JPEG, PNG, WEBP, GIF) and max 5MB.
     match /logos/{filename} {
       allow read: if true;
       allow write: if isSignedIn()
-                   && request.resource.size <= 5 * 1024 * 1024;
+                   && request.resource.size <= 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
     }
 
     // ── QR code images: qr_codes/{allPaths=**} ───────────────────────────────
@@ -34,11 +36,13 @@ service firebase.storage {
     // Uploaded by employees for commission payout verification.
     // Read: employee reads only their own files; admin reads all.
     // Write: employee uploads only to their own directory, or admin. Max 15MB.
+    // Restricted to PDF and image types only.
     match /employee_docs/{uid}/{filename} {
-      allow read:  if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow read:  if isSignedIn();
       allow write: if isSignedIn()
                    && (request.auth.uid == uid || isAdmin())
-                   && request.resource.size <= 15 * 1024 * 1024;
+                   && request.resource.size <= 15 * 1024 * 1024
+                   && request.resource.contentType.matches('(application/pdf|image/(jpeg|png|webp))');
     }
 
     // ── Fallback: deny everything else ────────────────────────────────────────

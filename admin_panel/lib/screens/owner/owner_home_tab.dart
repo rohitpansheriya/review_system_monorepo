@@ -17,6 +17,8 @@ import '../../models/branch_model.dart';
 import '../../core/theme.dart';
 import '../../widgets/app_kpi_card.dart';
 import '../../widgets/month_year_picker_dialog.dart';
+import '../../widgets/charts/monthly_scan_line_chart.dart';
+import '../../widgets/charts/monthly_feedback_bar_chart.dart';
 
 class OwnerHomeTab extends StatefulWidget {
   const OwnerHomeTab({super.key});
@@ -494,8 +496,8 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
 
             const SizedBox(height: 24),
 
-            // ── 5. Month-over-Month Performance & Review Growth Trends ────────
-            _buildMonthlyTrendsCard(context, provider),
+            // ── 5. Monthly Scan Line Graph & Feedback Sentiment Bar Graph ───
+            _buildMonthlyVisualAnalytics(context, provider),
 
             const SizedBox(height: 24),
 
@@ -802,197 +804,47 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
 
 
 
-  Widget _buildMonthlyTrendsCard(BuildContext context, OwnerDashboardProvider provider) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final isDesktop = MediaQuery.of(context).size.width > 700;
+  Widget _buildMonthlyVisualAnalytics(BuildContext context, OwnerDashboardProvider provider) {
+    final isDesktop = MediaQuery.of(context).size.width > 900;
     final trends = provider.getMonthlyTrends();
-    final maxScans = trends.map((t) => t.scans).fold<int>(1, (max, v) => v > max ? v : max);
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.insights_rounded, color: AppColors.secondary, size: 22),
-                    const SizedBox(width: 8),
-                    Text(
-                      isDesktop ? 'Monthly Review Growth & Historical Performance' : 'Monthly Review Growth',
-                      style: (isDesktop ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
-                  ),
-                  child: const Text(
-                    'Last 6 Months',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.secondary,
-                    ),
-                  ),
-                ),
-              ],
+    if (isDesktop) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: MonthlyScanLineChart(
+              trends: trends,
+              title: 'QR Scans (Monthly)',
+              badgeText: 'MONTHLY VIEWS',
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Month-over-month customer footfall scans and 5-star Google review redirection trends',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: MonthlyFeedbackBarChart(
+              trends: trends,
+              title: 'Feedback Performance',
+              badgeText: 'SENTIMENT',
             ),
-            const SizedBox(height: 20),
+          ),
+        ],
+      );
+    }
 
-            // Horizontal / stacked monthly comparison bars
-            ...trends.map((t) {
-              final scanRatio = maxScans > 0 ? (t.scans / maxScans).clamp(0.0, 1.0) : 0.0;
-              final isCurrent = provider.selectedMonth == t.monthKey ||
-                  (provider.selectedMonth == 'all' && t.monthKey == trends.last.monthKey);
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6.0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isCurrent
-                        ? colorScheme.primaryContainer.withValues(alpha: 0.25)
-                        : colorScheme.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isCurrent
-                          ? colorScheme.primary.withValues(alpha: 0.4)
-                          : colorScheme.outlineVariant.withValues(alpha: 0.5),
-                      width: isCurrent ? 1.2 : 0.8,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                t.label,
-                                style: TextStyle(
-                                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
-                                  fontSize: 13,
-                                  color: isCurrent ? colorScheme.primary : null,
-                                ),
-                              ),
-                              if (isCurrent && provider.selectedMonth != 'all') ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primary,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'Viewing',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${t.scans} scans',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.activeBg,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '+${t.reviews} Reviews',
-                                  style: const TextStyle(
-                                    color: AppColors.activeFg,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Stack(
-                        children: [
-                          Container(
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: scanRatio > 0.05 ? scanRatio : 0.05,
-                            child: Container(
-                              height: 8,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    colorScheme.primary,
-                                    AppColors.secondary,
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ],
+    return Column(
+      children: [
+        MonthlyScanLineChart(
+          trends: trends,
+          title: 'QR Scans (Monthly)',
+          badgeText: 'MONTHLY VIEWS',
         ),
-      ),
+        const SizedBox(height: 16),
+        MonthlyFeedbackBarChart(
+          trends: trends,
+          title: 'Feedback Performance',
+          badgeText: 'SENTIMENT',
+        ),
+      ],
     );
   }
 

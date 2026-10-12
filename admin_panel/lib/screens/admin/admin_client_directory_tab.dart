@@ -38,6 +38,7 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
   String _searchQuery = '';
   String _statusFilter = 'all';
   String _enrolledByFilter = 'all';
+  String _phrasesFilter = 'all'; // 'all', 'pending', 'customized'
   String _sortField = 'createdAt';
   bool _sortAscending = false;
 
@@ -240,6 +241,13 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
     // Status filter
     if (_statusFilter != 'all') {
       list = list.where((b) => b.subscriptionStatus == _statusFilter).toList();
+    }
+
+    // Phrase Pool filter
+    if (_phrasesFilter == 'customized') {
+      list = list.where((b) => b.hasCustomPhrases && b.customCategories.isNotEmpty).toList();
+    } else if (_phrasesFilter == 'pending') {
+      list = list.where((b) => !b.hasCustomPhrases || b.customCategories.isEmpty).toList();
     }
 
     // Enrolled-by filter
@@ -515,6 +523,18 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
           onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
         ),
 
+        // Phrases Pool filter
+        _buildFilterDropdown<String>(
+          value: _phrasesFilter,
+          icon: Icons.rate_review_outlined,
+          items: const {
+            'all': 'All Phrase Pools',
+            'pending': '🟡 Pending Customization',
+            'customized': '🟢 Custom Phrases Active',
+          },
+          onChanged: (v) => setState(() => _phrasesFilter = v ?? 'all'),
+        ),
+
         // Enrolled-by filter
         _buildFilterDropdown<String>(
           value: enrolledByItems.containsKey(_enrolledByFilter) ? _enrolledByFilter : 'all',
@@ -685,11 +705,44 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                     ],
                   ),
                 ),
-                // Category
-                DataCell(Text(
-                  biz.categoryType.isNotEmpty ? biz.categoryType : '—',
-                  style: theme.textTheme.bodySmall,
-                )),
+                // Category & Phrase Pool Status
+                DataCell(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        biz.categoryType.isNotEmpty ? biz.categoryType : '—',
+                        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      if (biz.hasCustomPhrases && biz.customCategories.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '✨ Custom (${biz.customCategories.length} Cats)',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF059669),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          'Template (${biz.defaultCategoryTemplateId ?? "default"})',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 // City
                 DataCell(Text(city, style: theme.textTheme.bodySmall)),
                 // Owner (name + phone)
@@ -964,7 +1017,7 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Row 2: Category + City
+                  // Row 2: Category + City + Phrase Status
                   Row(
                     children: [
                       if (biz.categoryType.isNotEmpty) ...[
@@ -979,7 +1032,25 @@ class _AdminClientDirectoryTabState extends State<AdminClientDirectoryTab> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
+                      ],
+                      if (biz.hasCustomPhrases && biz.customCategories.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '✨ Custom (${biz.customCategories.length})',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: Color(0xFF059669),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                       ],
                       Icon(Icons.location_on_outlined, size: 14,
                           color: colorScheme.onSurfaceVariant),

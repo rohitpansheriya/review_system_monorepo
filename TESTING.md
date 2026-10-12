@@ -10,7 +10,7 @@
 
 | Role | Email | Password | Dashboard |
 |------|-------|----------|-----------|
-| **Admin** | `admin@test.com` | `Test1234!` | Full platform admin — manages employees, businesses, templates, commission queue |
+| **Admin** | `testadmin@test.com` | `Test1234!` | Full platform admin — manages employees, businesses, templates, commission queue |
 | **Employee A** | `employee@test.com` | `Test1234!` | Employee dashboard — enroll businesses, manage standees, view commissions |
 | **Employee B** | `employee.b@test.com` | `Test1234!` | Second employee for cross-access testing (must NOT see Employee A's businesses) |
 | **Owner** | `owner@test.com` | `Test1234!` | Business owner dashboard — view analytics, manage categories, renew subscription |

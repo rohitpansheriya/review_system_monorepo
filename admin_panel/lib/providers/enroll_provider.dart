@@ -14,6 +14,7 @@ import '../services/places_service.dart';
 import '../services/qr_stub_service.dart';
 import '../services/storage_service.dart';
 import '../core/string_utils.dart';
+import '../core/step_category_presets.dart';
 
 enum EnrollMode { single, multi }
 enum EnrollStatus { idle, submitting, success, error }
@@ -32,7 +33,20 @@ class EnrollProvider extends ChangeNotifier {
   })  : _firestore = firestoreService,
         _storage   = storageService,
         _places    = placesService,
-        _qrService = qrStubService;
+        _qrService = qrStubService {
+    final preset = StepCategoryPresets.detectBestPreset('', null);
+    step1Chips = List<String>.from(preset.step1);
+    step2Chips = List<String>.from(preset.step2);
+    step3Chips = List<String>.from(preset.step3);
+    negativeFeedbackChips = List<String>.from(preset.negativeChips);
+    archetype = preset.archetype;
+    serviceTags = {};
+    for (final s in step1Chips) {
+      serviceTags[s] = List<String>.from(
+        preset.serviceTags[s] ?? StepCategoryPresets.suggestTagsForService(s, currentPreset: preset),
+      );
+    }
+  }
 
   // ── Mode ──────────────────────────────────────────────────────────────────
   EnrollMode _mode = EnrollMode.single;
@@ -61,6 +75,155 @@ class EnrollProvider extends ChangeNotifier {
   String ownerName  = '';
   String ownerEmail = '';
   String ownerPhone = '';
+
+  // Review Language Preference: 'english' (default), 'hinglish', 'mixed'
+  String reviewLanguagePreference = 'english';
+
+  void setReviewLanguagePreference(String pref) {
+    if (reviewLanguagePreference == pref) return;
+    reviewLanguagePreference = pref;
+    notifyListeners();
+  }
+
+  // ── 3-Step Guided Review Chips & Private Feedback ────────────────────────
+  List<String> step1Chips = [];
+  List<String> step2Chips = [];
+  List<String> step3Chips = [];
+  List<String> negativeFeedbackChips = [];
+  Map<String, List<String>> serviceTags = {};
+  String? archetype;
+  bool isChipsCustomized = false;
+
+  void applyCategoryPreset(String catType, String? tId) {
+    categoryType = catType;
+    templateId = tId;
+    final preset = StepCategoryPresets.detectBestPreset(catType, tId);
+    step1Chips = List<String>.from(preset.step1);
+    step2Chips = List<String>.from(preset.step2);
+    step3Chips = List<String>.from(preset.step3);
+    negativeFeedbackChips = List<String>.from(preset.negativeChips);
+    archetype = preset.archetype;
+    serviceTags = {};
+    for (final s in step1Chips) {
+      serviceTags[s] = List<String>.from(
+        preset.serviceTags[s] ?? StepCategoryPresets.suggestTagsForService(s, currentPreset: preset),
+      );
+    }
+    isChipsCustomized = false;
+    notifyListeners();
+  }
+
+  void addChip(int step, String chip) {
+    final formatted = step == 4
+        ? chip.trim()
+        : StringUtils.formatChipText(chip, step: step, archetype: archetype);
+    if (formatted.isEmpty) return;
+
+    bool isDuplicate(List<String> list, String text) {
+      final cleanNew = StringUtils.stripLeadingEmoji(text).toLowerCase();
+      return list.any((item) => StringUtils.stripLeadingEmoji(item).toLowerCase() == cleanNew);
+    }
+
+    if (step == 1 && !isDuplicate(step1Chips, formatted)) {
+      step1Chips.add(formatted);
+      final preset = StepCategoryPresets.detectBestPreset(categoryType, templateId);
+      final suggested = StepCategoryPresets.suggestTagsForService(formatted, currentPreset: preset);
+      serviceTags[formatted] = List<String>.from(suggested);
+      isChipsCustomized = true;
+      notifyListeners();
+    } else if (step == 2 && !isDuplicate(step2Chips, formatted)) {
+      step2Chips.add(formatted);
+      isChipsCustomized = true;
+      notifyListeners();
+    } else if (step == 3 && !isDuplicate(step3Chips, formatted)) {
+      step3Chips.add(formatted);
+      isChipsCustomized = true;
+      notifyListeners();
+    } else if (step == 4 && !isDuplicate(negativeFeedbackChips, formatted)) {
+      negativeFeedbackChips.add(formatted);
+      isChipsCustomized = true;
+      notifyListeners();
+    }
+  }
+
+  void removeChip(int step, String chip) {
+    if (step == 1) {
+      step1Chips.remove(chip);
+      serviceTags.remove(chip);
+      isChipsCustomized = true;
+      notifyListeners();
+    } else if (step == 2) {
+      step2Chips.remove(chip);
+      isChipsCustomized = true;
+      notifyListeners();
+    } else if (step == 3) {
+      step3Chips.remove(chip);
+      isChipsCustomized = true;
+      notifyListeners();
+    } else if (step == 4) {
+      negativeFeedbackChips.remove(chip);
+      isChipsCustomized = true;
+      notifyListeners();
+    }
+  }
+
+  List<String> getTagsForService(String service) {
+    if (serviceTags.containsKey(service) && serviceTags[service]!.isNotEmpty) {
+      return List<String>.from(serviceTags[service]!);
+    }
+    final preset = StepCategoryPresets.detectBestPreset(categoryType, templateId);
+    final suggested = StepCategoryPresets.suggestTagsForService(service, currentPreset: preset);
+    serviceTags[service] = List<String>.from(suggested);
+    return List<String>.from(suggested);
+  }
+
+  void updateTagsForService(String service, List<String> tags) {
+    serviceTags[service] = List<String>.from(tags);
+    isChipsCustomized = true;
+    notifyListeners();
+  }
+
+  void addTagToService(String service, String tag) {
+    final clean = tag.trim();
+    if (clean.isEmpty) return;
+    final current = serviceTags[service] ?? [];
+    if (!current.contains(clean)) {
+      serviceTags[service] = [...current, clean];
+      isChipsCustomized = true;
+      notifyListeners();
+    }
+  }
+
+  void removeTagFromService(String service, String tag) {
+    final current = serviceTags[service] ?? [];
+    serviceTags[service] = current.where((t) => t != tag).toList();
+    isChipsCustomized = true;
+    notifyListeners();
+  }
+
+  void resetTagsForService(String service) {
+    final preset = StepCategoryPresets.detectBestPreset(categoryType, templateId);
+    serviceTags[service] = StepCategoryPresets.suggestTagsForService(service, currentPreset: preset);
+    isChipsCustomized = true;
+    notifyListeners();
+  }
+
+  void resetChipsToPreset() {
+    final preset = StepCategoryPresets.detectBestPreset(categoryType, templateId);
+    step1Chips = List<String>.from(preset.step1);
+    step2Chips = List<String>.from(preset.step2);
+    step3Chips = List<String>.from(preset.step3);
+    negativeFeedbackChips = List<String>.from(preset.negativeChips);
+    archetype = preset.archetype;
+    serviceTags = {};
+    for (final s in step1Chips) {
+      serviceTags[s] = List<String>.from(
+        preset.serviceTags[s] ?? StepCategoryPresets.suggestTagsForService(s, currentPreset: preset),
+      );
+    }
+    isChipsCustomized = false;
+    notifyListeners();
+  }
 
   // Test / Demo Mode (Solution 2)
   bool isTestAccount = false;
@@ -275,17 +438,31 @@ class EnrollProvider extends ChangeNotifier {
       // 5 — Atomic batch write (business + N branches + counter)
       // Test / Demo mode is strictly restricted to Admin (employeeId == 'admin')
       final effectiveIsTest = (employeeId == 'admin') && isTestAccount;
+      Map<String, List<String>>? customStepCats;
+      if (step1Chips.isNotEmpty || step2Chips.isNotEmpty || step3Chips.isNotEmpty) {
+        customStepCats = {
+          'step1': List<String>.from(step1Chips),
+          'step2': List<String>.from(step2Chips),
+          'step3': List<String>.from(step3Chips),
+        };
+      }
+
       final result = await _firestore.enrollBusiness(
-        employeeId:    employeeId,
-        brandName:     cleanBrandName,
-        logoUrl:       logoUrl ?? '',
-        categoryType:  categoryType,
-        templateId:    templateId,
-        ownerEmail:    ownerEmail.trim().toLowerCase(),
-        ownerName:     cleanOwnerName,
-        ownerPhone:    ownerPhone.trim(),
-        isTestAccount: effectiveIsTest,
-        branches:      List.of(_branches), // snapshot at submit time
+        employeeId:               employeeId,
+        brandName:                cleanBrandName,
+        logoUrl:                  logoUrl ?? '',
+        categoryType:             categoryType,
+        templateId:               templateId,
+        ownerEmail:               ownerEmail.trim().toLowerCase(),
+        ownerName:                cleanOwnerName,
+        ownerPhone:               ownerPhone.trim(),
+        isTestAccount:            effectiveIsTest,
+        reviewLanguagePreference: reviewLanguagePreference,
+        customStepCategories:     customStepCats,
+        customServiceTags:        serviceTags,
+        customArchetype:          archetype,
+        negativeFeedbackChips:    negativeFeedbackChips.isNotEmpty ? negativeFeedbackChips : null,
+        branches:                 List.of(_branches), // snapshot at submit time
       );
 
       final businessId = result['businessId'] as String;
@@ -317,22 +494,36 @@ class EnrollProvider extends ChangeNotifier {
   // ── Reset ─────────────────────────────────────────────────────────────────
 
   void reset() {
-    _mode         = EnrollMode.single;
-    isTestAccount = false;
-    brandName     = '';
-    categoryType  = '';
-    templateId    = null;
-    logoBytes     = null;
-    logoMimeType  = null;
-    logoUrl       = null;
-    logoUploading = false;
-    ownerName     = '';
-    ownerEmail    = '';
-    ownerPhone    = '';
-    _branches     = [BranchDraft()];
-    _status       = EnrollStatus.idle;
-    _error        = null;
-    _successBizId = null;
+    _mode                    = EnrollMode.single;
+    isTestAccount            = false;
+    brandName                = '';
+    categoryType             = '';
+    templateId               = null;
+    reviewLanguagePreference = 'english';
+    logoBytes                = null;
+    logoMimeType             = null;
+    logoUrl                  = null;
+    logoUploading            = false;
+    ownerName                = '';
+    ownerEmail               = '';
+    ownerPhone               = '';
+    final preset             = StepCategoryPresets.detectBestPreset('', null);
+    step1Chips               = List<String>.from(preset.step1);
+    step2Chips               = List<String>.from(preset.step2);
+    step3Chips               = List<String>.from(preset.step3);
+    negativeFeedbackChips    = List<String>.from(preset.negativeChips);
+    archetype                = preset.archetype;
+    serviceTags              = {};
+    for (final s in step1Chips) {
+      serviceTags[s] = List<String>.from(
+        preset.serviceTags[s] ?? StepCategoryPresets.suggestTagsForService(s, currentPreset: preset),
+      );
+    }
+    isChipsCustomized        = false;
+    _branches                = [BranchDraft()];
+    _status                  = EnrollStatus.idle;
+    _error                   = null;
+    _successBizId            = null;
     notifyListeners();
   }
 }

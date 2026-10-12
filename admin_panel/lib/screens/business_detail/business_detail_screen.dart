@@ -44,6 +44,7 @@ import '../../widgets/app_dialog.dart';
 import '../../widgets/app_fulfillment_stepper.dart';
 import '../../widgets/share_business_qr.dart';
 import '../enroll/branch_form_widget.dart';
+import 'business_phrases_editor_dialog.dart';
 
 class BusinessDetailScreen extends StatefulWidget {
   final BusinessModel business;
@@ -65,50 +66,60 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
   void initState() {
     super.initState();
     _business = widget.business;
+
+    // Instant UI: use memory cached branches and employee name if available
+    final svc = context.read<FirestoreService>();
+    final cached = svc.getCachedBranches(_business.id);
+    if (cached != null && cached.isNotEmpty) {
+      _branches = cached;
+      _loading = false;
+    }
+
+    if (FirestoreService.employeeNameCache.containsKey(_business.enrolledBy)) {
+      _enrolledByName = FirestoreService.employeeNameCache[_business.enrolledBy];
+    }
+
     _refreshBusiness();
   }
 
   Future<void> _refreshBusiness() async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection(AppConstants.colBusinesses)
-          .doc(_business.id)
-          .get();
-      if (doc.exists && mounted) {
-        setState(() {
-          _business = BusinessModel.fromDoc(doc);
-        });
-      }
-      await _loadBranches();
-      if (mounted) {
-        try {
-          final auth = context.read<AppAuthProvider>();
-          if (auth.isAdmin) {
-            context.read<AdminDashboardProvider>().loadAdminData();
-          } else {
-            context.read<MyBusinessesProvider>().refresh();
-          }
-        } catch (_) {}
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _loadBranches() async {
-    try {
       final svc = context.read<FirestoreService>();
-      final branches = await svc.getBranches(_business.id);
-      final empName = await svc.getEmployeeName(_business.enrolledBy);
-      if (mounted) {
-        setState(() {
-          _branches = branches;
-          _enrolledByName = empName;
-          _loading  = false;
-        });
-      }
+
+      // Parallelize business doc, branches subcollection, and employee name in a single roundtrip
+      final results = await Future.wait([
+        FirebaseFirestore.instance
+            .collection(AppConstants.colBusinesses)
+            .doc(_business.id)
+            .get(),
+        svc.getBranches(_business.id, forceRefresh: true),
+        if (_business.enrolledBy.isNotEmpty && _business.enrolledBy != 'admin')
+          svc.getEmployeeName(_business.enrolledBy)
+        else
+          Future.value('Admin'),
+      ]);
+
+      if (!mounted) return;
+
+      final doc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
+      final branches = results[1] as List<BranchModel>;
+      final empName = results[2] as String;
+
+      setState(() {
+        if (doc.exists) {
+          _business = BusinessModel.fromDoc(doc);
+        }
+        _branches = branches;
+        _enrolledByName = empName;
+        _loading = false;
+        _error = null;
+      });
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error   = e.toString();
+          if (_branches.isEmpty) {
+            _error = e.toString();
+          }
           _loading = false;
         });
       }
@@ -1040,6 +1051,14 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                   value: biz.categoryType.isEmpty ? '—' : biz.categoryType,
                 ),
                 _InfoRow(
+                  label: 'Review language',
+                  value: biz.reviewLanguagePreference == 'hinglish'
+                      ? 'Hinglish (Roman)'
+                      : (biz.reviewLanguagePreference == 'mixed'
+                          ? 'Mixed (English + Hinglish)'
+                          : 'English (Default)'),
+                ),
+                _InfoRow(
                   label: 'Owner email',
                   value: biz.ownerEmail ?? '—',
                   trailing: (biz.ownerEmail != null && biz.ownerEmail!.isNotEmpty)
@@ -1159,6 +1178,14 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                 _InfoRow(label: 'Business ID',  value: biz.id, mono: true),
               ],
             ),
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+
+          // ── Custom Review Phrases & Categories Card ────────────────────
+          _BusinessReviewPhrasesCard(
+            business: biz,
+            onPhrasesUpdated: _refreshBusiness,
           ),
 
           const SizedBox(height: AppSpacing.lg - 4),
@@ -3118,4 +3145,329 @@ class _InfoRow extends StatelessWidget {
           ],
         ),
       );
+}
+
+// ── Review Phrases & Categories Card ─────────────────────────────────────────
+
+class _BusinessReviewPhrasesCard extends StatefulWidget {
+  final BusinessModel business;
+  final VoidCallback? onPhrasesUpdated;
+
+  const _BusinessReviewPhrasesCard({
+    required this.business,
+    this.onPhrasesUpdated,
+  });
+
+  @override
+  State<_BusinessReviewPhrasesCard> createState() =>
+      _BusinessReviewPhrasesCardState();
+}
+
+class _BusinessReviewPhrasesCardState
+    extends State<_BusinessReviewPhrasesCard> {
+  bool _resetting = false;
+
+  Future<void> _handleResetToDefault() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset to Default Template?'),
+        content: Text(
+          'This will remove all custom phrases for "${widget.business.brandName}" and revert to the standard default category template.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Reset to Default'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    setState(() => _resetting = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection(AppConstants.colBusinesses)
+          .doc(widget.business.id)
+          .update({
+        'custom_categories': FieldValue.delete(),
+        'has_custom_phrases': false,
+        'phrases_customized_at': FieldValue.delete(),
+      });
+
+      widget.onPhrasesUpdated?.call();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Reverted business to default review template.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to reset template: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _resetting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final biz = widget.business;
+    final hasCustom = biz.hasCustomPhrases && biz.customCategories.isNotEmpty;
+
+    return _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.rate_review_rounded, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.sm + 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Review Phrases & 3-Step Chips',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      biz.hasStepCategories
+                          ? '3-Step Guided Chips active (${biz.archetype ?? "food_dining"} • ${biz.totalStepChips} Chips)'
+                          : (hasCustom
+                              ? 'Custom phrase pools active (${biz.customCategories.length} Categories • ${biz.totalCustomPhrases} Phrases)'
+                              : 'Using default 3-step generator (${biz.defaultCategoryTemplateId ?? "Standard"})'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (biz.hasStepCategories || hasCustom)
+                      ? const Color(0xFFECFDF5)
+                      : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: (biz.hasStepCategories || hasCustom)
+                        ? const Color(0xFFA7F3D0)
+                        : const Color(0xFFFCD34D),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      (biz.hasStepCategories || hasCustom) ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                      size: 14,
+                      color: (biz.hasStepCategories || hasCustom) ? const Color(0xFF059669) : const Color(0xFFD97706),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      (biz.hasStepCategories || hasCustom) ? 'Custom Active' : 'Default Template',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: (biz.hasStepCategories || hasCustom) ? const Color(0xFF059669) : const Color(0xFF92400E),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+
+          // 3-Step Chips Preview
+          if (biz.hasStepCategories) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (biz.stepCategories?['step1']?.isNotEmpty == true)
+                  _buildStepPreviewBadge('Step 1 (Items)', biz.stepCategories!['step1']!, const Color(0xFF3B82F6)),
+                if (biz.stepCategories?['step2']?.isNotEmpty == true)
+                  _buildStepPreviewBadge('Step 2 (Highlights)', biz.stepCategories!['step2']!, const Color(0xFF10B981)),
+                if (biz.stepCategories?['step3']?.isNotEmpty == true)
+                  _buildStepPreviewBadge('Step 3 (Experience)', biz.stepCategories!['step3']!, const Color(0xFF8B5CF6)),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ] else if (hasCustom) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: biz.customCategories.map((catMap) {
+                final name = catMap['name']?.toString() ?? 'Category';
+                final pool = catMap['phrase_pool'] as List? ?? [];
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isDark ? colorScheme.surfaceContainerHighest : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: pool.length >= 30
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF59E0B),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${pool.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: Color(0xFFD97706), size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Tip: Uploading unique 3-step review chips tailored for this business allows customers to mention specific dishes, stylists, doctors, or services in 1-tap on Google.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF92400E), height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+
+          // Action Buttons
+          Row(
+            children: [
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () async {
+                  final saved = await BusinessPhrasesEditorDialog.show(context, biz);
+                  if (saved == true) {
+                    widget.onPhrasesUpdated?.call();
+                  }
+                },
+                icon: Icon(hasCustom ? Icons.edit_note_rounded : Icons.playlist_add_circle_rounded, size: 18),
+                label: Text(
+                  hasCustom ? 'Edit Review Phrases & Categories' : 'Customize Phrases (Bulk Upload Tool)',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              if (hasCustom) ...[
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _resetting ? null : _handleResetToDefault,
+                  icon: _resetting
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.restart_alt_rounded, size: 16),
+                  label: const Text('Revert to Default Template'),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepPreviewBadge(String title, List<String> chips, Color accentColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '${chips.length}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

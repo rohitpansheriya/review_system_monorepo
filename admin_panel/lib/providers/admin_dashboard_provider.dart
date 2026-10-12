@@ -15,11 +15,13 @@ import '../models/employee_profile_model.dart';
 import '../models/standee_fulfillment_model.dart';
 import '../services/category_template_service.dart';
 import '../services/firestore_service.dart';
+import '../services/storage_service.dart';
 
 class AdminDashboardProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
   final FirestoreService _firestoreService;
   final CategoryTemplateService _templateService;
+  final StorageService _storageService;
 
   bool _loading = false;
   String? _error;
@@ -161,6 +163,7 @@ class AdminDashboardProvider extends ChangeNotifier {
     FirebaseFirestore? firestore,
     FirestoreService? firestoreService,
     CategoryTemplateService? templateService,
+    StorageService? storageService,
   }) : _db = firestore ?? FirebaseFirestore.instance,
        _firestoreService =
            firestoreService ??
@@ -169,7 +172,8 @@ class AdminDashboardProvider extends ChangeNotifier {
            templateService ??
            CategoryTemplateService(
              firestore: firestore ?? FirebaseFirestore.instance,
-           );
+           ),
+       _storageService = storageService ?? StorageService();
 
   /// Load initial admin overview & stats.
   Future<void> loadAdminData({bool forceReload = false, int retryCount = 0}) async {
@@ -572,6 +576,20 @@ class AdminDashboardProvider extends ChangeNotifier {
     await fetchEmployees();
   }
 
+  /// Retrieves public/secure download URL for an uploaded employee KYC document photo.
+  Future<String?> getDocumentDownloadUrl(String storagePath) async {
+    try {
+      return await _storageService.getDownloadUrl(storagePath);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Downloads raw bytes of an uploaded KYC document for safe, CORS-free in-memory preview.
+  Future<Uint8List?> getDocumentBytes(String storagePath) async {
+    return await _storageService.getDocumentBytes(storagePath);
+  }
+
   Future<void> fetchTemplates() async {
     _templates = await _templateService.getTemplateHeaders();
     notifyListeners();
@@ -886,24 +904,24 @@ class AdminDashboardProvider extends ChangeNotifier {
           setupAmount = setupCount * 1999.0;
         }
 
-        // 2. Renewals Revenue
+        // 2. Renewals Revenue (strictly from actual renewal payments)
+        double branchRenewalsSum = 0.0;
+        int branchRenewalsCount = 0;
+        for (final b in branches) {
+          if (b.renewalAmountPaid != null && b.renewalAmountPaid! > 0) {
+            branchRenewalsSum += b.renewalAmountPaid!;
+            branchRenewalsCount += (b.renewalAmountPaid! / 999.0).round();
+          }
+        }
+
         double renewalsAmount = 0.0;
         int renewalsCount = 0;
-        if (bizRenewalAmountPaid != null && bizRenewalAmountPaid > 0) {
+        if (branchRenewalsSum > 0) {
+          renewalsAmount = branchRenewalsSum;
+          renewalsCount = branchRenewalsCount;
+        } else if (bizRenewalAmountPaid != null && bizRenewalAmountPaid > 0) {
           renewalsAmount = bizRenewalAmountPaid;
           renewalsCount = (bizRenewalAmountPaid / 999.0).round();
-        } else {
-          final created = (bizData['created_at'] as Timestamp?)?.toDate();
-          final renewal = (bizData['renewal_date'] as Timestamp?)?.toDate();
-          if (created != null && renewal != null) {
-            final daysDiff = renewal.difference(created).inDays;
-            if (daysDiff > 370) {
-              final extraYears = ((daysDiff - 365) / 365).ceil();
-              renewalsCount = extraYears;
-              renewalsAmount =
-                  extraYears * (999.0 * (bActive > 0 ? bActive : 1));
-            }
-          }
         }
 
         // Derive payment/enrollment month

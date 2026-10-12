@@ -88,6 +88,13 @@ service cloud.firestore {
                 'logo_url',
                 'category_type',
                 'default_category_template_id',
+                'archetype',
+                'step_categories',
+                'custom_step_categories',
+                'negative_feedback_chips',
+                'has_custom_phrases',
+                'phrases_customized_at',
+                'review_language_preference',
                 'owner_name',
                 'owner_email',
                 'owner_phone'

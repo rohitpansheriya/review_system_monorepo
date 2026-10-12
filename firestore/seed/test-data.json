@@ -8,6 +8,13 @@
         "logo_url": "",
         "category_type": "ice_cream",
         "default_category_template_id": "ice_cream_v1",
+        "archetype": "food_dining",
+        "has_custom_phrases": true,
+        "step_categories": {
+          "step1": ["🍨 Sundae Bowl", "🍦 Gelato Scoops", "🧇 Belgian Waffle", "🍫 Sizzling Brownie", "🍧 Kulfi Falooda"],
+          "step2": ["🥛 Creamy Rich Texture", "🍫 Generous Warm Toppings", "🧇 Warm & Crispy Base", "🍓 Real Fruit Flavors"],
+          "step3": ["🎉 Fun Vibrant Ambience", "😊 Cheerful Crew", "⚡ Fast Dessert Serving", "🧼 Spotless Counter"]
+        },
         "pool_version": "v1",
         "enrolled_by": "seed_script",
         "enrolled_by_original": "seed_script",
@@ -25,6 +32,13 @@
         "logo_url": "",
         "category_type": "ice_cream",
         "default_category_template_id": "ice_cream_v1",
+        "archetype": "food_dining",
+        "has_custom_phrases": true,
+        "step_categories": {
+          "step1": ["🍦 Vanilla Soft Serve", "🍧 Mango Falooda", "🍨 Choco Fudge Sundae", "🍰 Ice Cream Cake"],
+          "step2": ["🍓 Natural Fruit Chunks", "✨ Rich Fresh Cream", "🍫 Dark Chocolate Swirl", "😋 Perfectly Sweetened"],
+          "step3": ["⚡ Quick Order Counter", "😊 Polite Staff", "🧼 Clean Tables", "🛋️ Cozy Seating"]
+        },
         "pool_version": "v2",
         "enrolled_by": "seed_script",
         "enrolled_by_original": "seed_script",
@@ -42,6 +56,13 @@
         "logo_url": "",
         "category_type": "salon",
         "default_category_template_id": "salon_v1",
+        "archetype": "beauty_wellness",
+        "has_custom_phrases": true,
+        "step_categories": {
+          "step1": ["✂️ Layered Haircut", "🎨 Global Hair Color", "✨ Balayage Highlights", "💆 Keratin Treatment", "🧖 HydraFacial"],
+          "step2": ["✨ Glossy Smooth Finish", "🌿 Zero Hair Damage", "🎨 Vibrant Natural Color", "🧴 Premium Products"],
+          "step3": ["💡 Expert Hair Consult", "👑 Luxurious Ambience", "😊 Very Courteous Stylist", "🧼 Spotless Stations"]
+        },
         "pool_version": "v1",
         "enrolled_by": "seed_script",
         "enrolled_by_original": "seed_script",
@@ -59,6 +80,13 @@
         "logo_url": "",
         "category_type": "restaurant",
         "default_category_template_id": "restaurant_v1",
+        "archetype": "food_dining",
+        "has_custom_phrases": true,
+        "step_categories": {
+          "step1": ["🧀 Paneer Butter Masala", "🍗 Butter Chicken", "🫓 Garlic Butter Naan", "🍲 Dal Makhani", "🍚 Dum Biryani"],
+          "step2": ["🍲 Rich Creamy Gravy", "🌿 Aromatic Spices", "🫓 Freshly Baked Naan", "😋 Authentic Taste"],
+          "step3": ["👨‍👩‍👧 Family-friendly Vibe", "😊 Courteous Captain", "🛋️ Comfortable Seating", "🧼 Clean Kitchen"]
+        },
         "pool_version": "v3",
         "enrolled_by": "seed_script",
         "enrolled_by_original": "seed_script",

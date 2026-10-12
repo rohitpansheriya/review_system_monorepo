@@ -5,12 +5,12 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 class ImageUtils {
-  /// Resizes image bytes so that neither width nor height exceeds [maxDimension] (default: 512px).
-  /// Preserves exact aspect ratio and re-encodes as optimized PNG bytes.
+  /// Resizes image bytes so that neither width nor height exceeds [maxDimension] (default: 384px).
+  /// Preserves exact aspect ratio and re-encodes as optimized PNG bytes keeping file size ~15-25 KB.
   /// If the image is already within bounds, it returns clean compressed PNG bytes.
   static Future<Uint8List> resizeAndCompressLogo(
     Uint8List originalBytes, {
-    int maxDimension = 512,
+    int maxDimension = 384,
   }) async {
     try {
       // 1. Initial decode to measure original dimensions

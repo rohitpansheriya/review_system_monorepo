@@ -15,7 +15,7 @@
   <!-- Google Fonts: Roboto & Google Sans style -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <style>
     /* ─── Google Maps / Google Review Design Tokens ─────────────────── */
@@ -71,31 +71,80 @@
       padding: 0 16px 40px;
     }
 
+    /* ─── Screen Transition Animations ───────────────────────────────── */
     .screen {
       display: none;
       width: 100%;
       max-width: 460px;
-      animation: screenFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-
-    .screen.active {
-      display: flex;
       flex-direction: column;
       gap: 14px;
     }
 
-    @keyframes screenFadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(8px);
-      }
-      to {
+    @keyframes fadeOutSlideUp {
+      0% {
         opacity: 1;
-        transform: none;
+        transform: translateY(0) scale(1) translateZ(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.98) translateZ(0);
       }
     }
 
-    /* ─── Card (Google Material Card) ────────────────────────────────── */
+    @keyframes fadeInSwipeUp {
+      0% {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98) translateZ(0);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1) translateZ(0);
+      }
+    }
+
+    @keyframes fadeOutSlideDown {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1) translateZ(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98) translateZ(0);
+      }
+    }
+
+    @keyframes fadeInSwipeDown {
+      0% {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.98) translateZ(0);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1) translateZ(0);
+      }
+    }
+
+    .anim-fade-out-up {
+      animation: fadeOutSlideUp 0.14s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+      will-change: transform, opacity;
+    }
+
+    .anim-fade-in-up {
+      animation: fadeInSwipeUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+      will-change: transform, opacity;
+    }
+
+    .anim-fade-out-down {
+      animation: fadeOutSlideDown 0.14s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+      will-change: transform, opacity;
+    }
+
+    .anim-fade-in-down {
+      animation: fadeInSwipeDown 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+      will-change: transform, opacity;
+    }
+
+    /* ─── Card (Material & Glass Elevation) ──────────────────────────── */
     .card {
       width: 100%;
       background: var(--c-surface);
@@ -105,88 +154,150 @@
       box-shadow: 0 1px 3px rgba(60, 64, 67, 0.08), 0 1px 2px rgba(60, 64, 67, 0.12);
     }
 
-    /* ─── Deep Royal Navy Rating Hero Card ─────────────────────────────── */
-    .rating-hero-card {
-      background: linear-gradient(145deg, #0b1528 0%, #1e3a8a 55%, #1d4ed8 100%) !important;
-      border: 1px solid rgba(147, 197, 253, 0.25) !important;
-      border-top: 1.5px solid rgba(191, 219, 254, 0.45) !important;
+    /* ─── Screen 1: Services Selection Hero Card (2-Screen Flow) ────── */
+    .services-hero-card {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
       border-radius: var(--radius-lg);
-      padding: 24px 18px 20px;
-      box-shadow: 0 14px 32px -6px rgba(11, 21, 40, 0.28),
-                  0 6px 16px rgba(30, 58, 138, 0.22),
-                  inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      padding: 24px 20px 20px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05), 0 4px 10px -2px rgba(15, 23, 42, 0.03);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
       position: relative;
-      overflow: hidden;
-      color: #ffffff;
     }
 
-    .rating-hero-card::before {
-      content: '';
-      position: absolute;
-      top: -40%;
-      right: -20%;
-      width: 200px;
-      height: 200px;
-      background: radial-gradient(circle, rgba(96, 165, 250, 0.25) 0%, rgba(30, 58, 138, 0) 70%);
-      pointer-events: none;
-      z-index: 0;
+    .services-header-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    .rating-hero-card::after {
-      content: '';
-      position: absolute;
-      bottom: -40%;
-      left: -15%;
-      width: 180px;
-      height: 180px;
-      background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(30, 58, 138, 0) 70%);
-      pointer-events: none;
-      z-index: 0;
+    .services-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.35;
     }
 
-    .rating-hero-card > * {
-      position: relative;
-      z-index: 1;
+    .services-sub {
+      font-size: 13.5px;
+      color: #64748b;
+      line-height: 1.45;
     }
 
-    .rating-hero-card .screen-title {
-      color: #ffffff !important;
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.01em;
-      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    .services-chip-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      align-items: center;
+      margin: 4px 0 6px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding-bottom: 4px;
     }
 
-    .rating-hero-card .screen-sub {
-      color: #bfdbfe !important;
+    .chip-pill {
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 9999px;
+      padding: 9px 15px;
       font-size: 14px;
+      font-weight: 500;
+      color: #334155;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .chip-pill:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+      color: #0f172a;
+      transform: translateY(-1px);
+    }
+
+    .chip-pill:active {
+      transform: scale(0.96);
+    }
+
+    .chip-pill.active {
+      background: linear-gradient(135deg, #0f274a 0%, #1e40af 100%);
+      border-color: #1d4ed8;
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(30, 64, 175, 0.35);
+      transform: scale(1.02);
+    }
+
+    .chip-pill.active::after {
+      content: '✓';
+      font-size: 12px;
+      font-weight: 800;
+      color: #93c5fd;
+      margin-left: 2px;
+    }
+
+    .btn-generate-hero {
+      background: linear-gradient(135deg, #1a73e8 0%, #1557d0 100%);
+      color: #ffffff !important;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 15px 22px;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 4px 14px rgba(26, 115, 232, 0.35);
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      width: 100%;
+      margin-top: 6px;
+    }
+
+    .btn-generate-hero:hover {
+      background: linear-gradient(135deg, #1557d0 0%, #0d47a1 100%);
+      box-shadow: 0 6px 20px rgba(26, 115, 232, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .btn-generate-hero:active {
+      transform: scale(0.98);
+    }
+
+    .private-feedback-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding-top: 6px;
       margin-top: 4px;
     }
 
-    .rating-hero-card .star-btn {
-      color: rgba(255, 255, 255, 0.28);
-      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease, filter 0.18s ease;
+    .private-feedback-link {
+      font-size: 13px;
+      font-weight: 500;
+      color: #64748b;
+      text-decoration: none;
+      transition: color 0.15s ease;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      border-radius: 8px;
     }
 
-    .rating-hero-card .star-btn:hover {
-      color: rgba(255, 255, 255, 0.55);
-      transform: scale(1.18);
-    }
-
-    .rating-hero-card .star-btn.lit {
-      color: #fbbf24 !important;
-      text-shadow: 0 0 14px rgba(251, 191, 36, 0.8), 0 2px 6px rgba(0, 0, 0, 0.4);
-      filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.5));
-    }
-
-    .rating-hero-card .rating-badge {
-      background: rgba(255, 255, 255, 0.15) !important;
-      color: #ffffff !important;
-      border: 1px solid rgba(255, 255, 255, 0.25) !important;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      font-weight: 700;
+    .private-feedback-link:hover {
+      color: #dc2626;
+      background: #fef2f2;
+      text-decoration: underline;
     }
 
     .thank-you-card {
@@ -334,96 +445,86 @@
       line-height: 1.45;
     }
 
-    /* ─── Stars Component (Google Review Style) ───────────────────────── */
-    .star-grid {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin: 14px 0 6px;
-    }
+    /* ─── Shared Utilities ───────────────────────────────────────────── */
 
-    .star-btn {
-      background: none;
-      border: none;
-      font-size: 44px;
-      color: var(--c-star-off);
+    .btn-nav-back {
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      color: #475569;
+      padding: 12px 18px;
+      border-radius: 9999px;
+      font-size: 13.5px;
+      font-weight: 600;
       cursor: pointer;
-      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease;
-      line-height: 1;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
-      padding: 4px;
     }
 
-    .star-btn:hover {
-      transform: scale(1.16);
+    .btn-nav-back:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+      color: #0f172a;
     }
 
-    .star-btn:active {
-      transform: scale(1.26);
+    .btn-nav-next {
+      flex: 1;
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #1d4ed8 100%);
+      color: #ffffff;
+      border: none;
+      padding: 13px 20px;
+      border-radius: 9999px;
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .star-btn.lit {
-      color: var(--c-star-on);
-      text-shadow: 0 1px 4px rgba(251, 188, 4, 0.4);
+    .btn-nav-next:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.4);
     }
 
-    .rating-badge {
-      display: inline-block;
-      margin-top: 4px;
-      padding: 4px 14px;
-      border-radius: 16px;
+    .btn-nav-next:active {
+      transform: scale(0.98);
+    }
+
+    /* ─── Final Review Card & Google Action Screen ───────────────────── */
+    .final-hero-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+    }
+
+    .final-hero-title {
       font-size: 13px;
-      font-weight: 600;
-      background: #fef7e0;
-      color: #b06000;
-      border: 1px solid #fce8b2;
-      animation: badgePop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    }
-
-    @keyframes badgePop {
-      0% {
-        opacity: 0;
-        transform: scale(0.88);
-      }
-      100% {
-        opacity: 1;
-        transform: scale(1);
-      }
-    }
-
-    /* ─── Dynamic Rating Container & Transitions ─────────────────────── */
-    .dynamic-container {
+      font-weight: 700;
+      color: #1e40af;
       display: flex;
-      flex-direction: column;
-      gap: 12px;
-      width: 100%;
+      align-items: center;
+      gap: 6px;
     }
 
-    .dynamic-section {
-      display: none;
-      width: 100%;
-      flex-direction: column;
-      gap: 12px;
+    .final-hero-stars {
+      font-size: 14px;
+      color: #f59e0b;
+      letter-spacing: 1px;
     }
 
-    .dynamic-section.active {
-      display: flex;
-      animation: dynamicSectionIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-
-    @keyframes dynamicSectionIn {
-      0% {
-        opacity: 0;
-        transform: translateY(10px) scale(0.99);
-      }
-      100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    /* ─── High-Star Review Box ────────────────────────────────────────── */
     .review-box-card {
       padding: 16px;
       display: flex;
@@ -616,15 +717,139 @@
       color: #94a3b8;
     }
 
+    /* ─── AI Live Generation Glowing Effects ───────────────────────────── */
+    .review-box-card.generating-ai {
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18), 0 8px 24px rgba(37, 99, 235, 0.12) !important;
+      background: linear-gradient(to bottom, #f8faff 0%, #ffffff 100%) !important;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .review-box-card.generating-ai::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #3b82f6, #8b5cf6, #06b6d4, transparent);
+      animation: aiBorderScan 1.6s infinite linear;
+    }
+
+    @keyframes aiBorderScan {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    .ai-generation-container {
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: #f8fafc;
+      border-radius: var(--radius-md);
+      border: 1.5px dashed #bfdbfe;
+      animation: fadeIn 0.25s ease;
+      min-height: 135px;
+      box-sizing: border-box;
+      justify-content: center;
+    }
+
+    .ai-live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ai-pulse-orb {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 14px rgba(124, 58, 237, 0.45);
+      animation: aiOrbPulse 1.5s infinite ease-in-out;
+      flex-shrink: 0;
+    }
+
+    .ai-sparkle-anim {
+      font-size: 17px;
+      color: #ffffff;
+      display: inline-block;
+      animation: sparkleRotate 2.5s infinite linear;
+    }
+
+    @keyframes aiOrbPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 10px rgba(59, 130, 246, 0.4); }
+      50% { transform: scale(1.08); box-shadow: 0 0 20px rgba(124, 58, 237, 0.65); }
+    }
+
+    @keyframes sparkleRotate {
+      0% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.15); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+
+    .ai-live-text-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ai-live-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #1e3a8a;
+      letter-spacing: 0.1px;
+    }
+
+    .ai-live-subtitle {
+      font-size: 11.5px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .ai-skeleton-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ai-skeleton-wave {
+      height: 10px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+      background-size: 200% 100%;
+      animation: aiSkeletonWave 1.4s infinite ease-in-out;
+    }
+
+    .ai-skeleton-wave.w-95 { width: 95%; }
+    .ai-skeleton-wave.w-85 { width: 80%; }
+    .ai-skeleton-wave.w-65 { width: 55%; }
+
+    @keyframes aiSkeletonWave {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .btn-google.loading-ai-btn {
+      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%) !important;
+      opacity: 0.96;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+      cursor: wait;
+    }
+
     /* ─── Buttons & Action Controls ──────────────────────────────────── */
     .btn {
       width: 100%;
-      padding: 14px;
+      padding: 15px 20px;
       border-radius: 28px;
       border: none;
       font-family: var(--font);
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.2px;
       cursor: pointer;
       display: flex;
@@ -639,7 +864,6 @@
     .btn-google {
       background: linear-gradient(135deg, #1a73e8 0%, #1557d0 100%);
       color: #ffffff;
-      padding: 15px 20px;
       box-shadow: 0 4px 14px rgba(26, 115, 232, 0.35), 0 1px 3px rgba(60, 64, 67, 0.15);
     }
 
@@ -683,6 +907,31 @@
     .btn-outline:hover {
       background: #f1f3f4;
       color: var(--c-text);
+    }
+
+    .screen-footer-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 4px;
+    }
+
+    .text-link {
+      background: none;
+      border: none;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      transition: color 0.15s ease;
+      font-family: inherit;
+    }
+
+    .text-link:hover {
+      color: #1e40af;
     }
 
     .icon {
@@ -791,17 +1040,7 @@
       margin-bottom: 12px;
     }
 
-    /* ─── Micro-Interactions, Empathy Tags & Confetti ─────────────────── */
-    #confetti-canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      pointer-events: none;
-      z-index: 999999;
-    }
-
+    /* ─── Micro-Interactions & Empathy Tags ─────────────────────────── */
     .empathy-tag-grid {
       display: flex;
       flex-wrap: wrap;
@@ -889,21 +1128,33 @@
       animation: textGlow 0.5s ease;
     }
 
+    @keyframes shimmerAnim {
+      0% { opacity: 0.5; }
+      50% { opacity: 0.85; }
+      100% { opacity: 0.5; }
+    }
+
+    .loading-shimmer {
+      animation: shimmerAnim 1s ease-in-out infinite;
+      color: #94a3b8 !important;
+      font-style: italic;
+    }
+
     @keyframes starPop {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.35) rotate(8deg); }
-      100% { transform: scale(1); }
+      0% { transform: scale(1) translateZ(0); }
+      50% { transform: scale(1.26) rotate(6deg) translateZ(0); }
+      100% { transform: scale(1) translateZ(0); }
     }
 
     .star-pop-anim {
-      animation: starPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      animation: starPop 0.18s cubic-bezier(0.2, 0, 0, 1);
+      will-change: transform;
     }
   </style>
 </head>
 
 <body>
   <div id="app">
-    <canvas id="confetti-canvas" style="display:none;"></canvas>
 
     <!-- Header band (Logo + Business Name) -->
     <div class="header-band" id="header-band" style="display:none;">
@@ -927,8 +1178,8 @@
       </div>
     </div>
 
-    <!-- Screen 0: Loading -->
-    <div id="screen-loading" class="screen active">
+    <!-- Screen 0A: Loading -->
+    <div id="screen-loading" class="screen" style="display:flex;">
       <div class="spinner"></div>
     </div>
 
@@ -956,153 +1207,139 @@
         <div class="big-icon">✨</div>
         <div class="screen-title" id="lbl-done-title">Feedback Submitted!</div>
         <p class="screen-sub" id="lbl-done-sub">Thank you! Your feedback has been received and helps us serve you better.</p>
-        <div style="font-size:13px; color:var(--c-text-muted); margin-top:14px;">You may now safely close this window.</div>
+        <div style="margin-top:16px;">
+          <button type="button" class="btn btn-outline" id="btn-review-again" style="padding:10px 20px; font-size:14px; border-radius:var(--radius-pill); border:1px solid var(--c-border); background:#ffffff; cursor:pointer; font-weight:600; color:var(--c-text);">Write Another Review</button>
+        </div>
       </div>
     </div>
 
-    <!-- Screen 1: Unified Single-Screen Review Interface -->
-    <div id="screen-main" class="screen">
-      
-      <!-- Primary Rating Card (Stars always visible & editable) -->
-      <div class="card rating-hero-card" style="text-align:center;">
-        <div class="screen-title" id="lbl-landing-title">Thank you for visiting!</div>
-        <p class="screen-sub" id="lbl-landing-sub">How was your experience today?</p>
-        
-        <div class="star-grid" id="star-grid">
-          <button class="star-btn" data-val="1" aria-label="1 Star">★</button>
-          <button class="star-btn" data-val="2" aria-label="2 Stars">★</button>
-          <button class="star-btn" data-val="3" aria-label="3 Stars">★</button>
-          <button class="star-btn" data-val="4" aria-label="4 Stars">★</button>
-          <button class="star-btn" data-val="5" aria-label="5 Stars">★</button>
+    <!-- ─── SCREEN 1: Service / Product Selection (2-Screen Flow) ───────── -->
+    <div id="screen-services" class="screen" style="display:none;">
+      <div class="services-hero-card">
+        <div class="services-header-group">
+          <h2 class="services-title" id="lbl-services-title">What did you have / get today?</h2>
+          <p class="services-sub" id="lbl-services-sub">Tap one or more options to personalize your review</p>
         </div>
 
-        <div id="rating-badge-container" style="display:none;">
-          <span id="rating-badge" class="rating-badge"></span>
+        <!-- Dynamic Service / Product Chip Cloud -->
+        <div class="chip-cloud services-chip-cloud" id="services-chip-cloud"></div>
+
+        <!-- Primary Hero Button: Generate Review -->
+        <button type="button" class="btn btn-generate-hero" id="btn-generate-review">
+          <span class="btn-sparkle-icon">✨</span>
+          <span id="lbl-generate-review">Generate My Review</span>
+          <span class="btn-arrow-icon">→</span>
+        </button>
+
+        <!-- Private Feedback Safety Valve Link -->
+        <div class="private-feedback-container">
+          <a href="#" class="private-feedback-link" id="btn-private-feedback" role="button">
+            <span id="lbl-private-feedback">Something wasn't right? Tell us privately →</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SCREEN 2: Final Review & 1-Click Copy to Google ──────────────── -->
+    <div id="screen-review-final" class="screen" style="display:none;">
+      
+      <!-- Top Ready Banner -->
+      <div class="final-hero-banner">
+        <span class="final-hero-title">
+          <span>✨</span> <span id="lbl-final-banner-title">Your Review is Ready!</span>
+        </span>
+        <span class="final-hero-stars" id="lbl-final-stars">★★★★★</span>
+      </div>
+
+      <!-- Single Review Box Card -->
+      <div class="review-box-card" id="review-card">
+        <!-- Header with AI Generated Review badge on left & Refresh on right -->
+        <div class="review-box-header">
+          <button type="button" class="btn-ai-generate" id="btn-ai-generate">
+            <span class="ai-sparkle">✨</span> <span id="lbl-ai-btn">AI Generated Review</span>
+          </button>
+          <button type="button" class="btn-refresh-pill" id="btn-refresh-phrase" title="Show another review">
+            <svg class="refresh-icon" id="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            <span id="lbl-refresh-phrase">Show another</span>
+          </button>
+        </div>
+
+        <!-- AI Generating Overlay Container -->
+        <div class="ai-generation-container" id="ai-generation-container" style="display:none;">
+          <div class="ai-live-indicator">
+            <div class="ai-pulse-orb">
+              <span class="ai-sparkle-anim">✨</span>
+            </div>
+            <div class="ai-live-text-group">
+              <div class="ai-live-title" id="lbl-ai-live-title">AI is crafting your review...</div>
+              <div class="ai-live-subtitle" id="lbl-ai-live-subtitle">Personalizing with your selected choices</div>
+            </div>
+          </div>
+          <div class="ai-skeleton-box">
+            <div class="ai-skeleton-wave w-95"></div>
+            <div class="ai-skeleton-wave w-85"></div>
+            <div class="ai-skeleton-wave w-65"></div>
+          </div>
+        </div>
+
+        <!-- Single editable review textarea -->
+        <textarea id="review-text" rows="4" placeholder="Write your review here or use suggestion…"></textarea>
+        
+        <div class="review-footer-bar">
+          <span class="review-stats-badge" id="word-count-badge">📝 0 words</span>
+          <span class="editable-hint" id="lbl-editable-hint">Tap text to edit</span>
         </div>
       </div>
 
-      <!-- Dynamic Section Container (Reveals & changes underneath stars with smooth animation) -->
-      <div id="dynamic-content" class="dynamic-container" style="display:none;">
+      <!-- Primary Call to Action Button: Large prominent Google button -->
+      <button type="button" class="btn btn-google" id="btn-google-post">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M21.35 11.1H12.18V13.83H18.69C18.36 17.64 15.19 19.27 12.19 19.27C8.36 19.27 5 16.25 5 12C5 7.9 8.2 4.73 12.2 4.73C15.29 4.73 17.1 6.7 17.1 6.7L19 4.72C19 4.72 16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12C2.03 17.05 6.16 22 12.25 22C17.6 22 21.5 18.33 21.5 12.91C21.5 11.76 21.35 11.1 21.35 11.1Z" />
+        </svg>
+        <span id="lbl-google-post">Copy & Post to Google</span>
+      </button>
 
-        <!-- Section A: Google Maps Path (High Rating 4-5 Stars) -->
-        <div id="section-high" class="dynamic-section">
-          
-          <!-- Single Review Box Card -->
-          <div class="review-box-card" id="review-card">
-            <!-- Header with AI Generated Review button on left & Refresh on right -->
-            <div class="review-box-header">
-              <button type="button" class="btn-ai-generate" id="btn-ai-generate">
-                <span class="ai-sparkle">✨</span> <span id="lbl-ai-btn">AI Generated Review</span>
-              </button>
-              <button type="button" class="btn-refresh-pill" id="btn-refresh-phrase" title="Generate another review">
-                <svg class="refresh-icon" id="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-                </svg>
-                <span id="lbl-refresh-phrase">Refresh</span>
-              </button>
-            </div>
+      <!-- Navigation Links -->
+      <div class="screen-footer-links">
+        <button type="button" class="text-link" id="btn-edit-selections">← Change selection</button>
+      </div>
 
-            <!-- Single editable review textarea -->
-            <textarea id="review-text" rows="4" placeholder="Write your review here or use suggestion…"></textarea>
-            
-            <div class="review-footer-bar">
-              <span class="review-stats-badge" id="word-count-badge">📝 0 words</span>
-              <span class="editable-hint" id="lbl-editable-hint">Tap text to edit</span>
-            </div>
+      <!-- Expandable Review Integrity Policy -->
+      <div class="card tos-card" id="tos-card" role="button" aria-expanded="false" tabindex="0">
+        <div class="tos-header">
+          <div class="tos-heading">
+            <span class="asterisks">**</span>
+            <span id="lbl-tos-heading">Review Integrity Policy</span>
           </div>
-
-          <!-- Primary Call to Action Button: Large prominent Google button -->
-          <button type="button" class="btn btn-google" id="btn-google-post">
-            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M21.35 11.1H12.18V13.83H18.69C18.36 17.64 15.19 19.27 12.19 19.27C8.36 19.27 5 16.25 5 12C5 7.9 8.2 4.73 12.2 4.73C15.29 4.73 17.1 6.7 17.1 6.7L19 4.72C19 4.72 16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12C2.03 17.05 6.16 22 12.25 22C17.6 22 21.5 18.33 21.5 12.91C21.5 11.76 21.35 11.1 21.35 11.1Z" />
-            </svg>
-            <span id="lbl-google-post">Copy & Post to Google</span>
-          </button>
-
-          <!-- Expandable Review Integrity Policy -->
-          <div class="card tos-card" id="tos-card" role="button" aria-expanded="false" tabindex="0">
-            <div class="tos-header">
-              <div class="tos-heading">
-                <span class="asterisks">**</span>
-                <span id="lbl-tos-heading">Review Integrity Policy</span>
-              </div>
-              <span class="tos-chevron">▼</span>
-            </div>
-            <div class="tos-body" id="tos-body">
-              <ul class="tos-list">
-                <li id="lbl-tos-1">Suggested phrases are provided only as a starting point — they don't replace your own words.</li>
-                <li id="lbl-tos-2">You are free to edit the review before posting it.</li>
-                <li id="lbl-tos-3">You should only describe your own genuine experience.</li>
-                <li id="lbl-tos-4">Fake or false reviews must not be posted.</li>
-                <li id="lbl-tos-5">You have complete freedom to give any rating, regardless of the review content.</li>
-              </ul>
-            </div>
-          </div>
-
+          <span class="tos-chevron">▼</span>
         </div>
-
-        <!-- Section B: Direct Feedback / Empathy Management Path (Low Rating 1-3 Stars) -->
-        <div id="section-low-wa" class="dynamic-section">
-          <div class="card" style="border-top: 3px solid #ef4444;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:20px;">🙏</span>
-              <div class="screen-title" id="lbl-wa-title" style="margin-bottom:0;">We value your honest feedback</div>
-            </div>
-            <p class="screen-sub" id="lbl-wa-sub" style="margin-top:6px;">Our management wants to make this right immediately. What went wrong?</p>
-            
-            <!-- Quick Issue Tags -->
-            <div class="empathy-tag-grid" id="empathy-tag-grid">
-              <button type="button" class="empathy-chip" data-tag="Long Wait Time">⏳ Long wait time</button>
-              <button type="button" class="empathy-chip" data-tag="Food / Quality Issue">🍽️ Food / taste issue</button>
-              <button type="button" class="empathy-chip" data-tag="Cleanliness Issue">🧹 Cleanliness & hygiene</button>
-              <button type="button" class="empathy-chip" data-tag="Staff / Service Issue">👥 Staff behavior</button>
-              <button type="button" class="empathy-chip" data-tag="Pricing / Billing Issue">💰 Pricing / billing</button>
-              <button type="button" class="empathy-chip" data-tag="Order Mistake">📦 Wrong item / order</button>
-            </div>
-
-            <textarea id="wa-text" rows="3" placeholder="Add any specific details (optional)…"></textarea>
-            
-            <button class="btn btn-whatsapp" id="btn-wa-send" style="margin-top:14px;">
-              <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                <path
-                  d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.531 5.848L0 24l6.335-1.509A11.932 11.932 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.798 9.798 0 0 1-5.031-1.388l-.361-.214-3.741.981.999-3.647-.236-.374A9.774 9.774 0 0 1 2.182 12c0-5.413 4.405-9.818 9.818-9.818 5.413 0 9.818 4.405 9.818 9.818 0 5.413-4.405 9.818-9.818 9.818z" />
-              </svg>
-              <span id="lbl-wa-send">Send Privately to Management on WhatsApp</span>
-            </button>
-            <button class="btn btn-outline" id="btn-low-skip" style="margin-top:10px;">Skip & Submit Privately</button>
-          </div>
+        <div class="tos-body" id="tos-body">
+          <ul class="tos-list">
+            <li id="lbl-tos-1">Suggested phrases are provided only as a starting point — they don't replace your own words.</li>
+            <li id="lbl-tos-2">You are free to edit the review before posting it.</li>
+            <li id="lbl-tos-3">You should only describe your own genuine experience.</li>
+            <li id="lbl-tos-4">Fake or false reviews must not be posted.</li>
+            <li id="lbl-tos-5">You have complete freedom to give any rating, regardless of the review content.</li>
+          </ul>
         </div>
+      </div>
 
-        <!-- Section C: Thank You Only Path -->
-        <div id="section-low-thanks" class="dynamic-section">
-          <div class="card thank-you-card">
-            <div class="big-icon">🙏</div>
-            <div class="screen-title" id="lbl-thanks-title">We appreciate your honesty</div>
-            <p class="screen-sub" id="lbl-thanks-sub">Thank you for taking the time to share your feedback with us.</p>
-            <button class="btn btn-google" id="btn-thanks-submit" style="margin-top:20px;">
-              <span id="lbl-thanks-btn">Submit Feedback</span>
-            </button>
-          </div>
-        </div>
+    </div>
 
-      </div><!-- #dynamic-content -->
-
-    </div><!-- #screen-main -->
-
-    <!-- Screen 3: Posted / Copied confirmation -->
+    <!-- ─── SCREEN 5: Posted / Copied confirmation ──────────────────────── -->
     <div id="screen-posted" class="screen" style="display:none;">
       <div class="card thank-you-card">
         <div class="big-icon">✅</div>
         <div class="screen-title" id="lbl-posted-title">Almost there!</div>
         <p class="screen-sub" id="lbl-posted-sub">Your review has been copied. Opening Google Maps — just paste and post!</p>
         <div style="margin-top:20px; width:100%;">
-          <a id="btn-reopen-google" href="#" class="btn btn-google" style="text-decoration:none; display:inline-flex; justify-content:center; align-items:center; gap:8px;">
+          <button type="button" id="btn-reopen-google" class="btn btn-google" style="display:inline-flex; justify-content:center; align-items:center; gap:8px;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
             <span id="lbl-reopen-google">Open Google Maps</span>
-          </a>
+          </button>
         </div>
       </div>
     </div>
@@ -1111,11 +1348,12 @@
 
   <!-- ─── Firebase Config (injected by scripts/inject-firebase-config.js) ───── -->
   <script src="/r/firebase-config.js"></script>
+  <script src="/r/service_tags_dict.js"></script>
 
   <!-- ─── Firebase SDK (modular) ────────────────────────────────────────────── -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-    import { getFirestore, doc, getDoc, getDocs, addDoc, collection, serverTimestamp, connectFirestoreEmulator }
+    import { getFirestore, doc, getDoc, getDocs, addDoc, collection, collectionGroup, query, where, serverTimestamp, connectFirestoreEmulator }
       from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
     // ─── Firebase config (injected via firebase-config.js) ───────────────────
@@ -1148,25 +1386,18 @@
     const UI_STRINGS = {
       en: {
         langLabel: "Language:",
-        landingTitle: "Thank you for visiting!",
-        landingSub: "How was your experience today?",
-        ratingLabels: ["1 Star • Disappointed", "2 Stars • Could be better", "3 Stars • Good", "4 Stars • Great!", "5 Stars • Excellent!"],
+        servicesTitle: "What did you have / get today?",
+        servicesSub: "Tap one or more options to personalize your review",
+        generateReviewBtn: "Generate My Review",
+        privateFeedback: "Something wasn't right? Tell us privately →",
         aiReviewBtn: "AI Generated Review",
-        refreshPhrase: "Refresh",
+        refreshPhrase: "Show another",
         editableHint: "Tap text to edit",
         reviewPlaceholder: "Write your review here or use suggestion…",
         googlePost: "Copy & Post to Google",
         postedTitle: "Almost there!",
         postedSub: "Your review has been copied. Opening Google Maps — just paste and post!",
         reopenGoogle: "Open Google Maps",
-        waTitle: "Sorry to hear that",
-        waSub: "Please tell us what went wrong so we can make it right.",
-        waPlaceholder: "Describe your experience…",
-        waSend: "Send via WhatsApp",
-        skip: "Skip / Submit",
-        thanksTitle: "We appreciate your honesty",
-        thanksSub: "Thank you for taking the time to share your feedback.",
-        thanksBtn: "Submit Feedback",
         doneTitle: "Feedback Submitted!",
         doneSub: "Thank you! Your feedback has been received and helps us serve you better.",
         tosHeading: "Review Integrity Policy",
@@ -1175,28 +1406,23 @@
         tos3: "You should only describe your own genuine experience.",
         tos4: "Fake or false reviews must not be posted.",
         tos5: "You have complete freedom to give any rating, regardless of the review content.",
+        editChoices: "← Change selection",
+        finalBannerTitle: "Your Review is Ready!",
       },
       hi: {
         langLabel: "भाषा:",
-        landingTitle: "आने के लिए धन्यवाद!",
-        landingSub: "आज आपका अनुभव कैसा रहा?",
-        ratingLabels: ["1 स्टार • असंतोषजनक", "2 स्टार • बेहतर हो सकता है", "3 स्टार • अच्छा", "4 स्टार • बहुत अच्छा!", "5 स्टार • उत्कृष्ट!"],
+        servicesTitle: "आज आपने क्या लिया / सेवा ली?",
+        servicesSub: "अपनी समीक्षा तैयार करने के लिए एक या अधिक विकल्प चुनें",
+        generateReviewBtn: "समीक्षा बनाएं",
+        privateFeedback: "कुछ सही नहीं लगा? हमें निजी तौर पर बताएं →",
         aiReviewBtn: "AI जनरेटेड समीक्षा",
-        refreshPhrase: "रिफ्रेश",
+        refreshPhrase: "दूसरा सुझाव देखें",
         editableHint: "संपादन के लिए टैप करें",
         reviewPlaceholder: "अपनी समीक्षा यहां लिखें या सुझाव का उपयोग करें…",
         googlePost: "कॉपी करें और गूगल पर पोस्ट करें",
         postedTitle: "बस एक कदम दूर!",
         postedSub: "आपकी समीक्षा कॉपी हो गई है। गूगल मैप्स खुलेगा — बस पेस्ट करें और पोस्ट करें!",
         reopenGoogle: "गूगल मैप्स खोलें",
-        waTitle: "हमें खेद है",
-        waSub: "कृपया हमें बताएं कि क्या समस्या हुई ताकि हम इसे सुधार सकें।",
-        waPlaceholder: "अपना अनुभव लिखें…",
-        waSend: "व्हाट्सएप पर भेजें",
-        skip: "छोड़ें",
-        thanksTitle: "हम आपकी ईमानदारी की सराहना करते हैं",
-        thanksSub: "अपना अनुभव साझा करने के लिए समय निकालने के लिए धन्यवाद।",
-        thanksBtn: "प्रतिक्रिया सबमिट करें",
         doneTitle: "प्रतिक्रिया सबमिट हो गई!",
         doneSub: "धन्यवाद! आपकी प्रतिक्रिया प्राप्त हो गई है और यह हमें बेहतर सेवा देने में मदद करती है।",
         tosHeading: "समीक्षा अखंडता नीति",
@@ -1205,28 +1431,23 @@
         tos3: "आपको केवल अपने वास्तविक अनुभव का वर्णन करना चाहिए।",
         tos4: "नकली या झूठी समीक्षाएं पोस्ट नहीं की जानी चाहिए।",
         tos5: "समीक्षा सामग्री की परवाह किए बिना आपको कोई भी रेटिंग देने की पूर्ण स्वतंत्रता है।",
+        editChoices: "← विकल्प बदलें",
+        finalBannerTitle: "आपकी समीक्षा तैयार है!",
       },
       gu: {
         langLabel: "ભાષા:",
-        landingTitle: "મુલાકાત માટે આભાર!",
-        landingSub: "આજે તમારો અનુભવ કેવો રહ્યો?",
-        ratingLabels: ["1 સ્ટાર • અસંતોષકારક", "2 સ્ટાર • સુધારી શકાય", "3 સ્ટાર • સારું", "4 સ્ટાર • ખૂબ સરસ!", "5 સ્ટાર • ઉત્તમ!"],
+        servicesTitle: "આજે તમે શું લીધું / કઈ સેવા લીધી?",
+        servicesSub: "તમારી સમીક્ષા માટે એક અથવા વધુ વિકલ્પો પસંદ કરો",
+        generateReviewBtn: "સમીક્ષા બનાવો",
+        privateFeedback: "કંઈક યોગ્ય ન લાગ્યું? અમને ખાનગીમાં જણાવો →",
         aiReviewBtn: "AI જનરેટેડ સમીક્ષા",
-        refreshPhrase: "રિફ્રેશ",
+        refreshPhrase: "બીજું સૂચન જુઓ",
         editableHint: "ફેરફાર કરવા માટે ટેપ કરો",
         reviewPlaceholder: "તમારી સમીક્ષા અહીં લખો અથવા સૂચન વાપરો…",
         googlePost: "કોપી કરો અને ગુગલ પર પોસ્ટ કરો",
         postedTitle: "બસ એક પગલું દૂર!",
         postedSub: "તમારી સમીક્ષા કોપી થઈ ગઈ છે. ગુગલ મેપ્સ ખુલશે — બસ પેસ્ટ કરો અને પોસ્ટ કરો!",
         reopenGoogle: "ગુગલ મેપ્સ ખોલો",
-        waTitle: "અમને દિલગીરી છે",
-        waSub: "કૃપા કરીને અમને જણાવો કે શું મુશ્કેલી પડી જેથી અમે તેને સુધારી શકીએ.",
-        waPlaceholder: "તમારો અનુભવ લખો…",
-        waSend: "વોટ્સએપ દ્વારા મોકલો",
-        skip: "છોડો",
-        thanksTitle: "અમે તમારી પ્રામાણિકતાની પ્રશંસા કરીએ છીએ",
-        thanksSub: "તમારો અનુભવ શેર કરવા માટે સમય કાઢવા બદલ આભાર.",
-        thanksBtn: "પ્રતિસાદ સબમિટ કરો",
         doneTitle: "પ્રતિસાદ સબમિટ થઈ ગયો!",
         doneSub: "આભાર! તમારો પ્રતિસાદ મળી ગયો છે અને અમને વધુ સારી સેવા આપવામાં મદદ કરે છે.",
         tosHeading: "સમીક્ષા અખંડિતતા નીતિ",
@@ -1235,280 +1456,781 @@
         tos3: "તમારે માત્ર તમારા પોતાના વાસ્તવિક અનુભવનું વર્ણન કરવું જોઈએ.",
         tos4: "નકલી અથવા ખોટી સમીક્ષાઓ પોસ્ટ કરવી જોઈએ નહીં.",
         tos5: "સમીક્ષા સામગ્રીને ધ્યાનમાં લીધા વિના તમને કોઈપણ રેટિંગ આપવાની સંપૂર્ણ સ્વતંત્રતા છે.",
+        editChoices: "← પસંદગી બદલો",
+        finalBannerTitle: "તમારી સમીક્ષા તૈયાર છે!",
       }
     };
 
-    // Multi-language support flag
     const ENABLE_TRANSLATIONS = false;
 
-    // ─── State ──────────────────────────────────────────────────────────────
-    let state = {
-      branchId: null,
+    // ─── Global State ────────────────────────────────────────────────────────
+    const state = {
       businessId: null,
-      branch: null,
+      branchId: null,
       business: null,
+      branch: null,
       template: null,
+      sessionToken: null,
+      starRating: 5,
       assignedPoolVersion: 'v1',
-      lang: 'en',
-      starRating: 0,
+      archetype: 'food_dining',
+      servicesList: [], // [{ id, label, tags: [...] }]
+      selectedServiceChips: [],
+      selectedChips: {
+        step1: [],
+        step2: [],
+        step3: []
+      },
       currentReviewText: '',
       hasUserEdited: false,
-      sessionToken: null,
+      currentDocId: null,
+      activeReviewsPool: [],
+      currentReviewIndex: 0,
+      isLoadingAi: false,
+      lang: 'en',
       submitted: false,
+      isPosting: false,
     };
 
-    // ─── DOM refs ────────────────────────────────────────────────────────────
+    // ─── Default 3-Step Chips for Archetypes ─────────────────────────────────
+    const DEFAULT_ARCHETYPE_CHIPS = {
+      food_dining: {
+        step1: ["🍕 Margherita Pizza", "🍝 White Sauce Pasta", "☕ Cappuccino", "🍔 Classic Burger", "🧋 Cold Coffee", "🍰 Cheesecake", "🥗 Fresh Salad", "🍛 Paneer Butter Masala", "🫓 Garlic Naan", "🍟 Peri Peri Fries"],
+        step2: ["🔥 Served Hot & Fresh", "✨ Authentic Flavors", "🌿 Fresh Ingredients", "⚡ Super Fast Service", "👌 Perfect Portion Size", "🍯 Rich Texture", "🌶️ Perfectly Spiced", "💎 Great Presentation"],
+        step3: ["🌟 Welcoming Atmosphere", "👥 Polite & Attentive Staff", "🎵 Chill Music & Vibe", "🧼 Spotless Clean Seating", "💰 Complete Value for Money", "👨‍👩‍👧 Perfect for Families", "🎉 Great Hangout Spot"]
+      },
+      beauty_wellness: {
+        step1: ["💇 Haircut & Styling", "💆 Hair Spa & Treatment", "🧖 Facial & Skin Glow", "💅 Gel Nails & Nail Art", "🧔 Beard Sculpting", "💆‍♂️ Body Massage", "🎨 Global Hair Color", "🌿 Organic Pedicure"],
+        step2: ["✂️ Precise Styling", "✨ Noticeable Glow", "🌿 Premium Products", "👌 Gentle Technique", "💆 Deep Relaxation", "💎 Long Lasting Finish", "⚡ Punctual & Zero Wait"],
+        step3: ["🌿 Calm & Hygienic Ambiance", "👥 Courteous & Skilled Experts", "☕ Warm Hospitality", "🧼 Fully Sanitized Tools", "💰 Worth Every Rupee", "🌸 Truly Refreshing Experience"]
+      },
+      healthcare_clinic: {
+        step1: ["🦷 Dental Checkup & Cleaning", "👁️ Eye Examination", "🩺 General Health Consult", "🦴 Physiotherapy Session", "👶 Pediatric Care", "🔬 Diagnostic Blood Tests", "💆 Pain Relief Therapy", "🩹 Root Canal Treatment"],
+        step2: ["💡 Accurate Diagnosis", "🤝 Gentle & Painless Care", "🩺 Clear & Honest Explanation", "⚡ Minimal Wait Time", "🔬 Modern Equipment", "📋 Transparent Advice"],
+        step3: ["🏥 Spotless & Clean Clinic", "👥 Empathetic & Caring Doctor", "🌟 Friendly Support Staff", "🛡️ Safe & Reassuring Environment", "💯 Highly Professional Care"]
+      },
+      auto_services: {
+        step1: ["🚗 Periodic Car Service", "✨ Ceramic Coating & PPF", "🧼 Deep Foam Wash & Interior", "🛞 Wheel Alignment & Balancing", "🔧 Brake & Suspension Overhaul", "❄️ AC Gas & Cooling Service", "🏍️ Bike Full Service", "🎨 Denting & Paint Touchup"],
+        step2: ["✨ Showroom Mirror Shine", "🔩 Genuine OEM Parts Used", "⚡ Quick Turnaround", "🔍 Thorough 40-Point Inspection", "👌 Flawless Detailing", "❄️ Ice Cold AC Cooling"],
+        step3: ["👨‍🔧 Honest & Knowledgeable Mechanics", "💰 Transparent Estimate & Billing", "🛋️ Clean Customer Lounge", "📋 Timely Delivery Updates", "💯 Highly Trusted Garage"]
+      },
+      retail_shopping: {
+        step1: ["👗 Ethnic & Party Wear", "👟 Footwear & Sneakers", "📱 Smartphones & Gadgets", "💎 Jewelry & Watches", "🛋️ Home Decor & Furniture", "🕶️ Designer Sunglasses", "📚 Books & Stationery", "🌿 Organic Groceries"],
+        step2: ["✨ Premium Fabric & Build", "🏷️ Latest Trends & Collection", "👌 Perfect Fit & Comfort", "💎 Authentic Guarantee", "🏷️ Great Discounts & Deals", "⚡ Seamless Billing & Packing"],
+        step3: ["🛍️ Beautiful & Organized Store", "👥 Patient & Helpful Staff", "💳 Hassle-Free Exchange", "💰 Full Value for Money", "🌟 Delightful Shopping Experience"]
+      },
+      universal_general: {
+        step1: ["📦 Primary Service", "💼 Consultation", "🛠️ Custom Project", "📋 Professional Assistance", "⚡ Express Solution", "🎯 Specialized Booking"],
+        step2: ["✨ Top Tier Quality", "⚡ Prompt Turnaround", "🎯 Precise Attention to Detail", "💡 Creative Solutions", "👌 Seamless Execution"],
+        step3: ["👥 Polite & Cooperative Team", "💰 Honest & Transparent Pricing", "🌟 Extremely Satisfying Result", "🤝 Trustworthy & Reliable", "💯 Will Recommend to Everyone"]
+      }
+    };
+
+    // ─── 6 Master Archetype Sentence Blueprints (Non-AI Grammar Engine) ───────
+    // ─── 6 Master Archetype Sentence Blueprints (Non-AI Grammar Engine) ───────
+    const ARCHETYPE_BLUEPRINTS = {
+      food_dining: {
+        allThree: [
+          (s1, s2, s3) => `Had a wonderful time dining here today! We ordered the ${s1} — absolutely loved the ${s2}. The ${s3} made the entire visit so memorable. 10/10!`,
+          (s1, s2, s3) => `Visited with friends and tried their ${s1}. The ${s2} was spot on and we really appreciated the ${s3}. Highly recommend this place!`,
+          (s1, s2, s3) => `Truly fantastic food and service! The ${s1} was delicious with ${s2}. Paired with ${s3}, it was an amazing experience. 5 stars!`,
+          (s1, s2, s3) => `One of the best dining experiences around! Loved their ${s1} — ${s2} stood out immediately. Super pleased with ${s3}.`,
+          (s1, s2, s3) => `Ordered the ${s1} and was blown away by the ${s2}! Clean ambiance and ${s3}. Will definitely be coming back often!`,
+          (s1, s2, s3) => `Such a delightful meal! The ${s1} was fresh and bursting with flavor, highlighting the ${s2}. Plus, ${s3} was top-tier.`,
+          (s1, s2, s3) => `Can't say enough good things about their ${s1}. You can truly taste the ${s2}. Combined with ${s3}, this is now my go-to spot.`,
+          (s1, s2, s3) => `Stopped by for a bite and chose ${s1}. Loved every bit of the ${s2}, and the ${s3} made us feel right at home!`,
+          (s1, s2, s3) => `Authentic taste and lovely vibe. Their ${s1} with ${s2} is an absolute must-try. Big kudos to the team for ${s3}.`,
+          (s1, s2, s3) => `Exceptional culinary quality! The ${s1} was freshly prepared, featuring ${s2}. Appreciated the ${s3} throughout our meal.`
+        ],
+        step1And2: [
+          (s1, s2) => `Tried their ${s1} today and the ${s2} was incredible! Quality and taste were top notch.`,
+          (s1, s2) => `The ${s1} here is fantastic — loved the ${s2}. Highly recommended!`,
+          (s1, s2) => `Ordered ${s1} and was very satisfied with the ${s2}. Fresh and delicious!`,
+          (s1, s2) => `If you visit, you must try their ${s1}. The ${s2} was simply superb!`,
+          (s1, s2) => `Delicious ${s1} with remarkable ${s2}. Truly great quality!`
+        ],
+        step1And3: [
+          (s1, s3) => `Really enjoyed the ${s1} today. The staff provided ${s3}. Great place!`,
+          (s1, s3) => `Ordered ${s1} and had a pleasant time with ${s3}. Definitely visiting again!`,
+          (s1, s3) => `Great taste on the ${s1} accompanied by ${s3}. Very happy with the visit!`,
+          (s1, s3) => `Had a fantastic time enjoying ${s1}. Warm hospitality and ${s3}!`
+        ],
+        step2And3: [
+          (s2, s3) => `Great food quality with ${s2} and wonderful ${s3}. 10/10 dining experience!`,
+          (s2, s3) => `Thoroughly impressed with the ${s2} and the lovely ${s3}. Highly recommended!`,
+          (s2, s3) => `Everything from the ${s2} to the ${s3} was on point. 5 stars!`
+        ],
+        single: {
+          step1: [
+            (s1) => `Really enjoyed the ${s1} here today. Delicious and well prepared!`,
+            (s1) => `Tried the ${s1} and was thoroughly impressed with the quality and taste.`,
+            (s1) => `The ${s1} was fantastic! Will definitely be back for more.`
+          ],
+          step2: [
+            (s2) => `The ${s2} was remarkable today. Truly great culinary experience!`,
+            (s2) => `Impressed by the ${s2} and overall freshness of the food. 5 stars!`,
+            (s2) => `Top notch ${s2}! You can tell they care about their quality.`
+          ],
+          step3: [
+            (s3) => `Wonderful hospitality and ${s3}. Very happy with the service!`,
+            (s3) => `Great ambiance paired with ${s3}. A very pleasant dining experience!`,
+            (s3) => `Friendly team and ${s3}. Will definitely recommend to friends!`
+          ]
+        }
+      },
+      beauty_wellness: {
+        allThree: [
+          (s1, s2, s3) => `Got a ${s1} done here today and the ${s2} was exceptional! Really appreciated the ${s3}. Will definitely visit again!`,
+          (s1, s2, s3) => `Booked a session for ${s1} — ${s2} exceeded my expectations. Very clean setup with ${s3}! 10/10!`,
+          (s1, s2, s3) => `Had my ${s1} styled here and the ${s2} was top quality. Welcoming team and ${s3}. Highly recommended!`,
+          (s1, s2, s3) => `Amazing experience with their ${s1}! The ${s2} gave such a fresh look, backed by ${s3}. 5 stars!`,
+          (s1, s2, s3) => `Visited for ${s1} and was thoroughly impressed by the ${s2}. The stylist provided ${s3}. Great service!`,
+          (s1, s2, s3) => `Such a rejuvenating experience getting ${s1}. Loved the meticulous ${s2} and attentive ${s3}.`,
+          (s1, s2, s3) => `Best place for ${s1}! The ${s2} was done with utmost precision. Loved the relaxing vibe and ${s3}.`,
+          (s1, s2, s3) => `Had a pampering session with ${s1}. Outstanding ${s2} coupled with ${s3}. 10/10 recommendation!`,
+          (s1, s2, s3) => `Went in for ${s1} and walked out totally satisfied with the ${s2}. Excellent guidance and ${s3}.`
+        ],
+        step1And2: [
+          (s1, s2) => `Got a ${s1} done today and the ${s2} was flawless! Really happy with the results.`,
+          (s1, s2) => `Tried their ${s1} service — loved the ${s2}. High quality and professional finish!`,
+          (s1, s2) => `Had a wonderful ${s1} session. The ${s2} was noticeable immediately!`,
+          (s1, s2) => `Precision and care on the ${s1} with perfect ${s2}. Highly recommended!`
+        ],
+        step1And3: [
+          (s1, s3) => `Had a relaxing session for ${s1}. The staff provided ${s3}. Will definitely be returning!`,
+          (s1, s3) => `Went in for ${s1} — great attention and ${s3}. Highly recommend this place!`,
+          (s1, s3) => `Thoroughly enjoyed my ${s1} appointment with ${s3}. Very comfortable visit!`
+        ],
+        step2And3: [
+          (s2, s3) => `Loved the ${s2} and the wonderful ${s3}. Truly relaxing and refreshing! 10/10!`,
+          (s2, s3) => `Exceptional quality with ${s2} and pleasant ${s3}. 5 stars!`,
+          (s2, s3) => `Super hygienic environment with ${s2} and ${s3}. Great salon!`
+        ],
+        single: {
+          step1: [
+            (s1) => `Got a ${s1} done here and had a great experience from start to finish. Highly recommended!`,
+            (s1) => `Very satisfied with my ${s1} service. Professional and skilled staff!`
+          ],
+          step2: [
+            (s2) => `The ${s2} and overall precision were remarkable today. Great service!`,
+            (s2) => `Flawless execution with ${s2}. Loved the final look!`
+          ],
+          step3: [
+            (s3) => `Super hospitable team with ${s3}. A very comfortable and pleasant visit!`,
+            (s3) => `Very clean, calming space and ${s3}. Will be visiting again soon!`
+          ]
+        }
+      },
+      healthcare_clinic: {
+        allThree: [
+          (s1, s2, s3) => `Visited the clinic for ${s1} and was very impressed by the ${s2}. The doctor and ${s3} made me feel completely comfortable.`,
+          (s1, s2, s3) => `Consulted for ${s1} — the ${s2} gave immense relief. Highly professional environment and ${s3}! 10/10!`,
+          (s1, s2, s3) => `Underwent ${s1} with complete ease thanks to the ${s2}. Appreciated the clear guidance and ${s3}. Highly recommended!`,
+          (s1, s2, s3) => `Very smooth experience for ${s1}. The ${s2} and attentive care with ${s3} made a big difference. 5 stars!`,
+          (s1, s2, s3) => `Came here for ${s1} treatment. The doctor's ${s2} was reassuring, backed by polite ${s3}.`,
+          (s1, s2, s3) => `Excellent medical facility for ${s1}. Top-grade ${s2} and compassionate ${s3}. Highly trustworthy.`,
+          (s1, s2, s3) => `Went in for a consultation on ${s1}. Clear explanation of ${s2} and prompt ${s3}. 10/10 care!`,
+          (s1, s2, s3) => `Great healthcare experience with ${s1}. Appreciated the precise ${s2} and hygienic ${s3}.`
+        ],
+        step1And2: [
+          (s1, s2) => `Visited for ${s1} and the ${s2} was carried out with utmost care. Very reassuring experience!`,
+          (s1, s2) => `Consulted for ${s1} — accurate diagnosis and ${s2}. Highly recommended medical care!`,
+          (s1, s2) => `Great expertise with ${s1} and clear ${s2}. Felt completely in safe hands.`
+        ],
+        step1And3: [
+          (s1, s3) => `Smooth appointment for ${s1}. Really appreciated the ${s3} throughout the visit.`,
+          (s1, s3) => `Underwent ${s1} here — courteous doctor and ${s3}. Great clinic!`,
+          (s1, s3) => `Minimal wait time for ${s1} with ${s3}. Very well organized!`
+        ],
+        step2And3: [
+          (s2, s3) => `Very reassuring visit with ${s2} and supportive ${s3}. 10/10 care!`,
+          (s2, s3) => `Clean, sanitized clinic with ${s2} and ${s3}. Highly recommended!`
+        ],
+        single: {
+          step1: [
+            (s1) => `Visited for ${s1} and received thorough, professional care. Highly recommended!`,
+            (s1) => `Consulted for ${s1} and was very pleased with the attention and treatment plan.`
+          ],
+          step2: [
+            (s2) => `The thorough attention and ${s2} were deeply appreciated today.`,
+            (s2) => `Very satisfied with the ${s2} and clear explanations provided.`
+          ],
+          step3: [
+            (s3) => `Very clean, well-managed clinic with ${s3}. Great experience!`,
+            (s3) => `Warm and welcoming staff with ${s3}. Highly recommend!`
+          ]
+        }
+      },
+      auto_services: {
+        allThree: [
+          (s1, s2, s3) => `Brought my vehicle in for ${s1} — the ${s2} gave it a true showroom finish! Very professional work and ${s3}.`,
+          (s1, s2, s3) => `Got my car's ${s1} done here today and the ${s2} was top tier. Quick turnaround with ${s3}! 10/10!`,
+          (s1, s2, s3) => `Had an excellent experience with their ${s1}. Superb ${s2} along with ${s3}. Highly recommended!`,
+          (s1, s2, s3) => `Great job on the ${s1}! The ${s2} speaks for their craftsmanship. Appreciated the ${s3}. 5 stars!`,
+          (s1, s2, s3) => `Took my vehicle for ${s1} — thoroughly satisfied with the ${s2} and honest ${s3}.`,
+          (s1, s2, s3) => `Top-rated workshop for ${s1}! High quality ${s2} paired with punctual ${s3}. Highly recommended!`,
+          (s1, s2, s3) => `Flawless execution on my car's ${s1}. The ${s2} was spot on, and ${s3} made everything easy.`,
+          (s1, s2, s3) => `Brought my vehicle in for ${s1}. Transparent assessment, great ${s2}, and courteous ${s3}.`
+        ],
+        step1And2: [
+          (s1, s2) => `Brought my car in for ${s1} and the ${s2} exceeded my expectations. Flawless work!`,
+          (s1, s2) => `Got the ${s1} completed — amazing attention to detail and ${s2}. Definitely coming back!`,
+          (s1, s2) => `Quality workmanship on ${s1} with remarkable ${s2}. Great garage!`
+        ],
+        step1And3: [
+          (s1, s3) => `Got the ${s1} done today with prompt handling and ${s3}. Highly recommended garage!`,
+          (s1, s3) => `Brought my vehicle for ${s1} — honest advice and ${s3}. 10/10 service!`,
+          (s1, s3) => `Smooth handover for ${s1} backed by ${s3}. Very pleased!`
+        ],
+        step2And3: [
+          (s2, s3) => `Impressive craftsmanship with ${s2} and trustworthy ${s3}. Great team!`,
+          (s2, s3) => `Honest pricing with ${s2} and helpful ${s3}. 5 stars!`
+        ],
+        single: {
+          step1: [
+            (s1) => `Brought my car in for ${s1} and the workmanship was outstanding. Great garage!`,
+            (s1) => `Had ${s1} done today and the vehicle runs/looks great. Highly recommend!`
+          ],
+          step2: [
+            (s2) => `The meticulous quality and ${s2} really stood out today. Highly satisfied!`,
+            (s2) => `Very impressed with the ${s2} and attention to detail.`
+          ],
+          step3: [
+            (s3) => `Professional technicians and ${s3}. Very smooth handover!`,
+            (s3) => `Courteous mechanics and ${s3}. Reliable place for car care!`
+          ]
+        }
+      },
+      retail_shopping: {
+        allThree: [
+          (s1, s2, s3) => `Purchased a ${s1} from here and the ${s2} is unmatched! Great collection and ${s3}. 10/10!`,
+          (s1, s2, s3) => `Bought the ${s1} today — really loved the ${s2}. Smooth shopping experience with ${s3}!`,
+          (s1, s2, s3) => `Wonderful range of products including their ${s1}. The ${s2} was impressive, backed by ${s3}. Highly recommended!`,
+          (s1, s2, s3) => `Had a delightful shopping trip for ${s1}. The ${s2} and helpful ${s3} made it easy to choose. 5 stars!`,
+          (s1, s2, s3) => `Found the perfect ${s1} here! Excellent ${s2} and very polite ${s3}.`,
+          (s1, s2, s3) => `Wide variety and top quality ${s1}. The ${s2} is evident, and ${s3} made checkout effortless.`,
+          (s1, s2, s3) => `Love shopping here for ${s1}! Premium ${s2} and courteous ${s3}. 10/10!`,
+          (s1, s2, s3) => `Great collection of ${s1}. Appreciated the ${s2} and quick assistance with ${s3}.`
+        ],
+        step1And2: [
+          (s1, s2) => `Purchased a ${s1} today and the ${s2} is genuinely top-notch. Great store!`,
+          (s1, s2) => `Bought the ${s1} — very happy with the quality and ${s2}. Will shop again!`,
+          (s1, s2) => `Superb quality on the ${s1} with great ${s2}. Highly recommended!`
+        ],
+        step1And3: [
+          (s1, s3) => `Great selection for ${s1} paired with ${s3}. Enjoyed shopping here!`,
+          (s1, s3) => `Purchased ${s1} — transparent billing and ${s3}. Highly recommended!`,
+          (s1, s3) => `Smooth purchase of ${s1} with wonderful ${s3}. Great experience!`
+        ],
+        step2And3: [
+          (s2, s3) => `Loved the premium quality and ${s2}, along with courteous ${s3}. 10/10 experience!`,
+          (s2, s3) => `Great shopping atmosphere with ${s2} and ${s3}. 5 stars!`
+        ],
+        single: {
+          step1: [
+            (s1) => `Shopped for ${s1} here today and found exactly what I was looking for. Great store!`,
+            (s1) => `Bought ${s1} and the quality is outstanding. Will definitely visit again!`
+          ],
+          step2: [
+            (s2) => `The impressive variety and ${s2} made for a great purchase today.`,
+            (s2) => `Top grade ${s2} throughout the store. Highly satisfied!`
+          ],
+          step3: [
+            (s3) => `Very clean showroom with ${s3}. Courteous staff throughout!`,
+            (s3) => `Helpful team with ${s3}. Made shopping effortless!`
+          ]
+        }
+      },
+      universal_general: {
+        allThree: [
+          (s1, s2, s3) => `Used their services for ${s1} and what stood out was the ${s2}! Truly impressed by the ${s3}. 10/10!`,
+          (s1, s2, s3) => `Approached them for ${s1} — the ${s2} exceeded my expectations. Very professional and ${s3}!`,
+          (s1, s2, s3) => `Had a wonderful experience with their ${s1}. The ${s2} and dedication of ${s3} are remarkable. Highly recommended!`,
+          (s1, s2, s3) => `Chose them for ${s1} and received top-tier ${s2}. Appreciated the transparent guidance and ${s3}. 5 stars!`,
+          (s1, s2, s3) => `Extremely happy with their ${s1}. The ${s2} was evident from day one, backed by ${s3}.`,
+          (s1, s2, s3) => `Reliable and efficient service for ${s1}. Loved the high-grade ${s2} and supportive ${s3}.`,
+          (s1, s2, s3) => `Looked for assistance with ${s1} and got flawless ${s2}. The team provided ${s3}. 10/10!`,
+          (s1, s2, s3) => `Great value for ${s1}! The ${s2} and punctuality with ${s3} made everything stress-free.`
+        ],
+        step1And2: [
+          (s1, s2) => `Used their services for ${s1} and the ${s2} was outstanding. Very reliable team!`,
+          (s1, s2) => `Approached them for ${s1} — high quality and ${s2}. Highly recommended!`,
+          (s1, s2) => `Great results on ${s1} with evident ${s2}. Very satisfied!`
+        ],
+        step1And3: [
+          (s1, s3) => `Smooth experience with ${s1}. Courteous approach and ${s3}. Will definitely engage again!`,
+          (s1, s3) => `Chose them for ${s1} — punctual delivery and ${s3}. Great service!`,
+          (s1, s3) => `Seamless handling of ${s1} with polite ${s3}. Highly recommended!`
+        ],
+        step2And3: [
+          (s2, s3) => `Excellent service with ${s2} and trustworthy ${s3}. 10/10 recommended!`,
+          (s2, s3) => `Impressive standard of ${s2} along with ${s3}. 5 stars!`
+        ],
+        single: {
+          step1: [
+            (s1) => `Engaged them for ${s1} and had a completely seamless experience. Highly recommended!`,
+            (s1) => `Very satisfied with the ${s1} provided. Prompt and dependable!`
+          ],
+          step2: [
+            (s2) => `The high standard of ${s2} was evident throughout. Great work!`,
+            (s2) => `Appreciated the careful execution and ${s2}. 5 stars!`
+          ],
+          step3: [
+            (s3) => `Very professional team with ${s3}. Truly a pleasure to work with!`,
+            (s3) => `Responsive communication and ${s3}. Great experience!`
+          ]
+        }
+      }
+    };
+
+    function cleanChipLabel(text) {
+      if (!text || typeof text !== 'string') return '';
+      return text.replace(/^[\p{Extended_Pictographic}\u200d\s•\-\d\.\)]+/u, '').trim();
+    }
+    function cleanChip(text) {
+      return cleanChipLabel(text);
+    }
+
+    function resolveArchetype(business, branch) {
+      if (business && business.archetype && ARCHETYPE_BLUEPRINTS[business.archetype]) {
+        return business.archetype;
+      }
+      const raw = (business && (business.category_type || business.default_category_template_id)) || (branch && branch.category_override_id) || '';
+      const s = raw.toLowerCase();
+
+      if (s.includes('salon') || s.includes('hair') || s.includes('spa') || s.includes('barber') || s.includes('nail') || s.includes('beauty') || s.includes('makeup')) {
+        return 'beauty_wellness';
+      }
+      if (s.includes('clinic') || s.includes('dent') || s.includes('doctor') || s.includes('health') || s.includes('physio') || s.includes('eye') || s.includes('derma') || s.includes('lab')) {
+        return 'healthcare_clinic';
+      }
+      if (s.includes('car') || s.includes('auto') || s.includes('detail') || s.includes('wash') || s.includes('garage') || s.includes('ppf') || s.includes('ceramic') || s.includes('motor')) {
+        return 'auto_services';
+      }
+      if (s.includes('retail') || s.includes('store') || s.includes('shop') || s.includes('fashion') || s.includes('cloth') || s.includes('shoe') || s.includes('jewelry') || s.includes('decor') || s.includes('florist') || s.includes('flourist') || s.includes('flower') || s.includes('bouquet')) {
+        return 'retail_shopping';
+      }
+      if (s.includes('food') || s.includes('restaurant') || s.includes('cafe') || s.includes('pizza') || s.includes('burger') || s.includes('bakery') || s.includes('ice') || s.includes('bistro') || s.includes('sweet') || s.includes('dine')) {
+        return 'food_dining';
+      }
+      return 'food_dining';
+    }
+
+    // ─── Screen Transition Manager (Fade-Out Current -> Swipe-Up Target) ───────
     const $ = id => document.getElementById(id);
     const screens = {
       loading: $('screen-loading'),
       error: $('screen-error'),
       unavailable: $('screen-unavailable'),
       done: $('screen-done'),
-      main: $('screen-main'),
+      services: $('screen-services'),
+      reviewFinal: $('screen-review-final'),
       posted: $('screen-posted'),
     };
 
-    function showScreen(name) {
-      $('screen-loading').style.display = 'none';
-      $('screen-error').style.display = 'none';
-      $('screen-unavailable').style.display = 'none';
-      $('screen-done').style.display = 'none';
-      $('screen-posted').style.display = 'none';
-      $('screen-main').classList.remove('active');
-      $('screen-main').style.display = 'none';
+    let currentActiveScreen = 'loading';
 
-      const target = screens[name];
-      if (!target) return;
+    function transitionScreen(toName, direction = 'forward') {
+      const fromEl = screens[currentActiveScreen];
+      const toEl = screens[toName];
+      if (!toEl) return;
 
-      if (['error', 'unavailable', 'done', 'posted'].includes(name)) {
-        target.style.display = 'flex';
-        target.style.flexDirection = 'column';
-        target.style.alignItems = 'stretch';
-        target.style.width = '100%';
-        target.style.paddingTop = '20px';
+      if (fromEl && fromEl !== toEl && fromEl.style.display !== 'none' && currentActiveScreen !== 'loading') {
+        const outAnim = direction === 'back' ? 'anim-fade-out-down' : 'anim-fade-out-up';
+        fromEl.classList.remove('anim-fade-in-up', 'anim-fade-in-down', 'anim-fade-out-up', 'anim-fade-out-down');
+        fromEl.classList.add(outAnim);
+
+        setTimeout(() => {
+          fromEl.style.display = 'none';
+          fromEl.classList.remove(outAnim);
+
+          const inAnim = direction === 'back' ? 'anim-fade-in-down' : 'anim-fade-in-up';
+          toEl.classList.remove('anim-fade-in-up', 'anim-fade-in-down', 'anim-fade-out-up', 'anim-fade-out-down');
+          toEl.style.display = 'flex';
+          currentActiveScreen = toName;
+
+          requestAnimationFrame(() => {
+            toEl.classList.add(inAnim);
+          });
+
+          const showHeader = ['services', 'reviewFinal', 'posted', 'done'].includes(toName);
+          $('header-band').style.display = showHeader ? 'flex' : 'none';
+          $('lang-bar').style.display = (showHeader && ENABLE_TRANSLATIONS) ? 'flex' : 'none';
+
+          window.scrollTo({ top: 0, behavior: 'instant' });
+        }, 110);
       } else {
-        target.style.display = 'flex';
-        target.classList.add('active');
-      }
-
-      const showHeader = ['main', 'posted', 'done'].includes(name);
-      $('header-band').style.display = showHeader ? 'flex' : 'none';
-      $('lang-bar').style.display = (showHeader && ENABLE_TRANSLATIONS) ? 'flex' : 'none';
-    }
-
-    // ─── Session token & submission guard (Local + Session persistent) ─────────
-    function getOrCreateSessionToken(branchId) {
-      const key = `session_token_${branchId}`;
-      let token = null;
-      try { token = localStorage.getItem(key) || sessionStorage.getItem(key); } catch (_) {}
-      if (!token) {
-        token = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-        try { localStorage.setItem(key, token); } catch (_) {}
-        try { sessionStorage.setItem(key, token); } catch (_) {}
-      }
-      return token;
-    }
-
-    function isAlreadySubmitted(branchId) {
-      const key = `submitted_${branchId}`;
-      try {
-        if (sessionStorage.getItem(key) === '1') return true;
-        const localVal = localStorage.getItem(key);
-        if (localVal) {
-          const submittedAt = parseInt(localVal, 10);
-          // 24-hour submission cooldown per device/branch
-          if (!isNaN(submittedAt) && Date.now() - submittedAt < 24 * 60 * 60 * 1000) {
-            return true;
+        Object.keys(screens).forEach(key => {
+          const el = screens[key];
+          if (el) {
+            el.classList.remove('anim-fade-in-up', 'anim-fade-in-down', 'anim-fade-out-up', 'anim-fade-out-down');
+            el.style.display = 'none';
           }
-        }
-      } catch (_) {}
-      return false;
-    }
+        });
 
-    function markSubmitted(branchId) {
-      const key = `submitted_${branchId}`;
-      const sessionKey = `session_token_${branchId}`;
-      try { sessionStorage.setItem(key, '1'); } catch (_) {}
-      try { localStorage.setItem(key, Date.now().toString()); } catch (_) {}
-      try { localStorage.removeItem(sessionKey); } catch (_) {}
-      try { sessionStorage.removeItem(sessionKey); } catch (_) {}
-      state.submitted = true;
-    }
+        toEl.style.display = 'flex';
+        currentActiveScreen = toName;
+        requestAnimationFrame(() => {
+          toEl.classList.add('anim-fade-in-up');
+        });
 
-    // ─── Hash-based pool version resolution ──────────────────────────────────
-    function resolvePoolVersion(branch, business) {
-      const explicit = (branch && branch.pool_version) || (business && business.pool_version);
-      if (explicit && ['v1', 'v2', 'v3'].includes(explicit)) return explicit;
-
-      const seed = (branch && branch.id) || (business && business.id) || 'default';
-      let hash = 0;
-      for (let i = 0; i < seed.length; i++) {
-        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-        hash |= 0;
-      }
-      const versions = ['v1', 'v2', 'v3'];
-      return versions[Math.abs(hash) % versions.length];
-    }
-
-    // ─── Language & UI Translation Update ────────────────────────────────────
-    function applyLanguage(lang) {
-      const activeLang = ENABLE_TRANSLATIONS ? lang : 'en';
-      state.lang = activeLang;
-      const dict = UI_STRINGS[activeLang] || UI_STRINGS.en;
-
-      $('lbl-lang-label').textContent = dict.langLabel;
-      $('lbl-landing-title').textContent = dict.landingTitle;
-      $('lbl-landing-sub').textContent = dict.landingSub;
-      if ($('lbl-ai-btn')) $('lbl-ai-btn').textContent = dict.aiReviewBtn || "AI Generated Review";
-      if ($('lbl-refresh-phrase')) $('lbl-refresh-phrase').textContent = dict.refreshPhrase || "Refresh";
-      if ($('lbl-editable-hint')) $('lbl-editable-hint').textContent = dict.editableHint || "Tap text to edit";
-      $('review-text').placeholder = dict.reviewPlaceholder;
-      $('lbl-google-post').textContent = dict.googlePost;
-      $('lbl-posted-title').textContent = dict.postedTitle;
-      $('lbl-posted-sub').textContent = dict.postedSub;
-      if ($('lbl-reopen-google')) $('lbl-reopen-google').textContent = dict.reopenGoogle || "Open Google Maps";
-      $('lbl-wa-title').textContent = dict.waTitle;
-      $('lbl-wa-sub').textContent = dict.waSub;
-      $('wa-text').placeholder = dict.waPlaceholder;
-      $('lbl-wa-send').textContent = dict.waSend;
-      $('btn-low-skip').textContent = dict.skip;
-      $('lbl-thanks-title').textContent = dict.thanksTitle;
-      $('lbl-thanks-sub').textContent = dict.thanksSub;
-      $('lbl-thanks-btn').textContent = dict.thanksBtn;
-      $('lbl-done-title').textContent = dict.doneTitle;
-      $('lbl-done-sub').textContent = dict.doneSub;
-      $('lbl-tos-heading').textContent = dict.tosHeading;
-      $('lbl-tos-1').textContent = dict.tos1;
-      $('lbl-tos-2').textContent = dict.tos2;
-      $('lbl-tos-3').textContent = dict.tos3;
-      $('lbl-tos-4').textContent = dict.tos4;
-      $('lbl-tos-5').textContent = dict.tos5;
-
-      document.querySelectorAll('.lang-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.lang === activeLang);
-      });
-
-      if (state.starRating > 0) {
-        updateRatingBadge(state.starRating);
+        const showHeader = ['services', 'reviewFinal', 'posted', 'done'].includes(toName);
+        $('header-band').style.display = showHeader ? 'flex' : 'none';
+        $('lang-bar').style.display = (showHeader && ENABLE_TRANSLATIONS) ? 'flex' : 'none';
       }
     }
 
-    document.querySelectorAll('.lang-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (ENABLE_TRANSLATIONS) {
-          applyLanguage(btn.dataset.lang);
+    function showScreen(name) {
+      transitionScreen(name, 'forward');
+    }
+
+    // ─── Screen 1: Services Selection Rendering & Interactions ──────────────
+    function renderServicesScreen() {
+      const dict = UI_STRINGS[state.lang] || UI_STRINGS.en;
+      if ($('lbl-services-title')) $('lbl-services-title').textContent = dict.servicesTitle || 'What did you have / get today?';
+      if ($('lbl-services-sub')) $('lbl-services-sub').textContent = dict.servicesSub || 'Tap one or more options to personalize your review';
+      if ($('lbl-generate-review')) $('lbl-generate-review').textContent = dict.generateReviewBtn || 'Generate My Review';
+      if ($('lbl-private-feedback')) $('lbl-private-feedback').textContent = dict.privateFeedback || "Something wasn't right? Tell us privately →";
+
+      const cloud = $('services-chip-cloud');
+      if (!cloud) return;
+      cloud.innerHTML = '';
+
+      state.servicesList.forEach(service => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip-pill' + (state.selectedServiceChips.includes(service.label) ? ' active' : '');
+        btn.textContent = service.label;
+
+        btn.addEventListener('click', () => {
+          triggerHaptic('light');
+          const isSel = btn.classList.toggle('active');
+          if (isSel) {
+            state.selectedServiceChips.push(service.label);
+          } else {
+            state.selectedServiceChips = state.selectedServiceChips.filter(s => s !== service.label);
+          }
+        });
+
+        cloud.appendChild(btn);
+      });
+    }
+
+    // Generate Review Hero Button
+    $('btn-generate-review').addEventListener('click', () => {
+      triggerHaptic('medium');
+
+      // If user hasn't selected any chip, auto-select the first service chip
+      if (state.selectedServiceChips.length === 0 && state.servicesList.length > 0) {
+        state.selectedServiceChips = [state.servicesList[0].label];
+        const firstChip = $('services-chip-cloud')?.firstElementChild;
+        if (firstChip) firstChip.classList.add('active');
+      }
+
+      // Collect ALL positive experience tags from the selected services
+      const selectedServices = state.servicesList.filter(s => state.selectedServiceChips.includes(s.label));
+      const poolOfTags = [];
+      selectedServices.forEach(s => {
+        if (Array.isArray(s.tags) && s.tags.length > 0) {
+          poolOfTags.push(...s.tags);
         }
       });
+
+      // If no specific service tags, fallback to archetype chips
+      if (poolOfTags.length === 0) {
+        const arch = state.archetype || 'food_dining';
+        const def = DEFAULT_ARCHETYPE_CHIPS[arch] || DEFAULT_ARCHETYPE_CHIPS.food_dining;
+        poolOfTags.push(...(def.step2 || []), ...(def.step3 || []));
+      }
+
+      // Preserve all available experience tags for rich review diversity
+      state.availableTags = Array.from(new Set(poolOfTags));
+      state.selectedChips.step1 = [...state.selectedServiceChips];
+      state.selectedChips.step2 = [...state.availableTags];
+      state.selectedChips.step3 = [];
+
+      goToFinalReviewScreen();
     });
 
-    // ─── Multi-Category Review Generator (Always 2–7 Categories) ──────────────
-    function getCategoryPhrasePool(cat) {
-      const lang = ENABLE_TRANSLATIONS ? state.lang : 'en';
-      const ver = state.assignedPoolVersion;
+    // Private Feedback Link (Manager WhatsApp redirect)
+    $('btn-private-feedback').addEventListener('click', (e) => {
+      e.preventDefault();
+      triggerHaptic('medium');
 
-      let poolSource = cat;
-      if (lang !== 'en' && cat.translations && cat.translations[lang]) {
-        poolSource = cat.translations[lang];
+      const biz = state.business || {};
+      const branch = state.branch || {};
+      const num = formatWaNumber(biz.manager_whatsapp || biz.managerWhatsapp || branch.whatsapp_number || biz.owner_phone || biz.ownerPhone || '');
+      const bizName = biz.brand_name || biz.business_name || biz.name || 'your business';
+      const branchName = branch.branch_name || '';
+
+      const text = encodeURIComponent(
+        branchName
+          ? `Hi, I visited ${bizName} (${branchName}) today and wanted to share some feedback.`
+          : `Hi, I visited ${bizName} today and wanted to share some feedback.`
+      );
+
+      logScan({ actionTaken: 'private_feedback' }).catch(() => {});
+
+      if (num) {
+        window.location.href = `https://wa.me/${num}?text=${text}`;
+      } else {
+        alert('Thank you for your feedback! Our management has been notified.');
+      }
+    });
+
+    function goToFinalReviewScreen() {
+      const starsDisplay = '★★★★★';
+      const starsEl = $('lbl-final-stars');
+      if (starsEl) starsEl.textContent = starsDisplay;
+
+      transitionScreen('reviewFinal', 'forward');
+
+      // Smoothly fetch and display final review
+      prepareAndFetchFinalReviews();
+    }
+
+    // Navigation Link from Final Review Screen
+    $('btn-edit-selections').addEventListener('click', () => {
+      triggerHaptic('light');
+      transitionScreen('services', 'back');
+    });
+
+    // ─── Combinator Review Generator (Dynamic Tag Rotation for 100% Diversity) ───
+    function generate3StepReview(excludeCurrent = true) {
+      const arch = state.archetype || 'food_dining';
+      const bp = ARCHETYPE_BLUEPRINTS[arch] || ARCHETYPE_BLUEPRINTS.universal_general;
+
+      function joinItemsNaturally(list) {
+        if (!list || list.length === 0) return null;
+        if (list.length === 1) return list[0];
+        if (list.length === 2) return `${list[0]} and ${list[1]}`;
+        return `${list.slice(0, -1).join(', ')}, and ${list[list.length - 1]}`;
       }
 
-      if (poolSource.phrase_pool_versions && poolSource.phrase_pool_versions[ver] && poolSource.phrase_pool_versions[ver].length) {
-        return poolSource.phrase_pool_versions[ver];
+      const s1List = (state.selectedServiceChips.length > 0 ? state.selectedServiceChips : (state.selectedChips.step1 || [])).map(cleanChipLabel).filter(Boolean);
+      
+      const tagPool = (state.availableTags && state.availableTags.length > 0)
+        ? state.availableTags.map(cleanChipLabel).filter(Boolean)
+        : (state.selectedChips.step2 || []).map(cleanChipLabel).filter(Boolean);
+
+      // Randomly sample 2 DIFFERENT tags from available pool on each generation
+      const shuffledTags = [...tagPool].sort(() => 0.5 - Math.random());
+      const s2List = shuffledTags.slice(0, 1);
+      const s3List = shuffledTags.slice(1, 2);
+
+      const s1 = joinItemsNaturally(s1List) || 'the service';
+      const s2 = joinItemsNaturally(s2List) || 'great quality';
+      const s3 = joinItemsNaturally(s3List) || 'warm hospitality';
+
+      let pool = [];
+
+      if (s1 && s2 && s3) {
+        pool = (bp.allThree || []).map(fn => fn(s1, s2, s3));
+      } else if (s1 && s2) {
+        pool = (bp.step1And2 || []).map(fn => fn(s1, s2));
+      } else if (s1 && s3) {
+        pool = (bp.step1And3 || []).map(fn => fn(s1, s3));
+      } else {
+        pool = [`Had a wonderful experience with ${s1}. Highly recommended!`];
       }
-      if (poolSource.phrase_pool && poolSource.phrase_pool.length) {
-        return poolSource.phrase_pool;
+
+      if (pool.length === 0) {
+        pool = [`Had a wonderful experience with ${s1}. Highly recommended!`];
       }
-      if (cat.phrase_pool_versions && cat.phrase_pool_versions[ver] && cat.phrase_pool_versions[ver].length) {
-        return cat.phrase_pool_versions[ver];
+
+      // Filter out current review text so every click guaranteed produces a DIFFERENT review
+      let candidates = pool;
+      if (excludeCurrent && state.currentReviewText) {
+        const currentTrimmed = state.currentReviewText.trim();
+        const filtered = pool.filter(text => text.trim() !== currentTrimmed);
+        if (filtered.length > 0) {
+          candidates = filtered;
+        }
       }
-      return cat.phrase_pool || [];
+
+      const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+      return chosen || pool[0];
     }
 
     function generateMultiCategoryReview(excludeCurrent = true) {
       if (!state.template || !Array.isArray(state.template.categories) || state.template.categories.length === 0) {
-        // Fallback to random default phrase
-        let fallback = DEFAULT_FALLBACK_PHRASES[Math.floor(Math.random() * DEFAULT_FALLBACK_PHRASES.length)];
-        if (excludeCurrent && fallback === state.currentReviewText && DEFAULT_FALLBACK_PHRASES.length > 1) {
-          fallback = DEFAULT_FALLBACK_PHRASES.filter(p => p !== state.currentReviewText)[0] || fallback;
-        }
-        return fallback;
+        const pool = DEFAULT_FALLBACK_PHRASES;
+        const candidates = (excludeCurrent && state.currentReviewText)
+          ? pool.filter(t => t.trim() !== state.currentReviewText.trim())
+          : pool;
+        const finalPool = candidates.length > 0 ? candidates : pool;
+        return finalPool[Math.floor(Math.random() * finalPool.length)];
       }
 
       const allCategories = [...state.template.categories];
-      const totalAvailable = allCategories.length;
+      let result = '';
+      let attempts = 0;
 
-      // Weighted distribution: 60% time 1-3 categories, 40% time 4-7 categories
-      const isShort = Math.random() < 0.60;
-      let minCount, maxCount;
-      if (isShort) {
-        minCount = 1;
-        maxCount = Math.min(totalAvailable, 3);
-      } else {
-        minCount = Math.min(totalAvailable, 4);
-        maxCount = Math.min(totalAvailable, 7);
-      }
-
-      if (minCount > maxCount) minCount = maxCount;
-      const targetCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
-
-      // Fisher-Yates shuffle categories
-      const shuffled = [...allCategories];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-
-      const selectedCategories = shuffled.slice(0, targetCount);
-      const selectedPhrases = [];
-
-      selectedCategories.forEach(cat => {
-        const pool = getCategoryPhrasePool(cat);
-        if (pool && pool.length > 0) {
-          const phrase = pool[Math.floor(Math.random() * pool.length)];
-          if (phrase && typeof phrase === 'string' && phrase.trim().length > 0) {
-            selectedPhrases.push(phrase.trim());
-          }
-        }
-      });
-
-      let assembledText = selectedPhrases.join(' ');
-      if (!assembledText) {
-        assembledText = DEFAULT_FALLBACK_PHRASES[Math.floor(Math.random() * DEFAULT_FALLBACK_PHRASES.length)];
-      }
-
-      // If assembledText happens to match current exactly, re-roll phrase variants
-      if (excludeCurrent && assembledText === state.currentReviewText && selectedPhrases.length > 0) {
-        const altPhrases = [];
-        selectedCategories.forEach(cat => {
-          const pool = getCategoryPhrasePool(cat);
-          if (pool && pool.length > 1) {
-            const alt = pool[Math.floor(Math.random() * pool.length)];
-            altPhrases.push(alt.trim());
+      while (attempts < 12) {
+        const selectedPhrases = [];
+        allCategories.slice(0, 3).forEach(cat => {
+          const pool = cat.phrase_pool || [];
+          if (pool.length > 0) {
+            const phrase = pool[Math.floor(Math.random() * pool.length)];
+            if (phrase) selectedPhrases.push(phrase.trim());
           }
         });
-        if (altPhrases.length > 0) {
-          assembledText = altPhrases.join(' ');
+        result = selectedPhrases.join(' ');
+        if (!excludeCurrent || !state.currentReviewText || result.trim() !== state.currentReviewText.trim()) {
+          break;
         }
+        attempts++;
       }
 
-      return assembledText;
+      return result || DEFAULT_FALLBACK_PHRASES[0];
     }
 
-    function updateGeneratedReview(triggerType = null) {
-      const isUserAction = Boolean(triggerType);
-      const newText = generateMultiCategoryReview(isUserAction);
-      state.currentReviewText = newText;
+    function setAiGeneratingVisuals(isGenerating) {
+      state.isLoadingAi = isGenerating;
+      const card = $('review-card');
+      const overlay = $('ai-generation-container');
+      const ta = $('review-text');
+      const btnGoogle = $('btn-google-post');
+      const btnAi = $('btn-ai-generate');
+      const btnRefresh = $('btn-refresh-phrase');
+      const refreshIcon = $('refresh-icon');
+
+      if (isGenerating) {
+        if (card) card.classList.add('generating-ai');
+        if (overlay) overlay.style.display = 'flex';
+        if (ta) ta.style.display = 'none';
+        if (btnAi) btnAi.classList.add('pulse-active');
+        if (btnRefresh) btnRefresh.style.opacity = '0.6';
+        if (refreshIcon) refreshIcon.classList.add('spinning');
+        if (btnGoogle && !state.isPosting) {
+          btnGoogle.classList.add('loading-ai-btn');
+          btnGoogle.innerHTML = `
+            <span class="ai-sparkle-anim" style="font-size:16px;">✨</span>
+            <span id="lbl-google-post">AI Crafting Your Review…</span>
+          `;
+        }
+      } else {
+        if (card) card.classList.remove('generating-ai');
+        if (overlay) overlay.style.display = 'none';
+        if (ta) ta.style.display = 'block';
+        if (btnAi) btnAi.classList.remove('pulse-active');
+        if (btnRefresh) btnRefresh.style.opacity = '1';
+        if (refreshIcon) refreshIcon.classList.remove('spinning');
+        if (btnGoogle && !state.isPosting) {
+          btnGoogle.classList.remove('loading-ai-btn');
+          btnGoogle.innerHTML = `
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M21.35 11.1H12.18V13.83H18.69C18.36 17.64 15.19 19.27 12.19 19.27C8.36 19.27 5 16.25 5 12C5 7.9 8.2 4.73 12.2 4.73C15.29 4.73 17.1 6.7 17.1 6.7L19 4.72C19 4.72 16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12C2.03 17.05 6.16 22 12.25 22C17.6 22 21.5 18.33 21.5 12.91C21.5 11.76 21.35 11.1 21.35 11.1Z" />
+            </svg>
+            <span id="lbl-google-post">Copy & Post to Google</span>
+          `;
+        }
+      }
+    }
+
+    async function prepareAndFetchFinalReviews() {
+      const ta = $('review-text');
       state.hasUserEdited = false;
 
-      const ta = $('review-text');
-      if (ta) {
-        ta.value = newText;
-        if (isUserAction) {
+      if (!state.useStepChips) {
+        const text = generateMultiCategoryReview(false);
+        state.currentReviewText = text;
+        if (ta) ta.value = text;
+        updateReviewStats();
+        return;
+      }
+
+      const allChips = [
+        ...(state.selectedChips.step1 || []),
+        ...(state.selectedChips.step2 || []),
+        ...(state.selectedChips.step3 || [])
+      ].map(cleanChipLabel).filter(Boolean);
+
+      if (allChips.length === 0) {
+        const fallback = generate3StepReview(false);
+        state.currentReviewText = fallback;
+        if (ta) ta.value = fallback;
+        updateReviewStats();
+        return;
+      }
+
+      // Activate AI Live Generating visual effects
+      setAiGeneratingVisuals(true);
+
+      const bizPref = (state.business && state.business.review_language_preference) || 'english';
+
+      state.generationPromise = (async () => {
+        try {
+          const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+          const endpoint = isLocal
+            ? 'http://127.0.0.1:5001/review-system-prod-49b7a/asia-south1/fetchReviewForCustomer'
+            : '/fetchReviewForCustomer';
+
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              chips: allChips,
+              step1: (state.selectedChips.step1 || []).map(cleanChipLabel).filter(Boolean),
+              step2: (state.availableTags || state.selectedChips.step2 || []).map(cleanChipLabel).filter(Boolean),
+              step3: (state.selectedChips.step3 || []).map(cleanChipLabel).filter(Boolean),
+              availableTags: (state.availableTags || []).map(cleanChipLabel).filter(Boolean),
+              businessId: state.businessId,
+              businessName: (state.business && (state.business.brand_name || state.business.business_name || state.business.name)) || '',
+              businessCategory: (state.business && (state.business.category_type || state.business.category || state.business.default_category_template_id)) || state.archetype || '',
+              archetype: state.archetype || (state.business && (state.business.archetype || state.business.category)),
+              languagePref: bizPref,
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.success) {
+              state.activeReviewsPool = (Array.isArray(data.allReviews) && data.allReviews.length > 0)
+                ? data.allReviews
+                : [data.review];
+              state.currentDocId = data.docId || null;
+              state.currentReviewIndex = 0;
+
+              const chosenReview = state.activeReviewsPool[0] || data.review;
+              state.currentReviewText = chosenReview;
+              return chosenReview;
+            }
+          }
+        } catch (e) {
+          console.warn('AI review fetch error (using local fallback):', e);
+        }
+        const fallback = generate3StepReview(false);
+        state.currentReviewText = fallback;
+        return fallback;
+      })();
+
+      try {
+        const resultReview = await state.generationPromise;
+        if (!state.hasUserEdited && ta) {
+          ta.value = resultReview;
+          state.currentReviewText = resultReview;
+        }
+      } catch (_) {
+        const fallback = generate3StepReview(false);
+        if (!state.hasUserEdited && ta) {
+          ta.value = fallback;
+          state.currentReviewText = fallback;
+        }
+      } finally {
+        setAiGeneratingVisuals(false);
+        if (ta) {
           ta.classList.add('glow-highlight');
           setTimeout(() => ta.classList.remove('glow-highlight'), 500);
         }
+        updateReviewStats();
       }
+    }
 
-      // Only trigger visual animation for the specific button that was clicked
+    function updateGeneratedReview(triggerType = null) {
+      if (state.isLoadingAi) return;
+
       if (triggerType === 'ai') {
         const aiBtn = $('btn-ai-generate');
         if (aiBtn) {
@@ -1523,97 +2245,57 @@
         }
       }
 
+      const ta = $('review-text');
+
+      // Instant seamless rotation from in-memory pool (0ms delay, zero flickering)
+      if (state.useStepChips && state.activeReviewsPool && state.activeReviewsPool.length > 1) {
+        state.currentReviewIndex = (state.currentReviewIndex + 1) % state.activeReviewsPool.length;
+        const nextText = state.activeReviewsPool[state.currentReviewIndex];
+        state.currentReviewText = nextText;
+        state.hasUserEdited = false;
+        if (ta) {
+          ta.value = nextText;
+          ta.classList.add('glow-highlight');
+          setTimeout(() => ta.classList.remove('glow-highlight'), 400);
+        }
+        updateReviewStats();
+        return;
+      }
+
+      // Fallback if legacy phrases or empty pool
+      let newText = '';
+      if (state.useStepChips) {
+        newText = generate3StepReview(true);
+      } else {
+        newText = generateMultiCategoryReview(true);
+      }
+
+      state.currentReviewText = newText;
+      state.hasUserEdited = false;
+
+      if (ta) {
+        ta.value = newText;
+        ta.classList.add('glow-highlight');
+        setTimeout(() => ta.classList.remove('glow-highlight'), 400);
+      }
+
       updateReviewStats();
     }
 
-    // ─── Micro-Interactions: Haptics & Confetti Engine ───────────────────────
+    // ─── Micro-Interactions: Haptics ───────────────────────────────────────
     function triggerHaptic(type = 'light') {
       try {
         const v = navigator.vibrate || navigator.webkitVibrate || navigator.mozVibrate || navigator.msVibrate;
         if (v) {
           if (type === 'light') {
-            navigator.vibrate(40);
+            navigator.vibrate(15);
           } else if (type === 'medium') {
-            navigator.vibrate([40, 30, 40]);
+            navigator.vibrate(25);
           } else if (type === 'success') {
-            navigator.vibrate([50, 40, 70]);
+            navigator.vibrate([25, 40, 35]);
           }
         }
       } catch (_) {}
-    }
-
-    function launchConfetti() {
-      const canvas = $('confetti-canvas');
-      if (!canvas) return;
-      canvas.style.display = 'block';
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      const ctx = canvas.getContext('2d');
-      const colors = ['#1a73e8', '#ea4335', '#fbbc04', '#34a853', '#9333ea', '#ec4899', '#3b82f6'];
-      const particles = [];
-      const particleCount = 100;
-
-      for (let i = 0; i < particleCount; i++) {
-        particles.push({
-          x: canvas.width * 0.5 + (Math.random() - 0.5) * 80,
-          y: canvas.height * 0.4 + (Math.random() - 0.5) * 40,
-          vx: (Math.random() - 0.5) * 18,
-          vy: (Math.random() - 0.75) * 20,
-          size: Math.random() * 8 + 5,
-          color: colors[Math.floor(Math.random() * colors.length)],
-          rotation: Math.random() * 360,
-          rotSpeed: (Math.random() - 0.5) * 12,
-          opacity: 1,
-          shape: Math.random() > 0.35 ? 'rect' : 'circle',
-        });
-      }
-
-      let animationFrame;
-      const startTime = Date.now();
-
-      function render() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const elapsed = Date.now() - startTime;
-        let alive = false;
-
-        particles.forEach(p => {
-          p.x += p.vx;
-          p.y += p.vy;
-          p.vy += 0.48;
-          p.vx *= 0.98;
-          p.rotation += p.rotSpeed;
-          if (elapsed > 1000) {
-            p.opacity = Math.max(0, p.opacity - 0.04);
-          }
-
-          if (p.opacity > 0 && p.y < canvas.height + 50) {
-            alive = true;
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate((p.rotation * Math.PI) / 180);
-            ctx.globalAlpha = p.opacity;
-            ctx.fillStyle = p.color;
-            if (p.shape === 'rect') {
-              ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
-            } else {
-              ctx.beginPath();
-              ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
-              ctx.fill();
-            }
-            ctx.restore();
-          }
-        });
-
-        if (alive && elapsed < 2200) {
-          animationFrame = requestAnimationFrame(render);
-        } else {
-          cancelAnimationFrame(animationFrame);
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          canvas.style.display = 'none';
-        }
-      }
-
-      render();
     }
 
     // ─── Live Word Counter & Auto-Resizing Box ─────────────────────────────
@@ -1659,9 +2341,420 @@
       return '';
     }
 
+    // ─── 50 Category-Specific Negative Feedback Presets ─────────────────────
+    const NEGATIVE_FEEDBACK_PRESETS = {
+      food_pizzeria: [
+        '🍕 Soggy / burnt pizza crust',
+        '🧀 Insufficient cheese / toppings',
+        '🧊 Food served lukewarm / cold',
+        '⏳ Long table waiting time',
+        '👥 Inattentive table service',
+        '💰 Overpriced for portion size'
+      ],
+      food_cafe: [
+        '☕ Coffee too bitter / watery',
+        '🧊 Incorrect beverage temperature',
+        '🥐 Pastry / bakery item was stale',
+        '📶 Wi-Fi slow / AC not working',
+        '⏳ Long counter preparation delay',
+        '👥 Barista rude / inattentive'
+      ],
+      food_bakery: [
+        '🎂 Cake design mismatch',
+        '🍰 Cake sponge dry or too sweet',
+        '⏱️ Late delivery / missed pickup',
+        '📦 Damaged packaging during transit',
+        '💰 Custom design charges too high',
+        '👥 Unhelpful counter staff'
+      ],
+      food_fast_food: [
+        '🍔 Cold burger or soggy bun',
+        '🍟 Fries limp / oversalted / cold',
+        '📦 Missing item or wrong sauce',
+        '⏳ Very slow counter ordering',
+        '🧹 Dirty dining tables or floor',
+        '👥 Unpleasant cashier behavior'
+      ],
+      food_north_indian: [
+        '🍲 Gravy too oily / overly spicy',
+        '🫓 Naan / Roti stiff or chewy',
+        '🍗 Meat / paneer pieces tough',
+        '⏳ Food took very long to arrive',
+        '👥 Captain / staff unaccommodating',
+        '💰 High taxes / unexpected service fee'
+      ],
+      food_south_indian: [
+        '🥞 Dosa soggy or undercooked',
+        '🥥 Sambar / Chutney watery or sour',
+        '🧊 Filter coffee not piping hot',
+        '⏳ Table clearing very slow',
+        '🧹 Dining tables not wiped properly',
+        '👥 Staff rushed and inattentive'
+      ],
+      food_chinese_asian: [
+        '🍜 Noodles / rice overly greasy',
+        '🧂 Excess Ajinomoto / high salt',
+        '🥟 Dim sums dry or broken casing',
+        '⏳ Main course delayed after starters',
+        '👥 Waiter confused item numbers',
+        '💰 Small portion for pricing'
+      ],
+      food_biryani: [
+        '🍚 Biryani too dry / lacking spice',
+        '🍗 Chicken / Mutton tough or smelly',
+        '🧅 Salan / Raita sour or missing',
+        '⏳ Order delayed during peak rush',
+        '📦 Parcel spilled / poor container',
+        '👥 Inefficient counter billing'
+      ],
+      food_ice_cream: [
+        '🍨 Ice cream melted / icy texture',
+        '🧇 Waffle cone soggy or cracked',
+        '🍓 Desired flavors were out of stock',
+        '⏳ Slow scooping & long queue',
+        '🧹 Sticky counter or messy floor',
+        '💰 Expensive per single scoop'
+      ],
+      food_fine_dining: [
+        '🍷 Order mixup / courses poorly timed',
+        '🥩 Food seasoning underwhelming',
+        '⏳ Reserved table was not ready',
+        '👥 Staff lacked basic etiquette',
+        '🔊 Background music excessively loud',
+        '💰 Exorbitant bill without quality'
+      ],
+      salon_premium: [
+        '💇 Haircut did not match reference',
+        '🎨 Hair color patchy / wrong tone',
+        '⏳ Waited 30+ mins despite appointment',
+        '💰 Pushy upselling of products',
+        '👥 Stylist rough or dismissive',
+        '🧹 Hair cuttings left around chair'
+      ],
+      salon_barbershop: [
+        '✂️ Uneven fade / uneven beard trim',
+        '🪒 Razor burn / cut from trimming',
+        '⏳ Excessive wait without queue system',
+        '🧹 Unsanitized clipper / dirty cape',
+        '👥 Barber rushed through service',
+        '💰 Charged higher than rate chart'
+      ],
+      salon_nail_studio: [
+        '💅 Gel extension chipped / lifted early',
+        '🎨 Nail art messy or inaccurate',
+        '⏳ Procedure took over 2.5 hours',
+        '💅 Cuticle cut / nail pain during filing',
+        '👥 Nail tech lacked proper skills',
+        '💰 Hidden add-on removal charges'
+      ],
+      salon_skin_aesthetic: [
+        '🧖 Skin irritation / breakout post-facial',
+        '✨ No visible glow or results',
+        '⏳ Doctor / esthetician arrived late',
+        '💰 High consultation or product markup',
+        '👥 Therapist pushed unwanted packages',
+        '🧹 Treatment room smelled musty'
+      ],
+      salon_luxury_spa: [
+        '💆 Massage therapist applied wrong pressure',
+        '🔊 Room noisy / staff talking loudly outside',
+        '⏱️ Therapist cut massage time short',
+        '❄️ Massage room AC temperature too cold',
+        '🧹 Towels / shower area felt damp or unclean',
+        '💰 Spa package overpriced for experience'
+      ],
+      salon_makeup_bridal: [
+        '💄 Foundation look cakey / mismatched shade',
+        '👰 Makeup artist was significantly late',
+        '👁️ Eyelashes / hair styling came loose',
+        '💄 Unhygienic makeup brushes used',
+        '👥 MUA was inflexible / dismissive',
+        '💰 Sudden last-minute overtime fees'
+      ],
+      salon_tattoo_piercing: [
+        '🎨 Tattoo linework shaky / uneven ink',
+        '🩹 Poor aftercare instructions provided',
+        '💉 Piercing placement crooked or infected',
+        '🧹 Studio hygiene appeared questionable',
+        '⏳ Artist kept customer waiting',
+        '💰 High hourly rate for simple design'
+      ],
+      salon_lash_eyebrow: [
+        '👁️ Lash extensions clumped or fell out early',
+        '🤨 Eyebrow shape uneven / over-threaded',
+        '👁️ Eye stinging / adhesive burning sensation',
+        '⏳ Long waiting despite fixed slot',
+        '👥 Technician seemed inexperienced',
+        '💰 Infill sessions priced too high'
+      ],
+      salon_mens_grooming: [
+        '🧔 Beard trim asymmetrical / cut too short',
+        '💇 Haircut looked unblended',
+        '⏳ Walk-in wait time exceeded 45 mins',
+        '🧹 Towel smelled damp / tools not disinfected',
+        '👥 Staff distracted on mobile phone',
+        '💰 Expensive for standard quick cut'
+      ],
+      salon_foot_reflexology: [
+        '🦶 Foot massage caused painful soreness',
+        '⏱️ Session ended 10 mins early',
+        '🔊 Loud chatter near massage chairs',
+        '🛋️ Recliner chair uncomfortable',
+        '👥 Masseuse lacked training',
+        '💰 Not worth the fee charged'
+      ],
+      clinic_dental: [
+        '🦷 Extreme pain during or after procedure',
+        '⏱️ Cap / filling came loose quickly',
+        '⏳ Waited 45+ mins past appointment time',
+        '💰 Sudden hidden charges on dental bill',
+        '👥 Dentist seemed rushed and impatient',
+        '🧹 Operatory equipment looked dated'
+      ],
+      clinic_dermatology: [
+        '🧴 Prescribed medicines caused severe reaction',
+        '⏳ Consultation lasted less than 3 minutes',
+        '💊 Very expensive branded lotions prescribed',
+        '⏳ Clinic reception delayed queue by an hour',
+        '👥 Doctor was dismissive of concerns',
+        '💰 Repeated follow-up fees charged'
+      ],
+      clinic_pediatric: [
+        '👶 Doctor lacked warmth / scared the child',
+        '💉 Painful injection / rough handling',
+        '⏳ Sick child had to wait over an hour',
+        '🧹 Waiting room toys dirty or unhygienic',
+        '👥 Receptionist was rude and unhelpful',
+        '💰 Over-prescription of strong medicines'
+      ],
+      clinic_physiotherapy: [
+        '🦴 Pain worsened following the session',
+        '⏱️ Therapist left patient unattended on machines',
+        '⏳ Long waiting time in reception',
+        '👥 Therapist seemed disinterested',
+        '🏢 Poorly maintained rehab equipment',
+        '💰 Package fee demanded in advance'
+      ],
+      clinic_ent_audiology: [
+        '👂 Ear cleaning procedure caused pain',
+        '🔬 Inaccurate hearing test / misdiagnosis',
+        '⏳ Delay in doctor arrival at clinic',
+        '👥 Doctor did not explain the condition',
+        '💰 Unnecessary tests or device suggested',
+        '🧹 Noisy and crowded waiting area'
+      ],
+      clinic_eye_ophthalmology: [
+        '👁️ Eye power prescription was incorrect',
+        '⏳ Excessive waiting for eye drop dilation',
+        '🔬 Doctor rushed the eye examination',
+        '💰 High spectacle frame markup',
+        '👥 Clinic staff lacked courteous behavior',
+        '🧹 Dirty diagnostic chin rests'
+      ],
+      clinic_pathology_lab: [
+        '💉 Painful vein puncture / bruising after blood test',
+        '📋 Test report significantly delayed',
+        '📄 Mixup in sample names or report values',
+        '⏳ Long queue for routine blood collection',
+        '👥 Phlebotomist did not sanitize hands',
+        '💰 Price higher than other accredited labs'
+      ],
+      clinic_veterinary_pet: [
+        '🐾 Pet handled roughly or with impatience',
+        '🐕 Diagnosis was inaccurate / symptoms missed',
+        '⏳ Long wait with distressed pets in lobby',
+        '💰 Inflated medicine and consultation bill',
+        '👥 Vet doctor lacked bedside empathy',
+        '🧹 Pet examination table was uncleaned'
+      ],
+      clinic_orthopedic_spine: [
+        '🦴 Doctor recommended immediate surgery without details',
+        '⏳ Waited over 1.5 hours in waiting hall',
+        '👥 Rushed 2-minute doctor consultation',
+        '💰 Costly X-ray & MRI pushed at specific center',
+        '🦴 Ineffective pain relief prescribed',
+        '🏢 Inaccessible clinic for mobility-impaired'
+      ],
+      clinic_homeopathy_ayurveda: [
+        '🌿 Medicines showed zero relief after months',
+        '⏳ Doctor took consultation casually',
+        '💰 Highly expensive monthly herbal kit',
+        '⏱️ Delayed dispatch of courier medicines',
+        '👥 Receptionist never answers calls',
+        '🌿 Strict diet restrictions not explained'
+      ],
+      auto_car_service: [
+        '🚗 Car issue was not resolved after service',
+        '💰 Final bill exceeded initial estimate',
+        '⏱️ Vehicle delivery delayed by days',
+        '🛢️ Suspected non-genuine parts used',
+        '👥 Service advisor was uncommunicative',
+        '🧼 Car returned dirty or unwashed'
+      ],
+      auto_detailing_ppf: [
+        '✨ PPF edges peeling / bubbles under film',
+        '🚗 Swirl marks visible after ceramic coat',
+        '⏳ Detailing job took 2 days longer than promised',
+        '💰 Charged high premium for subpar finish',
+        '👥 Workshop manager refused warranty rework',
+        '🧼 Interior dust and stains left behind'
+      ],
+      auto_car_wash: [
+        '🧼 Dirt and water stains left on vehicle body',
+        '🧽 Scratches caused by dirty wash mitts',
+        '⏳ 45-minute wait for a basic 10-minute wash',
+        '🧹 Interior vacuuming was incomplete',
+        '👥 Wash boy was careless with floor mats',
+        '💰 Overcharged for basic foam shampoo'
+      ],
+      auto_tyre_wheel: [
+        '🛞 Wheel alignment still pulling to one side',
+        '🔩 Wheel nuts over-tightened / damaged studs',
+        '⏳ Long wait time for tyre mounting',
+        '💰 High tyre fitting or balancing surcharge',
+        '👥 Staff pushed older stock tyres',
+        '💨 Tyre pressure sensor damaged'
+      ],
+      auto_two_wheeler: [
+        '🏍️ Engine knocking / mileage dropped post-service',
+        '🔧 Brakes feel spongy or unsafe',
+        '⏱️ Bike delivered late in the evening',
+        '💰 Extra parts replaced without consent',
+        '👥 Mechanic was untrained or careless',
+        '🧼 Bike not properly washed or polished'
+      ],
+      auto_denting_painting: [
+        '🎨 Mismatched paint shade / clearcoat peel',
+        '🔨 Dent still slightly visible in daylight',
+        '⏳ Delivery delayed by over a week',
+        '💰 Paint estimate increased halfway through',
+        '👥 Body shop supervisor made false promises',
+        '🧼 Paint overspray on glass and rubber beadings'
+      ],
+      auto_car_audio: [
+        '🔊 Loose dashboard panels / rattling sound',
+        '⚡ Electrical fuse blown / wiring left exposed',
+        '📻 Touchscreen Android system freezing',
+        '💰 Heavy markup on cheap speaker brands',
+        '👥 Installer lacked technical wiring knowledge',
+        '⏳ Installation took entire day'
+      ],
+      auto_car_ac: [
+        '❄️ AC cooling still weak / gas leaked within weeks',
+        '💨 Bad smell coming from AC blower',
+        '💰 Expensive compressor replacement insisted',
+        '⏳ Long repair time without clear explanation',
+        '👥 Technician lacked proper diagnostic tools',
+        '🔩 AC cabin filter not replaced'
+      ],
+      auto_ev_charging: [
+        '⚡ Charger gun not working / error code displayed',
+        '📱 Mobile app failed to initiate session',
+        '⏳ Charging speed way below advertised kW',
+        '🅿️ ICE vehicles blocked charging bay',
+        '💰 High idle or convenience fee billed',
+        '👥 No customer helpline support available'
+      ],
+      auto_towing_crane: [
+        '🚛 Towing vehicle arrived 2 hours late',
+        '💥 Bumper or underbody scratched during loading',
+        '💰 Demanded cash excess over agreed quote',
+        '👥 Tow truck driver was rude and reckless',
+        '📱 Location tracking did not update',
+        '🛡️ No safety straps used during transport'
+      ],
+      retail_clothing: [
+        '👗 Fabric tore / color bled on first wash',
+        '🏷️ Refusal of size exchange / rigid return policy',
+        '⏳ Long trial room and checkout queues',
+        '💰 Overpriced tags compared to quality',
+        '👥 Store staff was indifferent and unhelpful',
+        '🧹 Messy clothing racks and untidy trial rooms'
+      ],
+      retail_footwear: [
+        '👟 Shoe sole separated within few weeks',
+        '👠 Desired shoe size was out of stock',
+        '💰 High price for artificial leather / synthetic',
+        '👥 Sales assistant rushed shoe trials',
+        '🏷️ Warranty / return refused on defective pair',
+        '📦 Given shop-soiled display shoe'
+      ],
+      retail_electronics: [
+        '📱 Defective device given / sealed box tampered',
+        '🏷️ Staff gave wrong technical specs advice',
+        '⏳ Billing and warranty entry took 45 mins',
+        '💰 Accessory prices marked up significantly',
+        '👥 Salesperson was unhelpful after payment',
+        '🛡️ Extended warranty terms misleading'
+      ],
+      retail_jewelry: [
+        '💎 Making charges / wastage fee unexpectedly high',
+        '💍 Sizing alteration was delayed and loose',
+        '📜 Lack of clear hallmark or purity certification',
+        '👥 Staff showed attitude for smaller purchases',
+        '💰 Resale / buyback deductions were steep',
+        '📦 Inadequate jewelry presentation box'
+      ],
+      retail_eyewear: [
+        '👓 Lens power incorrect / causing headaches',
+        '🕶️ Frame hinge became loose in days',
+        '⏱️ Specs delivery took over 10 days',
+        '💰 Anti-glare coating started peeling',
+        '👥 Optometrist conducted very hasty eye test',
+        '🏷️ High frame pricing without discount'
+      ],
+      retail_home_decor: [
+        '🛋️ Furniture delivered with scratches or dents',
+        '🪵 Wood quality felt cheap compared to showroom',
+        '⏱️ Home delivery delayed by 3 weeks',
+        '💰 High delivery and installation surcharge',
+        '👥 Assembly carpenter was unskilled',
+        '📦 Incomplete parts sent in shipment'
+      ],
+      retail_supermarket: [
+        '🛒 Expired or near-expiry groceries on shelves',
+        '⏳ Only 1 billing counter open with huge queue',
+        '💰 Shelf price differed from scanner bill price',
+        '🥬 Wilted vegetables and soft fruits',
+        '👥 Cashier was slow and made scanning errors',
+        '📦 Poor quality carry bags that tear easily'
+      ],
+      retail_gift_novelties: [
+        '🎁 Personalized printing was crooked or blurry',
+        '⏱️ Gift item was not ready for event date',
+        '💰 Overcharged for simple decorative gift wrap',
+        '📦 Fragile item packed carelessly without bubble wrap',
+        '👥 Shopkeeper was impatient during selection',
+        '🏷️ Defective souvenir item cannot be exchanged'
+      ],
+      retail_books_stationery: [
+        '📚 Textbook / novel edition out of stock',
+        '✏️ Pens or stationery dried up / defective',
+        '💰 Charged higher than printed MRP',
+        '👥 Counter staff lacked knowledge of book titles',
+        '⏳ Very slow photocopy / printout counter',
+        '🧹 Cramped and dusty bookshelves'
+      ],
+      retail_sports_fitness: [
+        '🏸 Equipment broke or bent during first use',
+        '👟 Sports shoes had poor grip and padding',
+        '💰 Gym accessories priced excessively high',
+        '👥 Staff gave inaccurate advice on equipment size',
+        '🏷️ No replacement policy on fitness gear',
+        '📦 Delivered gym weight set was missing clips'
+      ],
+      universal_general: [
+        '⏳ Long waiting time or delay in delivery',
+        '💰 High billing or unexpected extra charges',
+        '👥 Unprofessional or discourteous staff behavior',
+        '🧹 Cleanliness and hygiene concerns',
+        '👎 Service quality did not meet expectations',
+        '📦 Incomplete work or missing items'
+      ]
+    };
+
     // ─── Empathy Issue Tags Selection (Low Rating Path) ──────────────────────
     const selectedEmpathyTags = new Set();
-    let empathyTagsInitialized = false;
 
     function resetNegativeFeedback() {
       selectedEmpathyTags.clear();
@@ -1672,102 +2765,122 @@
       if (waText) waText.value = '';
     }
 
-    function initEmpathyTags() {
-      if (empathyTagsInitialized) return;
-      empathyTagsInitialized = true;
+    function renderNegativeFeedbackChips() {
+      const container = $('empathy-tag-grid');
+      if (!container) return;
 
-      document.querySelectorAll('.empathy-chip').forEach(chip => {
-        chip.addEventListener('pointerdown', () => triggerHaptic('light'), { passive: true });
-        chip.addEventListener('click', () => {
+      let chips = null;
+      if (state.business && Array.isArray(state.business.negative_feedback_chips) && state.business.negative_feedback_chips.length > 0) {
+        chips = state.business.negative_feedback_chips;
+      }
+
+      if (!chips || chips.length === 0) {
+        const catId = (state.business && state.business.default_category_template_id) || '';
+        const catType = (state.business && state.business.category_type) || '';
+        const arch = state.archetype || 'food_dining';
+
+        if (catId && NEGATIVE_FEEDBACK_PRESETS[catId]) {
+          chips = NEGATIVE_FEEDBACK_PRESETS[catId];
+        } else {
+          const needle = (catType + ' ' + catId).toLowerCase();
+          for (const key in NEGATIVE_FEEDBACK_PRESETS) {
+            const shortKey = key.replace(/^(food|salon|clinic|auto|retail)_/, '');
+            if (needle.includes(shortKey) || shortKey.includes(needle)) {
+              chips = NEGATIVE_FEEDBACK_PRESETS[key];
+              break;
+            }
+          }
+        }
+
+        if (!chips) {
+          const archKey = {
+            'food_dining': 'food_pizzeria',
+            'beauty_wellness': 'salon_premium',
+            'healthcare_clinic': 'clinic_dental',
+            'auto_services': 'auto_car_service',
+            'retail_shopping': 'retail_clothing',
+            'universal_general': 'universal_general'
+          }[arch] || 'universal_general';
+          chips = NEGATIVE_FEEDBACK_PRESETS[archKey] || NEGATIVE_FEEDBACK_PRESETS.universal_general;
+        }
+      }
+
+      container.innerHTML = '';
+      chips.forEach(chipText => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'empathy-chip' + (selectedEmpathyTags.has(chipText) ? ' selected' : '');
+        btn.dataset.tag = chipText;
+        btn.textContent = chipText;
+        btn.addEventListener('pointerdown', () => triggerHaptic('light'), { passive: true });
+        btn.addEventListener('click', () => {
           triggerHaptic('light');
-          const tag = chip.dataset.tag;
-          if (selectedEmpathyTags.has(tag)) {
-            selectedEmpathyTags.delete(tag);
-            chip.classList.remove('selected');
+          if (selectedEmpathyTags.has(chipText)) {
+            selectedEmpathyTags.delete(chipText);
+            btn.classList.remove('selected');
           } else {
-            selectedEmpathyTags.add(tag);
-            chip.classList.add('selected');
+            selectedEmpathyTags.add(chipText);
+            btn.classList.add('selected');
           }
         });
+        container.appendChild(btn);
       });
     }
 
-    // ─── Interactive Star Rating UI (Single-Screen Reactive) ───────────────────
+    function initEmpathyTags() {
+      renderNegativeFeedbackChips();
+    }
+
+    // ─── Interactive Star Rating UI & Instant Screen Transition ───────────────
+    const starBtns = Array.from(document.querySelectorAll('.star-btn'));
+
     function updateStars(rating) {
-      document.querySelectorAll('.star-btn').forEach(btn => {
-        btn.classList.toggle('lit', parseInt(btn.dataset.val) <= rating);
-      });
+      for (let i = 0; i < starBtns.length; i++) {
+        const btn = starBtns[i];
+        const val = parseInt(btn.dataset.val, 10);
+        btn.classList.toggle('lit', val <= rating);
+      }
     }
 
     function updateRatingBadge(rating) {
       const dict = UI_STRINGS[state.lang] || UI_STRINGS.en;
       const label = dict.ratingLabels ? dict.ratingLabels[rating - 1] : `${rating} Stars`;
-      $('rating-badge').textContent = label;
-      $('rating-badge-container').style.display = 'block';
+      const badge = $('rating-badge');
+      const container = $('rating-badge-container');
+      if (badge) badge.textContent = label;
+      if (container) container.style.display = 'block';
     }
 
-    document.querySelectorAll('.star-grid .star-btn').forEach(btn => {
-      btn.addEventListener('pointerdown', () => {
-        if (!state.submitted) triggerHaptic('light');
-      }, { passive: true });
-
+    starBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         if (state.submitted) return;
-        triggerHaptic('light');
+        triggerHaptic('medium');
+        btn.classList.remove('star-pop-anim');
+        // Force reflow only on the single tapped button for pop animation
+        void btn.offsetWidth;
         btn.classList.add('star-pop-anim');
-        setTimeout(() => btn.classList.remove('star-pop-anim'), 260);
-        const rating = parseInt(btn.dataset.val);
-        const prevRating = state.starRating;
-        state.starRating = rating;
 
-        if (prevRating !== rating) {
-          resetNegativeFeedback();
-        }
+        const rating = parseInt(btn.dataset.val, 10);
+        state.starRating = rating;
 
         updateStars(rating);
         updateRatingBadge(rating);
-        renderDynamicSection(rating);
+
+        const cfg = (state.branch && state.branch.star_routing_config) || {};
+        const route = cfg[String(rating)] || (rating >= 4 ? 'google' : 'whatsapp');
+
+        // Fast, smooth transition to the next step
+        setTimeout(() => {
+          if (route === 'google') {
+            goToWizardStep(1, 'forward');
+          } else {
+            resetNegativeFeedback();
+            initEmpathyTags();
+            transitionScreen('feedback', 'forward');
+          }
+        }, 120);
       });
     });
-
-    function renderDynamicSection(rating) {
-      const cfg = (state.branch && state.branch.star_routing_config) || {};
-      // Default: 4-5 stars route to Google Maps, 1-3 stars route to WhatsApp
-      const route = cfg[String(rating)] || (rating >= 4 ? 'google' : 'whatsapp');
-
-      const dynamicContainer = $('dynamic-content');
-      const secHigh = $('section-high');
-      const secLowWa = $('section-low-wa');
-      const secLowThanks = $('section-low-thanks');
-
-      dynamicContainer.style.display = 'flex';
-
-      // Hide all sub-sections first
-      [secHigh, secLowWa, secLowThanks].forEach(el => {
-        el.classList.remove('active');
-        el.style.display = 'none';
-      });
-
-      let targetSection;
-      if (route === 'google') {
-        targetSection = secHigh;
-        // Pre-fill a multi-category review if empty or not manually typed
-        if (!state.hasUserEdited || !$('review-text').value.trim()) {
-          updateGeneratedReview(null);
-        }
-      } else if (route === 'whatsapp') {
-        targetSection = secLowWa;
-        initEmpathyTags();
-      } else {
-        targetSection = secLowThanks;
-      }
-
-      if (targetSection) {
-        targetSection.style.display = 'flex';
-        void targetSection.offsetWidth; // Force reflow for smooth animation
-        targetSection.classList.add('active');
-      }
-    }
 
     // ─── AI Generate Button & Refresh Button Event Listeners ──────────────────
     $('btn-ai-generate').addEventListener('click', () => {
@@ -1780,12 +2893,11 @@
       updateGeneratedReview('refresh');
     });
 
-    // ─── Robust Cross-Browser Clipboard Helper ──────────────────────────────
+    // ─── Clipboard Helper ───────────────────────────────────────────────────
     async function copyTextToClipboard(text) {
       if (!text) return true;
       let copied = false;
 
-      // Method 1: Modern Async Clipboard API
       if (navigator.clipboard && window.isSecureContext) {
         try {
           await navigator.clipboard.writeText(text);
@@ -1795,7 +2907,6 @@
         }
       }
 
-      // Method 2: execCommand fallback (especially for in-app browsers, iOS WebViews, older devices)
       if (!copied) {
         try {
           const ta = document.createElement('textarea');
@@ -1828,7 +2939,7 @@
       return copied;
     }
 
-    // ─── Log scan to Firestore (per-business subcollection; aggregated by Cloud Function) ─
+    // ─── Log scan to Firestore ───────────────────────────────────────────────
     async function logScan({ actionTaken }) {
       try {
         const expireAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
@@ -1845,104 +2956,74 @@
       }
     }
 
-    // ─── WhatsApp button with Empathy Tags pre-filling ────────────────────────
-    $('btn-wa-send').addEventListener('click', async () => {
-      if (state.isWaSending) return;
-      state.isWaSending = true;
-
-      triggerHaptic('medium');
-      const customNote = $('wa-text').value.trim();
-      const num = formatWaNumber((state.branch && state.branch.whatsapp_number) || '');
-      const bizName = (state.business && state.business.brand_name) || 'your business';
-      const branchName = (state.branch && state.branch.branch_name) || '';
-
-      const greeting = branchName 
-        ? `Hello, I visited ${bizName} (${branchName}) today and would like to share private feedback.`
-        : `Hello, I visited ${bizName} today and would like to share private feedback.`;
-
-      const lines = [greeting];
-      if (selectedEmpathyTags.size > 0) {
-        lines.push(`*Issue:* ${Array.from(selectedEmpathyTags).join(', ')}`);
-      }
-      if (customNote) {
-        lines.push(`*Details:* "${customNote}"`);
-      }
-      if (!selectedEmpathyTags.size && !customNote) {
-        lines.push(`I had an unsatisfactory experience and would appreciate a follow-up.`);
-      }
-
-      const msg = encodeURIComponent(lines.join('\n\n'));
-      const waUrl = num ? `https://wa.me/${num}?text=${msg}` : '';
-
-      logScan({ actionTaken: 'whatsapp' }).catch(console.warn);
-      markSubmitted(state.branchId);
-
-      if (waUrl) {
-        window.open(waUrl, '_blank', 'noopener');
-        showScreen('done');
-      } else {
-        showScreen('done');
-      }
-    });
-
-    $('btn-low-skip').addEventListener('click', async () => {
-      if (state.isSubmittingFeedback) return;
-      state.isSubmittingFeedback = true;
-
-      triggerHaptic('light');
-      const feedback = $('wa-text').value.trim();
-      await logScan({ actionTaken: feedback ? 'feedback_submitted' : 'low_skip' });
-      markSubmitted(state.branchId);
-      showScreen('done');
-    });
-
-    $('btn-thanks-submit').addEventListener('click', async () => {
-      if (state.isSubmittingFeedback) return;
-      state.isSubmittingFeedback = true;
-
-      triggerHaptic('light');
-      await logScan({ actionTaken: 'thankyou' });
-      markSubmitted(state.branchId);
-      showScreen('done');
-    });
-
     // ─── Primary Button: "Copy & Post to Google" ──────────────────────────────
     $('btn-google-post').addEventListener('click', async () => {
       if (state.isPosting) return;
-      state.isPosting = true;
-
-      triggerHaptic('success');
-      launchConfetti();
 
       const btn = $('btn-google-post');
-      const reviewText = $('review-text').value.trim();
 
-      // Robust clipboard copying for iOS Safari, WebViews & all mobile browsers
-      if (reviewText) {
-        await copyTextToClipboard(reviewText);
+      // If user tapped before AI finished generating, wait seamlessly for completion
+      if (state.isLoadingAi && state.generationPromise) {
+        btn.classList.add('loading-ai-btn');
+        btn.innerHTML = `
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="ai-sparkle-anim">✨</span> <span>Finalizing AI Review…</span>
+          </div>
+        `;
+        try {
+          await state.generationPromise;
+        } catch (_) {}
       }
 
-      btn.classList.add('copying');
-      btn.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; width:100%;">
-          <span style="display:flex; align-items:center; gap:8px;">
-            <span>✓</span> <span>Copied! Opening Google Maps…</span>
-          </span>
-          <div class="copy-countdown-bar">
-            <div class="copy-countdown-fill"></div>
-          </div>
-        </div>
-      `;
+      state.isPosting = true;
+      triggerHaptic('success');
 
-      // Log scan in background without blocking navigation
+      // Retrieve verified review text (never copy placeholder text)
+      const ta = $('review-text');
+      let reviewText = (ta && ta.value ? ta.value.trim() : '');
+      if (!reviewText || reviewText.includes('crafting') || reviewText.includes('Preparing')) {
+        reviewText = state.currentReviewText || generate3StepReview(false);
+        if (ta) ta.value = reviewText;
+      }
+
+      if (reviewText) {
+        await copyTextToClipboard(reviewText);
+
+        // Delete/consume ONLY the posted review from the shared cache (fire & forget)
+        if (state.currentDocId) {
+          try {
+            const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+            const endpoint = isLocal
+              ? 'http://127.0.0.1:5001/review-system-prod-49b7a/asia-south1/consumeReviewOnPost'
+              : '/consumeReviewOnPost';
+            fetch(endpoint, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                docId: state.currentDocId,
+                reviewText: reviewText
+              })
+            }).catch(() => {});
+          } catch (_) {}
+        }
+      }
+
       logScan({ actionTaken: 'google_maps' }).catch(() => {});
       markSubmitted(state.branchId);
 
+      // Directly transition to 'Almost there!' confirmation page and open Google Maps app immediately
+      showScreen('posted');
+      openGoogleMapsAppOrWeb();
+    });
+
+    // ─── App-First Google Maps Opener (Native App Priority with Web Fallback) ───
+    function openGoogleMapsAppOrWeb() {
       const placeId = (state.branch && state.branch.place_id) ? state.branch.place_id.trim() : '';
       const customReviewLink = (state.branch && state.branch.google_review_link) ? state.branch.google_review_link.trim() : '';
       const brandName = (state.business && state.business.brand_name) || '';
       const branchName = (state.branch && state.branch.branch_name) || '';
       const address = (state.branch && state.branch.address) || '';
+      const searchQuery = [brandName, branchName, address].filter(Boolean).join(' ');
 
       let targetUrl = '';
       if (customReviewLink) {
@@ -1950,24 +3031,67 @@
       } else if (placeId) {
         targetUrl = `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
       } else {
-        const searchQuery = [brandName, branchName, address].filter(Boolean).join(' ');
         targetUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery || 'Google Review')}`;
       }
 
-      const reopenBtn = $('btn-reopen-google');
-      if (reopenBtn && targetUrl) {
-        reopenBtn.href = targetUrl;
+      const ua = navigator.userAgent || '';
+      const isAndroid = /Android/i.test(ua);
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+      // 1. Android: Native Intent with com.google.android.apps.maps package & official Google Maps domain
+      if (isAndroid) {
+        let rawPath = '';
+        if (customReviewLink) {
+          rawPath = customReviewLink.replace(/^https?:\/\//, '');
+        } else if (placeId) {
+          rawPath = `www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
+        } else {
+          rawPath = `www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchQuery || 'Google Review')}`;
+        }
+        const androidIntent = `intent://${rawPath}#Intent;scheme=https;package=com.google.android.apps.maps;S.browser_fallback_url=${encodeURIComponent(targetUrl)};end;`;
+        window.location.href = androidIntent;
+        return;
       }
 
-      setTimeout(() => {
-        showScreen('posted');
-        if (targetUrl) {
-          window.location.href = targetUrl;
+      // 2. iOS: Try Google Maps URL scheme first, seamlessly fallback to web if app is not installed
+      if (isIOS) {
+        let appUrl = '';
+        if (customReviewLink) {
+          appUrl = customReviewLink.replace(/^https?:\/\//, 'comgooglemapsurl://');
+        } else if (placeId) {
+          appUrl = `comgooglemapsurl://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
+        } else {
+          appUrl = `comgooglemaps://?q=${encodeURIComponent(searchQuery || 'Google Review')}`;
         }
-      }, 600);
+
+        let appOpened = false;
+        const onVisibilityChange = () => {
+          if (document.hidden) appOpened = true;
+        };
+        document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
+
+        window.location.href = appUrl;
+
+        setTimeout(() => {
+          document.removeEventListener('visibilitychange', onVisibilityChange);
+          if (!appOpened && !document.hidden) {
+            window.location.href = targetUrl;
+          }
+        }, 1200);
+        return;
+      }
+
+      // 3. Desktop or default browser
+      window.location.href = targetUrl;
+    }
+
+    $('btn-reopen-google').addEventListener('click', (e) => {
+      e.preventDefault();
+      triggerHaptic('light');
+      openGoogleMapsAppOrWeb();
     });
 
-    // ─── Expandable Terms of Service / Integrity Policy Accordion ────────────
+    // ─── Terms of Service / Integrity Policy Accordion ───────────────────────
     const tosCard = $('tos-card');
     if (tosCard) {
       tosCard.addEventListener('click', () => {
@@ -1982,84 +3106,321 @@
       });
     }
 
+    // ─── Session token & submission guard ────────────────────────────────────
+    function getOrCreateSessionToken(branchId) {
+      const key = `session_token_${branchId}`;
+      let token = null;
+      try { token = localStorage.getItem(key) || sessionStorage.getItem(key); } catch (_) {}
+      if (!token) {
+        token = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        try { localStorage.setItem(key, token); } catch (_) {}
+        try { sessionStorage.setItem(key, token); } catch (_) {}
+      }
+      return token;
+    }
+
+    function isAlreadySubmitted(branchId) {
+      const key = `submitted_${branchId}`;
+      try {
+        if (sessionStorage.getItem(key) === '1') return true;
+        const localVal = localStorage.getItem(key);
+        if (localVal) {
+          const submittedAt = parseInt(localVal, 10);
+          if (!isNaN(submittedAt) && Date.now() - submittedAt < 24 * 60 * 60 * 1000) {
+            return true;
+          }
+        }
+      } catch (_) {}
+      return false;
+    }
+
+    function markSubmitted(branchId) {
+      const key = `submitted_${branchId}`;
+      const sessionKey = `session_token_${branchId}`;
+      try { sessionStorage.setItem(key, '1'); } catch (_) {}
+      try { localStorage.setItem(key, Date.now().toString()); } catch (_) {}
+      try { localStorage.removeItem(sessionKey); } catch (_) {}
+      try { sessionStorage.removeItem(sessionKey); } catch (_) {}
+      state.submitted = true;
+    }
+
+    function resolvePoolVersion(branch, business) {
+      const explicit = (branch && branch.pool_version) || (business && business.pool_version);
+      if (explicit && ['v1', 'v2', 'v3'].includes(explicit)) return explicit;
+
+      const seed = (branch && branch.id) || (business && business.id) || 'default';
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) {
+        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+        hash |= 0;
+      }
+      const versions = ['v1', 'v2', 'v3'];
+      return versions[Math.abs(hash) % versions.length];
+    }
+
+    function applyLanguage(lang) {
+      const activeLang = ENABLE_TRANSLATIONS ? lang : 'en';
+      state.lang = activeLang;
+      const dict = UI_STRINGS[activeLang] || UI_STRINGS.en;
+
+      if ($('lbl-lang-label')) $('lbl-lang-label').textContent = dict.langLabel;
+      if ($('lbl-services-title')) $('lbl-services-title').textContent = dict.servicesTitle || 'What did you have / get today?';
+      if ($('lbl-services-sub')) $('lbl-services-sub').textContent = dict.servicesSub || 'Tap one or more options to personalize your review';
+      if ($('lbl-generate-review')) $('lbl-generate-review').textContent = dict.generateReviewBtn || 'Generate My Review';
+      if ($('lbl-private-feedback')) $('lbl-private-feedback').textContent = dict.privateFeedback || "Something wasn't right? Tell us privately →";
+      if ($('lbl-ai-btn')) $('lbl-ai-btn').textContent = dict.aiReviewBtn || "AI Generated Review";
+      if ($('lbl-refresh-phrase')) $('lbl-refresh-phrase').textContent = dict.refreshPhrase || "Show another";
+      if ($('lbl-editable-hint')) $('lbl-editable-hint').textContent = dict.editableHint || "Tap text to edit";
+      if ($('review-text')) $('review-text').placeholder = dict.reviewPlaceholder;
+      if ($('lbl-google-post')) $('lbl-google-post').textContent = dict.googlePost;
+      if ($('lbl-posted-title')) $('lbl-posted-title').textContent = dict.postedTitle;
+      if ($('lbl-posted-sub')) $('lbl-posted-sub').textContent = dict.postedSub;
+      if ($('lbl-reopen-google')) $('lbl-reopen-google').textContent = dict.reopenGoogle || "Open Google Maps";
+      if ($('lbl-done-title')) $('lbl-done-title').textContent = dict.doneTitle;
+      if ($('lbl-done-sub')) $('lbl-done-sub').textContent = dict.doneSub;
+      if ($('lbl-tos-heading')) $('lbl-tos-heading').textContent = dict.tosHeading;
+      if ($('lbl-tos-1')) $('lbl-tos-1').textContent = dict.tos1;
+      if ($('lbl-tos-2')) $('lbl-tos-2').textContent = dict.tos2;
+      if ($('lbl-tos-3')) $('lbl-tos-3').textContent = dict.tos3;
+      if ($('lbl-tos-4')) $('lbl-tos-4').textContent = dict.tos4;
+      if ($('lbl-tos-5')) $('lbl-tos-5').textContent = dict.tos5;
+      if ($('btn-edit-selections')) $('btn-edit-selections').textContent = dict.editChoices || "← Change selection";
+
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === activeLang);
+      });
+    }
+
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (ENABLE_TRANSLATIONS) {
+          applyLanguage(btn.dataset.lang);
+        }
+      });
+    });
+
+    // ─── Reset submission handler for testing / re-reviews ───────────────────
+    $('btn-review-again')?.addEventListener('click', () => {
+      if (state.branchId) {
+        try { localStorage.removeItem(`submitted_${state.branchId}`); } catch (_) {}
+        try { sessionStorage.removeItem(`submitted_${state.branchId}`); } catch (_) {}
+      }
+      state.submitted = false;
+      state.selectedServiceChips = [];
+      showScreen('services');
+      renderServicesScreen();
+    });
+
     // ─── Load data on page init ───────────────────────────────────────────────
     async function init() {
-      // Format: /r/{businessId}/{branchId}
-      const parts = window.location.pathname.split('/').filter(Boolean);
-      let businessId = null;
-      let branchId = null;
+      const urlParams = new URLSearchParams(window.location.search);
+      let businessId = urlParams.get('biz') || urlParams.get('businessId') || urlParams.get('b');
+      let branchId = urlParams.get('branch') || urlParams.get('branchId') || urlParams.get('br');
+      const isForce = urlParams.get('force') === '1' || urlParams.get('test') === '1' || urlParams.get('preview') === '1';
 
-      if (parts.length >= 3) {
-        businessId = parts[1];
-        branchId = parts[2];
-      } else if (parts.length === 2 && parts[0] === 'r') {
-        const urlParams = new URLSearchParams(window.location.search);
-        businessId = urlParams.get('biz') || urlParams.get('businessId');
-        branchId = parts[1];
+      const parts = window.location.pathname.split('/').filter(Boolean);
+
+      // Path formats:
+      // 1. /r/{businessId}/{branchId}
+      // 2. /r/{singleId}
+      if (parts.length >= 3 && parts[0] === 'r') {
+        businessId = businessId || parts[1];
+        branchId = branchId || parts[2];
+      } else if (parts.length === 2 && parts[0] === 'r' && parts[1] !== 'index.html') {
+        const singleId = parts[1];
+        if (!businessId && !branchId) {
+          businessId = singleId;
+          branchId = singleId;
+        } else if (!businessId) {
+          businessId = singleId;
+        } else if (!branchId) {
+          branchId = singleId;
+        }
+      } else if (parts.length === 1 && parts[0] !== 'r' && parts[0] !== 'index.html') {
+        const singleId = parts[0];
+        if (!businessId && !branchId) {
+          businessId = singleId;
+          branchId = singleId;
+        }
       }
 
-      if (!businessId || !branchId) {
+      if (!businessId && !branchId) {
         showScreen('error');
         return;
       }
 
-      state.businessId = businessId;
-      state.branchId = branchId;
-      state.sessionToken = getOrCreateSessionToken(branchId);
-
-      if (isAlreadySubmitted(branchId)) {
-        showScreen('done');
-        return;
-      }
-
-      await loadData(businessId, branchId);
+      await loadData(businessId, branchId, isForce);
     }
 
-    async function loadData(businessId, branchId) {
+    async function loadData(businessId, branchId, isForce = false) {
       try {
-        const [bizSnap, branchSnap] = await Promise.all([
-          getDoc(doc(db, 'businesses', businessId)),
-          getDoc(doc(db, 'businesses', businessId, 'branches', branchId)),
-        ]);
+        let bizDocSnap = null;
+        let branchDocSnap = null;
+        let finalBizId = businessId;
+        let finalBranchId = branchId;
 
-        if (!branchSnap.exists() || !bizSnap.exists()) {
+        // 1. If both are provided and distinct, try direct subcollection read
+        if (finalBizId && finalBranchId && finalBizId !== finalBranchId) {
+          const [bSnap, brSnap] = await Promise.all([
+            getDoc(doc(db, 'businesses', finalBizId)),
+            getDoc(doc(db, 'businesses', finalBizId, 'branches', finalBranchId)),
+          ]);
+          if (bSnap.exists() && brSnap.exists()) {
+            bizDocSnap = bSnap;
+            branchDocSnap = brSnap;
+          } else {
+            // Test if IDs were swapped
+            const [bSnap2, brSnap2] = await Promise.all([
+              getDoc(doc(db, 'businesses', finalBranchId)),
+              getDoc(doc(db, 'businesses', finalBranchId, 'branches', finalBizId)),
+            ]);
+            if (bSnap2.exists() && brSnap2.exists()) {
+              bizDocSnap = bSnap2;
+              branchDocSnap = brSnap2;
+              finalBizId = finalBranchId;
+              finalBranchId = businessId;
+            }
+          }
+        }
+
+        // 2. If single ID or not yet resolved, check if finalBizId is a business doc
+        if (!bizDocSnap || !branchDocSnap) {
+          const targetId = finalBizId || finalBranchId;
+          if (targetId) {
+            const bSnap = await getDoc(doc(db, 'businesses', targetId));
+            if (bSnap.exists()) {
+              bizDocSnap = bSnap;
+              finalBizId = targetId;
+              const branchesList = await getDocs(collection(db, 'businesses', finalBizId, 'branches'));
+              if (!branchesList.empty) {
+                branchDocSnap = branchesList.docs.find(d => d.id === finalBranchId) || branchesList.docs[0];
+                finalBranchId = branchDocSnap.id;
+              }
+            }
+          }
+        }
+
+        // 3. Fallback: Search for branch doc across collectionGroup
+        if (!bizDocSnap || !branchDocSnap) {
+          const targetId = finalBranchId || finalBizId;
+          if (targetId) {
+            try {
+              const cgSnap = await getDocs(query(collectionGroup(db, 'branches')));
+              for (const brDoc of cgSnap.docs) {
+                if (brDoc.id === targetId) {
+                  branchDocSnap = brDoc;
+                  finalBranchId = brDoc.id;
+                  const parentBizId = brDoc.ref.parent.parent ? brDoc.ref.parent.parent.id : null;
+                  if (parentBizId) {
+                    finalBizId = parentBizId;
+                    bizDocSnap = await getDoc(doc(db, 'businesses', parentBizId));
+                  }
+                  break;
+                }
+              }
+            } catch (cgErr) {
+              console.warn('collectionGroup fallback lookup:', cgErr);
+            }
+          }
+        }
+
+        if (!bizDocSnap || !bizDocSnap.exists() || !branchDocSnap || !branchDocSnap.exists()) {
+          console.error('Could not resolve business/branch for:', { businessId, branchId });
           showScreen('error');
           return;
         }
 
-        state.businessId = businessId;
-        state.business = bizSnap.data();
-        state.branch = branchSnap.data();
+        state.businessId = finalBizId;
+        state.branchId = finalBranchId;
+        state.business = bizDocSnap.data();
+        state.branch = branchDocSnap.data();
+        state.sessionToken = getOrCreateSessionToken(finalBranchId);
 
-        // Check subscription status
+        if (!isForce && isAlreadySubmitted(finalBranchId)) {
+          showScreen('done');
+          return;
+        }
+
         const bizStatus = state.business.subscription_status;
         const branchStatus = state.branch.subscription_status;
-        if (bizStatus !== 'active' || (branchStatus && branchStatus !== 'active')) {
+        const isTest = state.business.is_test_account === true || isForce;
+        const isAllowedStatus = ['active', 'grace_period', 'pending_payment'].includes(bizStatus) || isTest;
+
+        if (!isAllowedStatus || (branchStatus && !['active', 'pending_payment'].includes(branchStatus) && !isTest)) {
           showScreen('unavailable');
           return;
         }
 
         state.assignedPoolVersion = resolvePoolVersion(state.branch, state.business);
+        state.archetype = resolveArchetype(state.business, state.branch);
 
-        // Load category template from Firestore
-        const templateId = state.branch.category_override_id
-          || state.business.default_category_template_id
-          || 'ice_cream_v1';
-        
-        let tplSnap = await getDoc(doc(db, 'category_templates', templateId));
-        if (!tplSnap.exists()) {
-          tplSnap = await getDoc(doc(db, 'category_templates', 'ice_cream_v1'));
-        }
-        if (!tplSnap.exists()) {
-          const allTpls = await getDocs(collection(db, 'category_templates'));
-          if (!allTpls.empty) {
-            tplSnap = allTpls.docs[0];
+        function resolveServiceTags(serviceLabel, archetype, step2, step3) {
+          if (!serviceLabel) return [];
+          const cleanLabel = cleanChipLabel(serviceLabel).toLowerCase();
+          
+          // 1. Direct match in global map
+          if (typeof GLOBAL_SERVICE_TAGS_MAP === 'object' && GLOBAL_SERVICE_TAGS_MAP !== null) {
+            for (const [k, v] of Object.entries(GLOBAL_SERVICE_TAGS_MAP)) {
+              if (cleanChipLabel(k).toLowerCase() === cleanLabel) {
+                return v;
+              }
+            }
+            
+            // 2. Keyword token matching
+            const tokens = cleanLabel.split(/\s+/).filter(t => t.length > 2);
+            let bestTags = null;
+            let maxScore = 0;
+            for (const [k, v] of Object.entries(GLOBAL_SERVICE_TAGS_MAP)) {
+              const cleanK = cleanChipLabel(k).toLowerCase();
+              let score = 0;
+              for (const token of tokens) {
+                if (cleanK.includes(token)) score += 2;
+              }
+              if (score > maxScore) {
+                maxScore = score;
+                bestTags = v;
+              }
+            }
+            if (bestTags && maxScore >= 2) {
+              return bestTags;
+            }
           }
+
+          // 3. Fallback to step2 & step3 or archetype defaults
+          const h = Array.isArray(step2) && step2.length > 0 ? step2 : [];
+          const e = Array.isArray(step3) && step3.length > 0 ? step3 : [];
+          if (h.length > 0 || e.length > 0) {
+            return [...h.slice(0, 4), ...e.slice(0, 3)];
+          }
+
+          const def = DEFAULT_ARCHETYPE_CHIPS[archetype] || DEFAULT_ARCHETYPE_CHIPS.food_dining;
+          return [...(def.step2 || []).slice(0, 4), ...(def.step3 || []).slice(0, 3)];
         }
 
-        state.template = tplSnap.exists() ? tplSnap.data() : null;
+        // Parse Services & 5-8 Hidden Tags per service
+        if (Array.isArray(state.business.services) && state.business.services.length > 0 && state.business.services.some(s => s.tags && s.tags.length > 0)) {
+          state.servicesList = state.business.services;
+          state.useStepChips = true;
+        } else {
+          // Dynamic backward-compatible resolution for businesses enrolled before this release
+          const stepCats = state.business.step_categories || state.business.custom_step_categories || {};
+          const s1 = Array.isArray(stepCats.step1) && stepCats.step1.length > 0
+              ? stepCats.step1
+              : ((Array.isArray(state.business.custom_categories) && state.business.custom_categories.length > 0)
+                  ? state.business.custom_categories.map(c => c.name)
+                  : ((DEFAULT_ARCHETYPE_CHIPS[state.archetype] || DEFAULT_ARCHETYPE_CHIPS.food_dining).step1 || []));
 
-        // Populate header immediately
+          const s2 = Array.isArray(stepCats.step2) ? stepCats.step2 : [];
+          const s3 = Array.isArray(stepCats.step3) ? stepCats.step3 : [];
+
+          state.servicesList = s1.map((item, idx) => ({
+            id: cleanChipLabel(item) || `srv_${idx}`,
+            label: item,
+            tags: resolveServiceTags(item, state.archetype, s2, s3)
+          }));
+          state.useStepChips = true;
+        }
+
         const brandName = state.business.brand_name || 'Business';
         $('biz-name').textContent = brandName;
         $('biz-branch').textContent = state.branch.branch_name || '';
@@ -2071,11 +3432,10 @@
         placeholderEl.style.display = 'flex';
         imgEl.style.display = 'none';
 
-        // Reveal the review page immediately with business initial
         applyLanguage('en');
-        showScreen('main');
+        renderServicesScreen();
+        showScreen('services');
 
-        // Asynchronously preload and swap in the logo
         const logoUrl = state.business.logo_url;
         if (logoUrl && typeof logoUrl === 'string' && logoUrl.trim().length > 0) {
           const preloader = new Image();

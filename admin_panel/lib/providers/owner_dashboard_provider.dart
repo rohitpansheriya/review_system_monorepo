@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import '../models/business_model.dart';
 import '../models/branch_model.dart';
+import '../models/monthly_trend_model.dart';
 
 class OwnerDashboardProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
@@ -370,22 +371,29 @@ class OwnerDashboardProvider extends ChangeNotifier {
   }
 
   /// Returns month-over-month trend data for previous 6 months.
-  List<({String monthKey, String label, int scans, int reviews, double positiveRate})> getMonthlyTrends() {
+  List<MonthlyTrendData> getMonthlyTrends() {
     const monthShorts = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthFulls = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
     final now = DateTime.now();
-    final result = <({String monthKey, String label, int scans, int reviews, double positiveRate})>[];
+    final result = <MonthlyTrendData>[];
 
     for (int i = 5; i >= 0; i--) {
       final date = DateTime(now.year, now.month - i, 1);
       final mKey = '${date.year}-${date.month.toString().padLeft(2, '0')}';
-      final label = '${monthShorts[date.month - 1]} ${date.year.toString().substring(2)}';
+      final label = monthShorts[date.month - 1];
+      final fullLabel = '${monthFulls[date.month - 1]} ${date.year}';
 
       final mData = _monthlyBranchStats[mKey];
       int scans = 0;
       int reviews = 0;
+      int s1 = 0;
+      int s2 = 0;
+      int s3 = 0;
       int s4 = 0;
       int s5 = 0;
-      int totalRated = 0;
 
       if (mData != null) {
         for (final entry in mData.entries) {
@@ -393,17 +401,17 @@ class OwnerDashboardProvider extends ChangeNotifier {
             scans += (entry.value['total_scans'] as int? ?? 0);
             reviews += (entry.value['google_reviews_opened'] as int? ?? 0);
             final stars = entry.value['star_distribution'] as Map<String, dynamic>? ?? {};
-            final c1 = (stars['1'] as int? ?? 0);
-            final c2 = (stars['2'] as int? ?? 0);
-            final c3 = (stars['3'] as int? ?? 0);
-            final c4 = (stars['4'] as int? ?? 0);
-            final c5 = (stars['5'] as int? ?? 0);
-            s4 += c4;
-            s5 += c5;
-            totalRated += (c1 + c2 + c3 + c4 + c5);
+            s1 += (stars['1'] as int? ?? 0);
+            s2 += (stars['2'] as int? ?? 0);
+            s3 += (stars['3'] as int? ?? 0);
+            s4 += (stars['4'] as int? ?? 0);
+            s5 += (stars['5'] as int? ?? 0);
           }
         }
       }
+
+      int posCount = s4 + s5;
+      int negCount = s1 + s2 + s3;
 
       // If lifetime all-time exists but scans subcollection is empty (e.g. initial demo),
       // simulate realistic proportional curve for the active current month
@@ -411,17 +419,33 @@ class OwnerDashboardProvider extends ChangeNotifier {
         final lifetime = getAggregatedStats();
         scans = (lifetime['total_scans'] as num? ?? 0).toInt();
         reviews = (lifetime['google_reviews_opened'] as num? ?? 0).toInt();
+        final stars = lifetime['star_distribution'] as Map<String, dynamic>? ?? {};
+        final ls1 = (stars['1'] as num? ?? 0).toInt();
+        final ls2 = (stars['2'] as num? ?? 0).toInt();
+        final ls3 = (stars['3'] as num? ?? 0).toInt();
+        final ls4 = (stars['4'] as num? ?? 0).toInt();
+        final ls5 = (stars['5'] as num? ?? 0).toInt();
+        posCount = ls4 + ls5;
+        negCount = ls1 + ls2 + ls3;
       }
 
+      if (posCount == 0 && reviews > 0) {
+        posCount = reviews;
+      }
+
+      final totalRated = posCount + negCount;
       final posRate = totalRated > 0
-          ? ((s4 + s5) / totalRated) * 100
+          ? (posCount / totalRated) * 100
           : (scans > 0 ? 100.0 : 0.0);
 
-      result.add((
+      result.add(MonthlyTrendData(
         monthKey: mKey,
         label: label,
+        fullLabel: fullLabel,
         scans: scans,
         reviews: reviews,
+        positiveCount: posCount,
+        negativeCount: negCount,
         positiveRate: posRate,
       ));
     }

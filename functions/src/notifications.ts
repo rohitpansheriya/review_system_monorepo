@@ -296,8 +296,21 @@ async function isAlreadyNotified(
 }
 
 // ---------------------------------------------------------------------------
-// Internal: Email HTML templates
+// Internal: HTML Sanitization & Templates
 // ---------------------------------------------------------------------------
+
+/**
+ * Escapes HTML characters in user-provided strings to prevent HTML injection in emails.
+ */
+export function escapeHtml(str: string | null | undefined): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 function ownerGracePeriodReminderHtml(
   brandName: string,
@@ -306,6 +319,9 @@ function ownerGracePeriodReminderHtml(
   renewalDateStr: string,
   paymentLinkUrl: string
 ): string {
+  const safeBrand = escapeHtml(brandName);
+  const safeDate = escapeHtml(renewalDateStr);
+  const safeUrl = escapeHtml(paymentLinkUrl);
   const isFinalDay = remainingDays <= 1;
   const badgeColor = isFinalDay ? "#dc2626" : "#d97706";
   const badgeBg = isFinalDay ? "#fef2f2" : "#fffbeb";
@@ -327,9 +343,9 @@ function ownerGracePeriodReminderHtml(
     "        <div style=\"color:" + badgeColor + ";font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;\">",
     "          Subscription In Grace Period — Day " + daysPassed + " of 30",
     "        </div>",
-    "        <p style=\"font-size:15px;margin-top:0;\">Dear <strong>" + brandName + "</strong> Owner,</p>",
+    "        <p style=\"font-size:15px;margin-top:0;\">Dear <strong>" + safeBrand + "</strong> Owner,</p>",
     "        <p style=\"font-size:14px;color:#334155;\">",
-    "          Your annual subscription for your <strong>AppNexa Google Review Standees &amp; Dashboard</strong> expired on <strong>" + renewalDateStr + "</strong> and is currently in its <strong>30-Day Grace Period</strong>.",
+    "          Your annual subscription for your <strong>AppNexa Google Review Standees &amp; Dashboard</strong> expired on <strong>" + safeDate + "</strong> and is currently in its <strong>30-Day Grace Period</strong>.",
     "        </p>",
     "        <!-- Countdown Box -->",
     "        <div style=\"background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:12px;padding:18px;margin:20px 0;text-align:center;\">",
@@ -354,7 +370,7 @@ function ownerGracePeriodReminderHtml(
     "        </div>",
     "        <!-- Direct 1-Click Payment Action Button -->",
     "        <div style=\"text-align:center;margin:30px 0 20px;\">",
-    "          <a href=\"" + paymentLinkUrl + "\" style=\"background:linear-gradient(135deg, #10b981, #059669);color:#ffffff;text-decoration:none;padding:15px 36px;font-size:16px;font-weight:800;border-radius:10px;display:inline-block;box-shadow:0 4px 14px rgba(16,185,129,0.4);letter-spacing:0.3px;\">",
+    "          <a href=\"" + safeUrl + "\" style=\"background:linear-gradient(135deg, #10b981, #059669);color:#ffffff;text-decoration:none;padding:15px 36px;font-size:16px;font-weight:800;border-radius:10px;display:inline-block;box-shadow:0 4px 14px rgba(16,185,129,0.4);letter-spacing:0.3px;\">",
     "            💳 Pay ₹999 &amp; Activate Business Now &rarr;",
     "          </a>",
     "          <div style=\"font-size:12px;color:#64748b;margin-top:8px;\">Instant Activation &bull; UPI (GPay, PhonePe, Paytm) / Cards / NetBanking</div>",
@@ -380,13 +396,14 @@ function employeeGracePeriodReminderHtml(
   daysPassed: number,
   remainingDays: number
 ): string {
+  const safeBrand = escapeHtml(brandName);
   const isFinalDay = remainingDays <= 1;
   const badgeColor = isFinalDay ? "#dc2626" : "#d97706";
 
   return [
     "<div style=\"font-family:sans-serif;max-width:500px;margin:0 auto;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;padding:24px;\">",
     "  <h2 style=\"color:" + badgeColor + ";margin-top:0;\">⚠️ Urgent Follow-up: Grace Period Day " + daysPassed + "/30</h2>",
-    "  <p><strong>" + brandName + "</strong> has been in grace period for <strong>" + daysPassed + " days</strong>.</p>",
+    "  <p><strong>" + safeBrand + "</strong> has been in grace period for <strong>" + daysPassed + " days</strong>.</p>",
     "  <p style=\"background:#fef2f2;padding:12px;border-radius:8px;color:#991b1b;font-size:13px;\">",
     "    <strong>" + remainingDays + " days remaining</strong> before the account is permanently deactivated and suspended (requiring full ₹1,999 re-enrollment).",
     "  </p>",
@@ -398,6 +415,8 @@ function employeeGracePeriodReminderHtml(
 }
 
 function ownerReminderHtml(brandName: string, daysDiff: number, paymentLinkUrl: string): string {
+  const safeBrand = escapeHtml(brandName);
+  const safeUrl = escapeHtml(paymentLinkUrl);
   const colour = daysDiff <= 7 ? "#f87171" : "#1b3a8c";
   const daysLabel = daysDiff === 1 ? "1 day" : `${daysDiff} days`;
   return [
@@ -409,10 +428,10 @@ function ownerReminderHtml(brandName: string, daysDiff: number, paymentLinkUrl: 
     "    </div>",
     "    <div style=\"padding:28px;\">",
     `      <h2 style="color:${colour};margin-top:0;font-size:18px;">Subscription Expires in ${daysLabel}</h2>`,
-    `      <p style="font-size:15px;">Dear <strong>${brandName}</strong> Owner,</p>`,
+    `      <p style="font-size:15px;">Dear <strong>${safeBrand}</strong> Owner,</p>`,
     `      <p style="font-size:14px;color:#334155;">Your review page and counter standee subscription is due for renewal in <strong>${daysLabel}</strong>. Pay <strong>₹999</strong> to keep your review page active and continue boosting 5-star customer reviews.</p>`,
     "      <div style=\"text-align:center;margin:28px 0 20px;\">",
-    `        <a href="${paymentLinkUrl}" style="background:linear-gradient(135deg, #10b981, #059669);color:#ffffff;text-decoration:none;padding:14px 32px;font-size:15px;font-weight:bold;border-radius:10px;display:inline-block;box-shadow:0 4px 14px rgba(16,185,129,0.35);">`,
+    `        <a href="${safeUrl}" style="background:linear-gradient(135deg, #10b981, #059669);color:#ffffff;text-decoration:none;padding:14px 32px;font-size:15px;font-weight:bold;border-radius:10px;display:inline-block;box-shadow:0 4px 14px rgba(16,185,129,0.35);">`,
     "          💳 Pay ₹999 &amp; Renew Subscription &rarr;",
     "        </a>",
     "        <div style=\"font-size:12px;color:#64748b;margin-top:8px;\">Instant Activation &bull; UPI (GPay, PhonePe, Paytm) / Cards / NetBanking</div>",
@@ -431,12 +450,13 @@ function ownerReminderHtml(brandName: string, daysDiff: number, paymentLinkUrl: 
 }
 
 function employeeReminderHtml(brandName: string, daysDiff: number): string {
+  const safeBrand = escapeHtml(brandName);
   const daysLabel = daysDiff === 1 ? "1 day" : `${daysDiff} days`;
   return [
     "<div style=\"font-family:sans-serif;",
     "max-width:480px;margin:0 auto;\">",
     "<h2>Client Renewal Reminder</h2>",
-    `<p><strong>${brandName}</strong> — subscription expires `,
+    `<p><strong>${safeBrand}</strong> — subscription expires `,
     `in <strong>${daysLabel}</strong>.</p>`,
     "<p>Please follow up with the business owner to ensure they ",
     "renew before the subscription lapses.</p>",
@@ -452,10 +472,10 @@ function adminDigestHtml(
   rows: Array<{name: string; renewal: string; days: number; status: string}>
 ): string {
   const trs = rows.map((r) => `<tr>
-      <td style="padding:6px 10px;">${r.name}</td>
-      <td style="padding:6px 10px;">${r.renewal}</td>
+      <td style="padding:6px 10px;">${escapeHtml(r.name)}</td>
+      <td style="padding:6px 10px;">${escapeHtml(r.renewal)}</td>
       <td style="padding:6px 10px;">${r.days} days</td>
-      <td style="padding:6px 10px;">${r.status}</td>
+      <td style="padding:6px 10px;">${escapeHtml(r.status)}</td>
     </tr>`).join("\n");
   return [
     "<div style=\"font-family:sans-serif;",

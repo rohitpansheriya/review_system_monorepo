@@ -50,30 +50,39 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // ── Connect to local Firebase Emulator Suite (in debug mode OR via --dart-define=USE_EMULATOR=true) ─
+  // ── Connect to local Firebase Emulator Suite (in debug mode, via USE_EMULATOR, or when hosted on localhost/127.0.0.1) ─
   const bool useEmulatorDefine = bool.fromEnvironment('USE_EMULATOR', defaultValue: false);
-  final bool connectEmulators = useEmulatorDefine || kDebugMode;
+  bool isLocalWeb = false;
+
+  if (kIsWeb) {
+    final host = Uri.base.host;
+    if (host == 'localhost' || host == '127.0.0.1') {
+      isLocalWeb = true;
+    }
+  }
+
+  final bool connectEmulators = useEmulatorDefine || kDebugMode || isLocalWeb;
 
   if (connectEmulators) {
     try {
       await FirebaseAuth.instance.useAuthEmulator(
-        AppConstants.emulatorHost,
+        '127.0.0.1',
         AppConstants.emulatorAuthPort,
       );
       FirebaseFirestore.instance.useFirestoreEmulator(
-        AppConstants.emulatorHost,
+        '127.0.0.1',
         AppConstants.emulatorFirestorePort,
       );
       FirebaseFunctions.instanceFor(region: 'asia-south1').useFunctionsEmulator(
-        AppConstants.emulatorHost,
+        '127.0.0.1',
         AppConstants.emulatorFunctionsPort,
       );
       await FirebaseStorage.instance.useStorageEmulator(
-        AppConstants.emulatorHost,
+        '127.0.0.1',
         AppConstants.emulatorStoragePort,
       );
       // ignore: avoid_print
-      print('⚡ Firebase Emulator Suite connected (USE_EMULATOR=$useEmulatorDefine, kDebugMode=$kDebugMode)');
+      print('⚡ Firebase Emulator Suite connected to 127.0.0.1 (isLocalWeb=$isLocalWeb, USE_EMULATOR=$useEmulatorDefine, kDebugMode=$kDebugMode)');
     } catch (e) {
       // ignore: avoid_print
       print('⚠️ Emulator connection failed: $e — using production Firebase');

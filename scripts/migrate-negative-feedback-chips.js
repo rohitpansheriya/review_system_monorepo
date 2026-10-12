@@ -445,6 +445,30 @@ const NEGATIVE_PRESETS = {
     '🧹 Cleanliness and hygiene concerns',
     '👎 Service quality did not meet expectations',
     '📦 Incomplete work or missing items'
+  ],
+  it_software_agency: [
+    '⏳ Unexplained project delay / missed milestone',
+    '🐛 Unstable deployment / bugs in production',
+    '📞 Poor communication / lack of status updates',
+    '💰 Unexpected billing / scope creep fees',
+    '🎨 Design did not meet agreed specifications',
+    '🛠️ Slow resolution on critical support tickets'
+  ],
+  it_computer_hardware_repair: [
+    '⏳ Unreasonable repair turnaround delay',
+    '⚠️ Recurring hardware fault / issue persists',
+    '💰 Final invoice exceeded initial estimate',
+    '💾 Data loss during servicing',
+    '👥 Impolite technician / poor communication',
+    '🔩 Substandard replacement parts used'
+  ],
+  it_cloud_devops_consulting: [
+    '⚠️ System downtime during migration',
+    '💰 Unanticipated cloud cost spikes',
+    '⏳ Slow response on urgent server alerts',
+    '📋 Incomplete documentation / handoff',
+    '🐛 Pipeline failure / broken release build',
+    '📞 Inadequate communication during outage'
   ]
 };
 
@@ -455,7 +479,7 @@ function resolveNegativeChips(catType, templateId, archetype) {
 
   const query = `${catType || ''} ${templateId || ''}`.toLowerCase();
   for (const key in NEGATIVE_PRESETS) {
-    const shortKey = key.replace(/^(food|salon|clinic|auto|retail)_/, '');
+    const shortKey = key.replace(/^(food|salon|clinic|auto|retail|it)_/, '');
     if (query.includes(shortKey) || shortKey.includes(query)) {
       return NEGATIVE_PRESETS[key];
     }
@@ -467,6 +491,7 @@ function resolveNegativeChips(catType, templateId, archetype) {
     'healthcare_clinic': 'clinic_dental',
     'auto_services': 'auto_car_service',
     'retail_shopping': 'retail_clothing',
+    'it_services': 'it_software_agency',
     'universal_general': 'universal_general'
   }[archetype] || 'universal_general';
 

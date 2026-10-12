@@ -15,9 +15,8 @@ import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import '../models/branch_model.dart';
-import '../services/firestore_service.dart';
+import '../core/standee_generator.dart';
 
 /// Hardcoded review domain per product requirement.
 const String _kReviewDomain = 'appnexa.co.in';
@@ -29,11 +28,15 @@ const String _kReviewDomain = 'appnexa.co.in';
 class ShareBusinessQr extends StatefulWidget {
   final BranchModel branch;
   final String? ownerPhone;
+  final String? businessName;
+  final String? logoUrl;
 
   const ShareBusinessQr({
     super.key,
     required this.branch,
     this.ownerPhone,
+    this.businessName,
+    this.logoUrl,
   });
 
   @override
@@ -76,21 +79,27 @@ class _ShareBusinessQrState extends State<ShareBusinessQr> {
     html.window.open(url, '_blank');
   }
 
-  /// Downloads the QR PNG via Storage URL.
-  Future<void> _downloadQr() async {
-    final path = widget.branch.qrCodeId ?? widget.branch.plainQrStoragePath;
-    if (path == null) return;
+  /// Downloads the 4×6 print-ready standee PNG matching appnexa.co.in acrylic design.
+  Future<void> _downloadStandee() async {
     setState(() {
       _qrDownloading = true;
       _qrError = null;
     });
     try {
-      final url = await context
-          .read<FirestoreService>()
-          .getPlainQrDownloadUrl(path);
+      await StandeeGenerator.downloadStandeePng(
+        businessName: widget.businessName ?? 'Business',
+        branchName: widget.branch.branchName,
+        reviewUrl: _reviewUrl,
+        logoUrl: widget.logoUrl,
+      );
       if (mounted) {
         setState(() => _qrDownloading = false);
-        html.window.open(url, '_blank');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('4×6 Standee downloaded successfully!'),
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -100,6 +109,21 @@ class _ShareBusinessQrState extends State<ShareBusinessQr> {
         });
       }
     }
+  }
+
+  /// Downloads plain QR code PNG.
+  void _downloadPlainQr() {
+    StandeeGenerator.downloadPlainQrPng(
+      businessName: widget.businessName ?? 'Business',
+      branchName: widget.branch.branchName,
+      reviewUrl: _reviewUrl,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Plain QR code downloaded!'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   /// Copies the review URL to clipboard.
@@ -185,14 +209,21 @@ class _ShareBusinessQrState extends State<ShareBusinessQr> {
                 scheme: scheme,
               ),
 
-              // 2. Download QR
-              if (branch.qrCodeId != null || branch.plainQrStoragePath != null)
+              // 2. Download 4×6 Standee
+              if (branch.qrCodeId != null || branch.plainQrStoragePath != null || branch.isActive) ...[
                 _ActionChip(
-                  icon: Icons.download_outlined,
-                  label: _qrDownloading ? 'Loading...' : 'Download QR',
-                  onTap: _qrDownloading ? null : _downloadQr,
+                  icon: Icons.photo_size_select_actual_outlined,
+                  label: _qrDownloading ? 'Generating…' : 'Download 4×6 Standee',
+                  onTap: _qrDownloading ? null : _downloadStandee,
                   scheme: scheme,
                 ),
+                _ActionChip(
+                  icon: Icons.qr_code_2_outlined,
+                  label: 'Plain QR',
+                  onTap: _downloadPlainQr,
+                  scheme: scheme,
+                ),
+              ],
 
               // 3. WhatsApp — Owner phone
               if (ownerPhone != null && ownerPhone.isNotEmpty)

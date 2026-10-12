@@ -92,6 +92,9 @@ export function classifyBusiness(
     "denting", "painting", "ppf", "ceramic", "wheel", "alignment", "oil change", "suspension",
     "gym", "fitness", "yoga", "trainer", "studio", "cleaning", "plumb", "electric", "tailor",
     "laundry", "dry clean", "consulting", "agency", "tattoo", "photography", "hotel", "resort",
+    "it", "software", "tech", "technology", "developer", "development", "web", "app", "cloud",
+    "devops", "cyber", "network", "computer", "laptop", "hardware", "data recovery", "it support",
+    "programming", "code",
   ];
 
   const foodKeywords = [

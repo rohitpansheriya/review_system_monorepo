@@ -28,6 +28,7 @@ class AppConstants {
 
   // ── Cloud Function names ────────────────────────────────────────────────────
   static const String fnSearchPlaces                 = 'searchPlaces';
+  static const String fnGetPlaceDetails              = 'getPlaceDetails';
   static const String fnGenerateBranchQr             = 'generateBranchQr';
   static const String fnResendPaymentLink            = 'resendPaymentLink';
   static const String fnGenerateRenewalPaymentLink   = 'generateRenewalPaymentLink';

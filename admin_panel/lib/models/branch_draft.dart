@@ -36,9 +36,10 @@ class BranchDraft {
   String? searchError;
 
   // ── Star routing ───────────────────────────────────────────────────────────
-  // null = not set; blocks submit until all 5 have a value.
+  // Default values kept for backward-compatibility with Firestore schema,
+  // but star selection is commented out in enrollment UI.
   Map<String, String?> starRouting = {
-    '1': null, '2': null, '3': null, '4': null, '5': null,
+    '1': 'whatsapp', '2': 'whatsapp', '3': 'whatsapp', '4': 'google', '5': 'google',
   };
 
   static final RegExp _validIndianPhone = RegExp(r'^\+91[6-9]\d{9}$');
@@ -53,9 +54,8 @@ class BranchDraft {
       (!requireBranchName || name.trim().isNotEmpty) &&
       _validIndianPhone.hasMatch(whatsappNumber.trim()) &&
       whatsappMonitoredBy.trim().isNotEmpty &&   // Change 5: required field
-      address.trim().isNotEmpty &&
-      (placeId != null && placeId!.trim().isNotEmpty) &&
-      starRoutingComplete;
+      address.trim().isNotEmpty;
+      // && starRoutingComplete; // Commented out for simplified flow without stars
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -64,7 +64,7 @@ class BranchDraft {
   }
 
   /// Called when user confirms a candidate from Place auto-search.
-  /// Pre-fills address and placeId; both remain editable by the user.
+  /// Pre-fills address, placeId, initial rating, and phone; all remain editable by the user.
   void confirmCandidate(PlaceCandidate candidate) {
     placeId          = candidate.placeId.isEmpty ? null : StringUtils.sanitizePlaceId(candidate.placeId);
     address          = candidate.address;
@@ -74,6 +74,23 @@ class BranchDraft {
     initialRating          = candidate.rating;
     initialReviewCount     = candidate.userRatingCount;
     initialRatingCapturedAt = candidate.rating != null || candidate.userRatingCount != null ? DateTime.now() : null;
+
+    // Auto-fill phone number if whatsappNumber is currently empty
+    if (whatsappNumber.trim().isEmpty && candidate.phoneNumber != null && candidate.phoneNumber!.trim().isNotEmpty) {
+      final digits = candidate.phoneNumber!.replaceAll(RegExp(r'\D'), '');
+      String formatted = '';
+      if (digits.length == 10 && RegExp(r'^[6-9]').hasMatch(digits)) {
+        formatted = '+91$digits';
+      } else if (digits.length == 11 && digits.startsWith('0') && RegExp(r'^[6-9]').hasMatch(digits.substring(1))) {
+        formatted = '+91${digits.substring(1)}';
+      } else if (digits.length == 12 && digits.startsWith('91') && RegExp(r'^[6-9]').hasMatch(digits.substring(2))) {
+        formatted = '+91${digits.substring(2)}';
+      }
+      if (formatted.isNotEmpty) {
+        whatsappNumber = formatted;
+      }
+    }
+
     placePrefilled = true;
     candidates     = [];
     searchError    = null;

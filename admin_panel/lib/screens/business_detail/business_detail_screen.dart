@@ -28,6 +28,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_config.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../core/standee_generator.dart';
 import '../../models/branch_draft.dart';
 import '../../models/branch_model.dart';
 import '../../models/business_model.dart';
@@ -205,10 +206,11 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                         setDlgState(() => saveError = '"Monitored by" is required.');
                         return;
                       }
-                      if (!draft.starRoutingComplete) {
-                        setDlgState(() => saveError = 'Please set routing for all 5 star ratings.');
-                        return;
-                      }
+                      // Star routing validation commented out for simplified flow without stars
+                      // if (!draft.starRoutingComplete) {
+                      //   setDlgState(() => saveError = 'Please set routing for all 5 star ratings.');
+                      //   return;
+                      // }
 
                       setDlgState(() {
                         saving = true;
@@ -1245,6 +1247,8 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                 child: _BranchCard(
                   branch:              b,
                   businessId:          biz.id,
+                  businessName:        biz.brandName,
+                  logoUrl:             biz.logoUrl,
                   ownerPhone:          biz.ownerPhone,
                   showStandeeControls: !isPendingPayment && b.isActive,
                   totalBranchCount:    _branches.length,
@@ -1992,6 +1996,8 @@ class _PendingPaymentPanelState extends State<_PendingPaymentPanel> {
 class _BranchCard extends StatefulWidget {
   final BranchModel branch;
   final String      businessId;
+  final String?     businessName;
+  final String?     logoUrl;
   final String?     ownerPhone;
   final bool        showStandeeControls;
   final int         totalBranchCount;
@@ -2000,6 +2006,8 @@ class _BranchCard extends StatefulWidget {
   const _BranchCard({
     required this.branch,
     required this.businessId,
+    this.businessName,
+    this.logoUrl,
     this.ownerPhone,
     this.showStandeeControls = true,
     required this.totalBranchCount,
@@ -2086,19 +2094,29 @@ class _BranchCardState extends State<_BranchCard> {
     }
   }
 
+  String get _reviewUrl =>
+      'https://appnexa.co.in/r/${widget.businessId}/${widget.branch.id}';
+
   Future<void> _downloadQr() async {
-    final path = widget.branch.qrCodeId ?? widget.branch.plainQrStoragePath;
-    if (path == null) return;
     setState(() {
       _qrLoading = true;
       _qrError   = null;
     });
     try {
-      final url = await context.read<FirestoreService>().getPlainQrDownloadUrl(path);
+      await StandeeGenerator.downloadStandeePng(
+        businessName: widget.businessName ?? 'Business',
+        branchName:   widget.branch.branchName,
+        reviewUrl:    _reviewUrl,
+        logoUrl:      widget.logoUrl,
+      );
       if (mounted) {
         setState(() => _qrLoading = false);
-        // ignore: avoid_web_libraries_in_flutter
-        html.window.open(url, '_blank');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('4×6 Standee downloaded successfully!'),
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -2108,6 +2126,20 @@ class _BranchCardState extends State<_BranchCard> {
         });
       }
     }
+  }
+
+  void _downloadPlainQr() {
+    StandeeGenerator.downloadPlainQrPng(
+      businessName: widget.businessName ?? 'Business',
+      branchName:   widget.branch.branchName,
+      reviewUrl:    _reviewUrl,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Plain QR code downloaded!'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _showRevertBranchDialog(BuildContext context) async {
@@ -2527,10 +2559,11 @@ class _BranchCardState extends State<_BranchCard> {
 
           // ── QR download (active branches) ───
           _PlainQrRow(
-            plainQrStoragePath: branch.qrCodeId ?? branch.plainQrStoragePath,
+            plainQrStoragePath: branch.qrCodeId ?? branch.plainQrStoragePath ?? (branch.isActive ? 'active' : null),
             qrLoading:          _qrLoading,
             qrError:            _qrError,
             onDownload:         _downloadQr,
+            onDownloadPlain:    _downloadPlainQr,
           ),
 
           const SizedBox(height: AppSpacing.sm + 4),
@@ -2547,21 +2580,23 @@ class _BranchCardState extends State<_BranchCard> {
           if (widget.showStandeeControls)
             const SizedBox(height: AppSpacing.md),
 
-          // Star routing
-          Text(
-            'Star Routing',
-            style: Theme.of(context)
-                .textTheme
-                .labelLarge
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _StarRoutingTable(config: branch.starRoutingConfig),
+          // Star routing (commented out for simplified review flow without stars)
+          // Text(
+          //   'Star Routing',
+          //   style: Theme.of(context)
+          //       .textTheme
+          //       .labelLarge
+          //       ?.copyWith(fontWeight: FontWeight.w600),
+          // ),
+          // const SizedBox(height: AppSpacing.sm),
+          // _StarRoutingTable(config: branch.starRoutingConfig),
 
           // ── Share Review QR & Link ────────────────────────────────────
           ShareBusinessQr(
             branch: branch,
             ownerPhone: widget.ownerPhone,
+            businessName: widget.businessName,
+            logoUrl: widget.logoUrl,
           ),
         ],
       ),
@@ -2835,12 +2870,14 @@ class _PlainQrRow extends StatelessWidget {
   final bool         qrLoading;
   final String?      qrError;
   final VoidCallback onDownload;
+  final VoidCallback? onDownloadPlain;
 
   const _PlainQrRow({
     required this.plainQrStoragePath,
     required this.qrLoading,
     required this.qrError,
     required this.onDownload,
+    this.onDownloadPlain,
   });
 
   @override
@@ -2848,14 +2885,18 @@ class _PlainQrRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(Icons.qr_code_2_outlined, size: 18, color: scheme.onSurfaceVariant),
+        Icon(Icons.photo_size_select_actual_outlined, size: 20, color: scheme.primary),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Printable QR',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+              const Text('4×6 Smart Standee',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              Text(
+                '1200×1800 px acrylic design with business name, NFC & QR',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+              ),
               if (qrError != null)
                 Text(
                   qrError!,
@@ -2866,26 +2907,42 @@ class _PlainQrRow extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         if (plainQrStoragePath != null)
-          ElevatedButton.icon(
-            onPressed: qrLoading ? null : onDownload,
-            icon: qrLoading
-                ? const SizedBox(
-                    width: 14, height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.download_outlined, size: 16),
-            label: Text(qrLoading ? 'Loading…' : 'Download'),
-            style: ElevatedButton.styleFrom(
-              padding:   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              textStyle: const TextStyle(fontSize: 12),
-            ),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              ElevatedButton.icon(
+                onPressed: qrLoading ? null : onDownload,
+                icon: qrLoading
+                    ? const SizedBox(
+                        width: 14, height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.download_outlined, size: 16),
+                label: Text(qrLoading ? 'Generating…' : 'Download 4×6 Standee'),
+                style: ElevatedButton.styleFrom(
+                  padding:   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (onDownloadPlain != null)
+                OutlinedButton.icon(
+                  onPressed: onDownloadPlain,
+                  icon: const Icon(Icons.qr_code_2_outlined, size: 15),
+                  label: const Text('Plain QR'),
+                  style: OutlinedButton.styleFrom(
+                    padding:   const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    textStyle: const TextStyle(fontSize: 11),
+                  ),
+                ),
+            ],
           )
         else
           Tooltip(
-            message: 'QR will be ready after payment is confirmed',
+            message: 'Standee & QR will be ready after payment is confirmed',
             child: ElevatedButton.icon(
               onPressed: null,
               icon:  const Icon(Icons.download_outlined, size: 16),
-              label: const Text('Download'),
+              label: const Text('Download Standee'),
               style: ElevatedButton.styleFrom(
                 padding:   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 textStyle: const TextStyle(fontSize: 12),
@@ -3012,67 +3069,66 @@ class _StandeeStatusRow extends StatelessWidget {
   }
 }
 
-// ── Star Routing Table ────────────────────────────────────────────────────────
-
-class _StarRoutingTable extends StatelessWidget {
-  final Map<String, String> config;
-  const _StarRoutingTable({required this.config});
-
-  static const _labels = {
-    'thankyou': 'Thank you only',
-    'whatsapp': 'WhatsApp',
-    'google':   'Google review',
-  };
-
-  static const _icons = {
-    'thankyou': Icons.favorite_border,
-    'whatsapp': Icons.chat_bubble_outline,
-    'google':   Icons.star_outline,
-  };
-
-  // Semantic, purposeful routing colors — not random
-  static const _colors = {
-    'thankyou': AppColors.deletedFg,    // grey — neutral action
-    'whatsapp': Color(0xFF25D366),      // WhatsApp brand green (unchanged)
-    'google':   AppColors.star,         // star amber — brand token
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(5, (i) {
-        final star  = '${i + 1}';
-        final route = config[star] ?? '—';
-        final label = _labels[route] ?? route;
-        final icon  = _icons[route]  ?? Icons.help_outline;
-        final color = _colors[route] ?? Theme.of(context).colorScheme.onSurfaceVariant;
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            children: [
-              ...List.generate(
-                i + 1,
-                (_) => const Icon(Icons.star, size: 14, color: AppColors.star),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize:   13,
-                  color:      color,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        );
-      }),
-    );
-  }
-}
+// ── Star Routing Table (commented out for simplified review flow without stars)
+// class _StarRoutingTable extends StatelessWidget {
+//   final Map<String, String> config;
+//   const _StarRoutingTable({required this.config});
+// 
+//   static const _labels = {
+//     'thankyou': 'Thank you only',
+//     'whatsapp': 'WhatsApp',
+//     'google':   'Google review',
+//   };
+// 
+//   static const _icons = {
+//     'thankyou': Icons.favorite_border,
+//     'whatsapp': Icons.chat_bubble_outline,
+//     'google':   Icons.star_outline,
+//   };
+// 
+//   // Semantic, purposeful routing colors — not random
+//   static const _colors = {
+//     'thankyou': AppColors.deletedFg,    // grey — neutral action
+//     'whatsapp': Color(0xFF25D366),      // WhatsApp brand green (unchanged)
+//     'google':   AppColors.star,         // star amber — brand token
+//   };
+// 
+//   @override
+//   Widget build(BuildContext context) {
+//     return Column(
+//       children: List.generate(5, (i) {
+//         final star  = '${i + 1}';
+//         final route = config[star] ?? '—';
+//         final label = _labels[route] ?? route;
+//         final icon  = _icons[route]  ?? Icons.help_outline;
+//         final color = _colors[route] ?? Theme.of(context).colorScheme.onSurfaceVariant;
+// 
+//         return Padding(
+//           padding: const EdgeInsets.symmetric(vertical: 4),
+//           child: Row(
+//             children: [
+//               ...List.generate(
+//                 i + 1,
+//                 (_) => const Icon(Icons.star, size: 14, color: AppColors.star),
+//               ),
+//               const SizedBox(width: AppSpacing.sm),
+//               Icon(icon, size: 16, color: color),
+//               const SizedBox(width: 6),
+//               Text(
+//                 label,
+//                 style: TextStyle(
+//                   fontSize:   13,
+//                   color:      color,
+//                   fontWeight: FontWeight.w500,
+//                 ),
+//               ),
+//             ],
+//           ),
+//         );
+//       }),
+//     );
+//   }
+// }
 
 // ── Shared helper widgets ─────────────────────────────────────────────────────
 

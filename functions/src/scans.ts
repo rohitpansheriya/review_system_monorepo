@@ -99,7 +99,8 @@ export const onScanCreated = onDocumentCreated(
       }
     }
 
-    // ── 3. Sanitize and Validate Inputs ──────────────────────────────────────
+    // Star rating calculation commented out: flow no longer uses star ratings
+    /*
     const starRating =
       typeof scanData.star_rating === "number" &&
       Number.isInteger(scanData.star_rating) &&
@@ -107,6 +108,7 @@ export const onScanCreated = onDocumentCreated(
       scanData.star_rating <= 5 ?
         scanData.star_rating :
         undefined;
+    */
 
     const rawAction = scanData.action_taken as string | undefined;
     const actionTaken =
@@ -136,12 +138,15 @@ export const onScanCreated = onDocumentCreated(
         statsUpdates[`monthly_stats.${monthKey}.private_issues`] = FieldValue.increment(1);
       }
 
+      // Star calculation commented out: flow no longer calculates star counts
+      /*
       if (starRating !== undefined) {
         statsUpdates[`stats_summary.star_counts.${starRating}`] = FieldValue.increment(1);
         statsUpdates[`stats_summary.star_distribution.${starRating}`] = FieldValue.increment(1);
         statsUpdates[`monthly_stats.${monthKey}.star_counts.${starRating}`] = FieldValue.increment(1);
         statsUpdates[`monthly_stats.${monthKey}.star_distribution.${starRating}`] = FieldValue.increment(1);
       }
+      */
 
       const bizRef = db.doc(`businesses/${businessId}`);
 
@@ -182,7 +187,7 @@ export const onScanCreated = onDocumentCreated(
         branchId,
         scanId,
         monthKey,
-        starRating,
+        // starRating,
         actionTaken,
       });
     } catch (err) {
@@ -265,9 +270,12 @@ export const reconcileBusinessStats = onCall(
       } else if (actionTaken === "whatsapp" || actionTaken === "feedback_submitted" || actionTaken === "low_skip") {
         bizPrivateIssues++;
       }
+      // Star reconciliation commented out:
+      /*
       if (starRating) {
         bizStarCounts[starRating] = (bizStarCounts[starRating] || 0) + 1;
       }
+      */
       if (!bizMonthlyStats[monthKey]) {
         bizMonthlyStats[monthKey] = {
           total_scans: 0,
@@ -285,12 +293,15 @@ export const reconcileBusinessStats = onCall(
       } else if (actionTaken === "whatsapp" || actionTaken === "feedback_submitted" || actionTaken === "low_skip") {
         (bizMonthlyStats[monthKey].private_issues as number)++;
       }
+      // Star monthly reconciliation commented out:
+      /*
       if (starRating) {
         const starCounts = bizMonthlyStats[monthKey].star_counts as Record<string, number>;
         const starDist = bizMonthlyStats[monthKey].star_distribution as Record<string, number>;
         starCounts[starRating] = (starCounts[starRating] || 0) + 1;
         starDist[starRating] = (starDist[starRating] || 0) + 1;
       }
+      */
 
       if (branchId && branchStatsMap[branchId]) {
         const b = branchStatsMap[branchId];
@@ -301,10 +312,13 @@ export const reconcileBusinessStats = onCall(
         } else if (actionTaken === "whatsapp" || actionTaken === "feedback_submitted" || actionTaken === "low_skip") {
           b.private_issues++;
         }
+        // Branch star reconciliation commented out:
+        /*
         if (starRating) {
           b.star_counts[starRating] = (b.star_counts[starRating] || 0) + 1;
           b.star_distribution[starRating] = (b.star_distribution[starRating] || 0) + 1;
         }
+        */
         if (!b.monthly_stats[monthKey]) {
           b.monthly_stats[monthKey] = {
             total_scans: 0,

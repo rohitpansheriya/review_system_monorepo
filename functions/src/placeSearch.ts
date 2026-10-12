@@ -33,6 +33,11 @@ export interface PlaceCandidate {
   photoReference: string | null;
   rating?: number | null;
   userRatingCount?: number | null;
+  phoneNumber?: string | null;
+  websiteUri?: string | null;
+  googleMapsUri?: string | null;
+  primaryType?: string | null;
+  types?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +106,11 @@ export const searchPlaces = onCall(
           photoReference: null,
           rating: 4.6,
           userRatingCount: 128,
+          phoneNumber: "+91 98765 43210",
+          websiteUri: `https://www.${mockSlug}.com`,
+          googleMapsUri: `https://maps.google.com/?q=${encodeURIComponent(name)}`,
+          primaryType: "restaurant",
+          types: ["restaurant", "food", "point_of_interest", "establishment"],
         },
         {
           name: `${name} - City Center`,
@@ -109,6 +119,11 @@ export const searchPlaces = onCall(
           photoReference: null,
           rating: 4.3,
           userRatingCount: 79,
+          phoneNumber: "+91 98234 56789",
+          websiteUri: null,
+          googleMapsUri: `https://maps.google.com/?q=${encodeURIComponent(name + " City Center")}`,
+          primaryType: "cafe",
+          types: ["cafe", "food", "point_of_interest", "establishment"],
         },
       ],
     });
@@ -148,7 +163,7 @@ export const searchPlaces = onCall(
           "Content-Type": "application/json",
           "X-Goog-Api-Key": apiKey,
           "X-Goog-FieldMask":
-            "places.id,places.displayName,places.formattedAddress,places.photos,places.rating,places.userRatingCount",
+            "places.id,places.displayName,places.formattedAddress,places.photos,places.rating,places.userRatingCount,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.primaryType,places.types",
         },
         body: JSON.stringify({
           textQuery: `${name} ${loc}`,
@@ -220,6 +235,18 @@ export const searchPlaces = onCall(
             place["userRatingCount"] :
             null;
 
+        const phoneVal =
+          (place["nationalPhoneNumber"] as string | undefined) ||
+          (place["internationalPhoneNumber"] as string | undefined) ||
+          null;
+
+        const websiteVal = (place["websiteUri"] as string | undefined) || null;
+        const mapsUriVal = (place["googleMapsUri"] as string | undefined) || null;
+        const primaryTypeVal = (place["primaryType"] as string | undefined) || null;
+        const typesVal = Array.isArray(place["types"]) ?
+          (place["types"] as string[]) :
+          [];
+
         return {
           name: placeName,
           address: (place["formattedAddress"] as string) ?? "",
@@ -227,6 +254,11 @@ export const searchPlaces = onCall(
           photoReference: photoRef,
           rating: ratingVal,
           userRatingCount: countVal,
+          phoneNumber: phoneVal,
+          websiteUri: websiteVal,
+          googleMapsUri: mapsUriVal,
+          primaryType: primaryTypeVal,
+          types: typesVal,
         };
       });
 
@@ -237,6 +269,99 @@ export const searchPlaces = onCall(
     });
 
     return {candidates};
+  }
+);
+
+// ---------------------------------------------------------------------------
+// getPlaceDetails
+// ---------------------------------------------------------------------------
+
+/**
+ * Callable: fetch complete details for a single Google Place ID.
+ *
+ * Input:  { placeId: string }
+ * Output: { place: PlaceCandidate | null }
+ */
+export const getPlaceDetails = onCall(
+  {secrets: [placeApiKey], maxInstances: 10},
+  async (request) => {
+    requireAuth(request.auth);
+
+    const {placeId} = request.data as {placeId?: unknown};
+    if (typeof placeId !== "string" || placeId.trim().length === 0) {
+      throw new HttpsError("invalid-argument", "Valid `placeId` is required.");
+    }
+
+    const pid = placeId.trim();
+    const apiKey = placeApiKey.value();
+
+    if (!apiKey || apiKey === "PLACEHOLDER" || apiKey.length < 10) {
+      logger.info("getPlaceDetails: Mock API key active, returning mock details for", {placeId: pid});
+      return {
+        place: {
+          name: "Sample Business Listing",
+          address: "101 Commercial Street, City Center",
+          placeId: pid,
+          photoReference: null,
+          rating: 4.5,
+          userRatingCount: 95,
+          phoneNumber: "+91 98765 43210",
+          websiteUri: "https://www.samplebusiness.com",
+          googleMapsUri: `https://maps.google.com/?q=place_id:${encodeURIComponent(pid)}`,
+          primaryType: "store",
+          types: ["store", "point_of_interest", "establishment"],
+        },
+      };
+    }
+
+    const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(pid)}`;
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask":
+            "id,displayName,formattedAddress,photos,rating,userRatingCount,nationalPhoneNumber,internationalPhoneNumber,websiteUri,googleMapsUri,primaryType,types",
+        },
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        logger.warn("Places Details API error", {status: res.status, errText, placeId: pid});
+        throw new HttpsError("unavailable", `Google Places API returned HTTP ${res.status}`);
+      }
+
+      const place = (await res.json()) as Record<string, unknown>;
+      const displayName = place["displayName"] as Record<string, unknown> | undefined;
+      const placeName = (displayName?.["text"] as string) ?? "";
+      const photos = place["photos"] as Array<Record<string, unknown>> | undefined;
+      const photoRef = photos && photos.length > 0 ? (photos[0]["name"] as string) : null;
+      const phoneVal =
+        (place["nationalPhoneNumber"] as string | undefined) ||
+        (place["internationalPhoneNumber"] as string | undefined) ||
+        null;
+
+      const candidate: PlaceCandidate = {
+        name: placeName,
+        address: (place["formattedAddress"] as string) ?? "",
+        placeId: (place["id"] as string) ?? pid,
+        photoReference: photoRef,
+        rating: typeof place["rating"] === "number" ? place["rating"] : null,
+        userRatingCount: typeof place["userRatingCount"] === "number" ? place["userRatingCount"] : null,
+        phoneNumber: phoneVal,
+        websiteUri: (place["websiteUri"] as string | undefined) || null,
+        googleMapsUri: (place["googleMapsUri"] as string | undefined) || null,
+        primaryType: (place["primaryType"] as string | undefined) || null,
+        types: Array.isArray(place["types"]) ? (place["types"] as string[]) : [],
+      };
+
+      return {place: candidate};
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      logger.error("Failed to fetch Google Place details", {err, placeId: pid});
+      throw new HttpsError("internal", "Failed to retrieve Place details from Google.");
+    }
   }
 );
 

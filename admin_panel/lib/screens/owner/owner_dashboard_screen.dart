@@ -25,7 +25,7 @@ import '../../widgets/app_splash_screen.dart';
 import '../../core/logout_helper.dart';
 import 'owner_home_tab.dart';
 import 'owner_categories_tab.dart';
-import 'owner_star_routing_tab.dart';
+// import 'owner_star_routing_tab.dart';
 import 'owner_renewal_tab.dart';
 import 'package:go_router/go_router.dart';
 
@@ -41,7 +41,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   static const _tabKeys = [
     'home',
     'categories',
-    'routing',
+    // 'routing', // Commented out: flow no longer uses star routing
     'renewal',
   ];
 
@@ -305,7 +305,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final tabs = [
       const OwnerHomeTab(),
       const OwnerCategoriesTab(),
-      const OwnerStarRoutingTab(),
+      // const OwnerStarRoutingTab(), // Commented out for simplified flow without stars
       const OwnerRenewalTab(),
     ];
 
@@ -371,11 +371,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             selectedIcon: Icon(Icons.category),
                             label: Text('Categories'),
                           ),
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.star_outline),
-                            selectedIcon: Icon(Icons.star),
-                            label: Text('Star Routing'),
-                          ),
+                          // Star routing destination commented out
+                          // const NavigationRailDestination(
+                          //   icon: Icon(Icons.star_outline),
+                          //   selectedIcon: Icon(Icons.star),
+                          //   label: Text('Star Routing'),
+                          // ),
                           NavigationRailDestination(
                             icon: showRenewalBadge
                                 ? Badge(
@@ -420,10 +421,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   icon: Icon(Icons.category_outlined),
                   label: 'Categories',
                 ),
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.star_outline),
-                  label: 'Routing',
-                ),
+                // Star routing destination commented out
+                // const BottomNavigationBarItem(
+                //   icon: Icon(Icons.star_outline),
+                //   label: 'Routing',
+                // ),
                 BottomNavigationBarItem(
                   icon: showRenewalBadge
                       ? Badge(

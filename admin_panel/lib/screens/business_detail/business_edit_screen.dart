@@ -420,7 +420,8 @@ class _BusinessEditScreenState extends State<BusinessEditScreen>
       }
       if (d.whatsappMonitoredBy.trim().isEmpty)     return '$label: "Monitored by" is required.';
       if (d.address.trim().isEmpty)                 return '$label: address is required.';
-      if (!d.starRoutingComplete)                   return '$label: set routing for all 5 star ratings.';
+      // Star routing check commented out for simplified flow without stars
+      // if (!d.starRoutingComplete)                   return '$label: set routing for all 5 star ratings.';
     }
     return null;
   }

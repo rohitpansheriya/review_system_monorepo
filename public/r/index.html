@@ -1248,7 +1248,8 @@
         <span class="final-hero-title">
           <span>✨</span> <span id="lbl-final-banner-title">Your Review is Ready!</span>
         </span>
-        <span class="final-hero-stars" id="lbl-final-stars">★★★★★</span>
+        <!-- Stars commented out: flow no longer uses star display -->
+        <!-- <span class="final-hero-stars" id="lbl-final-stars">★★★★★</span> -->
       </div>
 
       <!-- Single Review Box Card -->
@@ -1523,11 +1524,15 @@
         step1: ["📦 Primary Service", "💼 Consultation", "🛠️ Custom Project", "📋 Professional Assistance", "⚡ Express Solution", "🎯 Specialized Booking"],
         step2: ["✨ Top Tier Quality", "⚡ Prompt Turnaround", "🎯 Precise Attention to Detail", "💡 Creative Solutions", "👌 Seamless Execution"],
         step3: ["👥 Polite & Cooperative Team", "💰 Honest & Transparent Pricing", "🌟 Extremely Satisfying Result", "🤝 Trustworthy & Reliable", "💯 Will Recommend to Everyone"]
+      },
+      it_services: {
+        step1: ["💻 Custom Software Development", "🌐 Web Design & Development", "📱 Mobile App Development", "☁️ Cloud & DevOps Infrastructure", "🎨 UI/UX Design & Prototyping", "🛠️ IT Support & AMC Services", "🔒 Cybersecurity & Audit", "🖥️ Computer & Laptop Repair"],
+        step2: ["⚡ Clean & Scalable Code Architecture", "🎯 Delivered Ahead of Deadline", "💡 Proactive Technical Guidance", "🎨 Intuitive & Modern UI Design", "🛡️ Robust Security & Zero Downtime", "📱 Smooth Cross-Platform Performance", "🔍 Rigorous QA & Bug-Free Release"],
+        step3: ["🤝 Transparent Communication & Sprints", "💬 Dedicated & Responsive Support", "💰 Honest & Fair Project Pricing", "📈 Measurable Business Impact & ROI", "🌟 Outstanding Post-Launch Care", "💯 Highly Trusted Technology Partner"]
       }
     };
 
-    // ─── 6 Master Archetype Sentence Blueprints (Non-AI Grammar Engine) ───────
-    // ─── 6 Master Archetype Sentence Blueprints (Non-AI Grammar Engine) ───────
+    // ─── 7 Master Archetype Sentence Blueprints (Non-AI Grammar Engine) ───────
     const ARCHETYPE_BLUEPRINTS = {
       food_dining: {
         allThree: [
@@ -1780,6 +1785,44 @@
             (s3) => `Responsive communication and ${s3}. Great experience!`
           ]
         }
+      },
+      it_services: {
+        allThree: [
+          (s1, s2, s3) => `Partnered with them for ${s1} and the results were phenomenal! The ${s2} made a huge impact on our project, and their ${s3} kept everything on track. 10/10!`,
+          (s1, s2, s3) => `Engaged this team for ${s1}. We were thoroughly impressed by the ${s2} and the seamless ${s3}. Highly recommend them for any tech initiatives!`,
+          (s1, s2, s3) => `Outstanding technical expertise in ${s1}! Delivered with ${s2}, and the ongoing ${s3} gave our team total peace of mind. 5 stars!`,
+          (s1, s2, s3) => `Hired them for ${s1} and couldn't be happier. From ${s2} to their ${s3}, everything was executed with true professionalism.`,
+          (s1, s2, s3) => `Exceptional delivery on our ${s1}. What really stood out was the ${s2}, paired with ${s3}. Will definitely collaborate again!`,
+          (s1, s2, s3) => `Looked for a reliable partner for ${s1} and they delivered beyond expectations. The ${s2} and ${s3} made the entire process effortless.`
+        ],
+        step1And2: [
+          (s1, s2) => `Worked with them on ${s1} — truly top-tier execution with ${s2}. Highly recommended!`,
+          (s1, s2) => `Great experience with their ${s1}. The ${s2} was evident from start to finish.`,
+          (s1, s2) => `Turned to them for ${s1} and received exceptional ${s2}. Very talented team!`
+        ],
+        step1And3: [
+          (s1, s3) => `Smooth and professional execution of ${s1}. Their ${s3} made working together a breeze.`,
+          (s1, s3) => `Engaged them for ${s1} and appreciated the proactive ${s3}. Great tech partner!`,
+          (s1, s3) => `Very pleased with the ${s1} delivered, backed by reliable ${s3}. 10/10!`
+        ],
+        step2And3: [
+          (s2, s3) => `Superb technical quality with ${s2} and ${s3}. Highly recommended!`,
+          (s2, s3) => `Top-notch development standards! Impressed by the ${s2} and the ${s3}. 5 stars!`
+        ],
+        single: {
+          step1: [
+            (s1) => `Partnered with them for ${s1} and had a completely seamless experience. Highly recommended!`,
+            (s1) => `Very impressed by their expertise in ${s1}. Delivered promptly and professionally!`
+          ],
+          step2: [
+            (s2) => `The high standard of ${s2} was evident throughout the project. Great work!`,
+            (s2) => `Loved the technical precision and ${s2}. 5 stars!`
+          ],
+          step3: [
+            (s3) => `Very professional engineering team with ${s3}. Truly a pleasure to work with!`,
+            (s3) => `Prompt communication and ${s3}. Made the entire project hassle-free!`
+          ]
+        }
       }
     };
 
@@ -1798,6 +1841,9 @@
       const raw = (business && (business.category_type || business.default_category_template_id)) || (branch && branch.category_override_id) || '';
       const s = raw.toLowerCase();
 
+      if (s.includes('it ') || s.includes('tech') || s.includes('software') || s.includes('developer') || s.includes('computer') || s.includes('laptop') || s.includes('cloud') || s.includes('devops') || s.includes('cyber') || s.includes('code') || s.includes('app') || s.includes('web')) {
+        return 'it_services';
+      }
       if (s.includes('salon') || s.includes('hair') || s.includes('spa') || s.includes('barber') || s.includes('nail') || s.includes('beauty') || s.includes('makeup')) {
         return 'beauty_wellness';
       }
@@ -1979,9 +2025,10 @@
     });
 
     function goToFinalReviewScreen() {
-      const starsDisplay = '★★★★★';
-      const starsEl = $('lbl-final-stars');
-      if (starsEl) starsEl.textContent = starsDisplay;
+      // Star display commented out: flow no longer uses stars
+      // const starsDisplay = '★★★★★';
+      // const starsEl = $('lbl-final-stars');
+      // if (starsEl) starsEl.textContent = starsDisplay;
 
       transitionScreen('reviewFinal', 'forward');
 
@@ -2750,6 +2797,30 @@
         '🧹 Cleanliness and hygiene concerns',
         '👎 Service quality did not meet expectations',
         '📦 Incomplete work or missing items'
+      ],
+      it_software_agency: [
+        '⏳ Unexplained project delay / missed milestone',
+        '🐛 Unstable deployment / bugs in production',
+        '📞 Poor communication / lack of status updates',
+        '💰 Unexpected billing / scope creep fees',
+        '🎨 Design did not meet agreed specifications',
+        '🛠️ Slow resolution on critical support tickets'
+      ],
+      it_computer_hardware_repair: [
+        '⏳ Unreasonable repair turnaround delay',
+        '⚠️ Recurring hardware fault / issue persists',
+        '💰 Final invoice exceeded initial estimate',
+        '💾 Data loss during servicing',
+        '👥 Impolite technician / poor communication',
+        '🔩 Substandard replacement parts used'
+      ],
+      it_cloud_devops_consulting: [
+        '⚠️ System downtime during migration',
+        '💰 Unanticipated cloud cost spikes',
+        '⏳ Slow response on urgent server alerts',
+        '📋 Incomplete documentation / handoff',
+        '🐛 Pipeline failure / broken release build',
+        '📞 Inadequate communication during outage'
       ]
     };
 
@@ -2784,7 +2855,7 @@
         } else {
           const needle = (catType + ' ' + catId).toLowerCase();
           for (const key in NEGATIVE_FEEDBACK_PRESETS) {
-            const shortKey = key.replace(/^(food|salon|clinic|auto|retail)_/, '');
+            const shortKey = key.replace(/^(food|salon|clinic|auto|retail|it)_/, '');
             if (needle.includes(shortKey) || shortKey.includes(needle)) {
               chips = NEGATIVE_FEEDBACK_PRESETS[key];
               break;
@@ -2799,6 +2870,7 @@
             'healthcare_clinic': 'clinic_dental',
             'auto_services': 'auto_car_service',
             'retail_shopping': 'retail_clothing',
+            'it_services': 'it_software_agency',
             'universal_general': 'universal_general'
           }[arch] || 'universal_general';
           chips = NEGATIVE_FEEDBACK_PRESETS[archKey] || NEGATIVE_FEEDBACK_PRESETS.universal_general;
@@ -2831,7 +2903,8 @@
       renderNegativeFeedbackChips();
     }
 
-    // ─── Interactive Star Rating UI & Instant Screen Transition ───────────────
+    // ─── Interactive Star Rating UI (Commented out - flow no longer uses star selection) ───
+    /*
     const starBtns = Array.from(document.querySelectorAll('.star-btn'));
 
     function updateStars(rating) {
@@ -2881,6 +2954,7 @@
         }, 120);
       });
     });
+    */
 
     // ─── AI Generate Button & Refresh Button Event Listeners ──────────────────
     $('btn-ai-generate').addEventListener('click', () => {
@@ -2945,7 +3019,7 @@
         const expireAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
         await addDoc(collection(db, 'businesses', state.businessId, 'scans'), {
           branch_id: state.branchId,
-          star_rating: state.starRating,
+          // star_rating: state.starRating, // Commented out - flow no longer uses star ratings
           timestamp: serverTimestamp(),
           session_token: state.sessionToken,
           action_taken: actionTaken,
@@ -3207,8 +3281,14 @@
       }
       state.submitted = false;
       state.selectedServiceChips = [];
-      showScreen('services');
+      state.selectedChips = { step1: [], step2: [], step3: [] };
+      state.generatedReviewText = '';
+      if (!state.servicesList || state.servicesList.length === 0) {
+        init();
+        return;
+      }
       renderServicesScreen();
+      showScreen('services');
     });
 
     // ─── Load data on page init ───────────────────────────────────────────────
@@ -3336,11 +3416,6 @@
         state.branch = branchDocSnap.data();
         state.sessionToken = getOrCreateSessionToken(finalBranchId);
 
-        if (!isForce && isAlreadySubmitted(finalBranchId)) {
-          showScreen('done');
-          return;
-        }
-
         const bizStatus = state.business.subscription_status;
         const branchStatus = state.branch.subscription_status;
         const isTest = state.business.is_test_account === true || isForce;
@@ -3434,6 +3509,12 @@
 
         applyLanguage('en');
         renderServicesScreen();
+
+        if (!isForce && isAlreadySubmitted(finalBranchId)) {
+          showScreen('done');
+          return;
+        }
+
         showScreen('services');
 
         const logoUrl = state.business.logo_url;

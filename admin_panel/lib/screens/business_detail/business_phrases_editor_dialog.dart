@@ -838,6 +838,7 @@ class _BusinessPhrasesEditorDialogState
                   DropdownMenuItem(value: 'healthcare_clinic', child: Text('🩺 Healthcare & Clinics')),
                   DropdownMenuItem(value: 'auto_services', child: Text('🚗 Auto & Detailing')),
                   DropdownMenuItem(value: 'retail_shopping', child: Text('🛍️ Retail & Shopping')),
+                  DropdownMenuItem(value: 'it_services', child: Text('💻 IT & Tech Services')),
                   DropdownMenuItem(value: 'universal_general', child: Text('🌐 Universal & Professional')),
                 ],
                 onChanged: (val) {

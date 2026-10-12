@@ -2098,12 +2098,188 @@ const GLOBAL_SERVICE_TAGS_MAP = {
     "⏱️ Punctual Consultation Timings",
     "👍 Highly Trusted Counsel"
   ],
-  "🛠️ Custom Work": [
+    "🛠️ Custom Work": [
     "🛠️ Tailored Exactly to Client Specs",
     "✨ Superior Material Quality & Craftsmanship",
     "⏱️ Delivered Ahead of Deadline",
     "💡 Great Problem-Solving Ability",
     "💰 Fair & Justified Quote",
     "👍 Outstanding Finish"
+  ],
+  "💻 Custom Software Development": [
+    "⚡ Scalable Clean Code Architecture",
+    "🎯 Built Exactly to Technical Specs",
+    "🔄 Agile Sprints & Timely Delivery",
+    "🧪 Comprehensive Automated Unit Tests",
+    "🚀 High Performance & Low Latency",
+    "🛡️ Enterprise-Grade Code Standards"
+  ],
+  "🌐 Web Design & Development": [
+    "⚡ Ultra-Fast Page Load Speed",
+    "📱 100% Mobile & Tablet Responsive",
+    "🎨 Sleek Modern Aesthetic UI",
+    "🔍 Clean Semantic SEO Structure",
+    "🔒 HTTPS & Secure Header Setup",
+    "💻 Seamless Cross-Browser Compatibility"
+  ],
+  "📱 Mobile App Development": [
+    "📱 Smooth 60FPS Flutter/Native Performance",
+    "🎨 Intuitive Gesture & Touch UX",
+    "⚡ Offline Mode & Instant Sync",
+    "🔔 Seamless Push Notifications",
+    "🚀 Clean Play Store & App Store Launch",
+    "🔋 Low Battery & Memory Consumption"
+  ],
+  "☁️ Cloud & DevOps Infrastructure": [
+    "☁️ Robust AWS / GCP Cloud Setup",
+    "🚀 Zero-Downtime CI/CD Automation",
+    "📈 Elastic Auto-Scaling & Load Balancing",
+    "💰 Optimized Infrastructure Hosting Cost",
+    "🔒 Hardened VPC & Firewall Security",
+    "💾 Automated Disaster Recovery Backups"
+  ],
+  "🎨 UI/UX Design & Prototyping": [
+    "🎨 Modern Figma Wireframes & Prototypes",
+    "👥 Deep User Research & User Journeys",
+    "💎 Pixel-Perfect Component Library",
+    "✨ Clean Micro-Interactions & Transitions",
+    "👌 Highly Intuitive User Navigation",
+    "🎯 High Conversion-Focused Layout"
+  ],
+  "🛠️ IT Support & AMC Services": [
+    "⏱️ Rapid SLA Ticket Response Time",
+    "🖥️ Proactive 24/7 Server Monitoring",
+    "🛠️ Smooth Patching & OS Updates",
+    "👨‍💻 Knowledgeable Friendly Support Engineers",
+    "🔒 Zero Downtime Maintenance Windows",
+    "📋 Clear Monthly System Health Reports"
+  ],
+  "🔒 Cybersecurity & Audit": [
+    "🛡️ Thorough Vulnerability Penetration Test",
+    "🔒 End-to-End Data Encryption Standards",
+    "📋 Complete Compliance & Audit Report",
+    "🚫 Zero Data Leakage Guarantee",
+    "💡 Actionable Security Hardening Steps",
+    "🔐 Multi-Factor Authentication & IAM"
+  ],
+  "🚀 SEO & Digital Growth": [
+    "📈 Significant Boost in Organic Keyword Rank",
+    "⚡ Core Web Vitals Optimization",
+    "🔍 Technical SEO & Schema Markup",
+    "📊 Transparent Bi-Weekly Analytics Reports",
+    "🎯 High-Converting Landing Page Funnels",
+    "🚀 Measurable Qualified Inbound Leads"
+  ],
+  "💻 Laptop & PC Repair": [
+    "⚡ Fast Same-Day Diagnostic",
+    "💎 Expert Chip-Level Motherboard Repair",
+    "🔩 100% Genuine OEM Replacement Screen/Battery",
+    "❄️ Thermal Paste Re-application & Dust Clean",
+    "🛡️ Post-Repair Functional Testing",
+    "👍 Solid Repair Warranty Given"
+  ],
+  "💾 Data Recovery & Backup": [
+    "💾 100% Successful File & Partition Recovery",
+    "🔒 Complete Data Confidentiality Maintained",
+    "⚡ High-Speed Transfer to External Drive",
+    "🛡️ Deep Sector-Level Disk Inspection",
+    "💡 Clear Backup Best Practice Guidance",
+    "👌 Zero Data Loss Guaranteed"
+  ],
+  "⚡ Hardware & SSD Upgrade": [
+    "🚀 Blazing NVMe SSD Boot Speeds (10x Faster)",
+    "⚡ High-Speed Dual-Channel RAM Expansion",
+    "📦 Full OS & Data Cloning Without Loss",
+    "🔩 Genuine Brand Hardware (Crucial/Samsung)",
+    "⚡ Instant Dramatic Performance Boost",
+    "💰 Affordable Upgrade Cost vs New PC"
+  ],
+  "🌐 Office Wi-Fi & LAN Setup": [
+    "🌐 Strong High-Speed Mesh Wi-Fi Coverage",
+    "🔌 Tidy Cable Routing & Patch Panel Crimping",
+    "⚡ Zero Dead Zones Across Entire Office",
+    "🔒 Enterprise WPA3 Network Security",
+    "🎛️ Router & VLAN Configuration",
+    "📶 Stable Latency for Zoom & Teams Calls"
+  ],
+  "🛡️ Antivirus & Virus Removal": [
+    "🛡️ Deep Malware & Spyware Eradication",
+    "🚀 Removed Bloatware & Startup Lag",
+    "🔒 Restored Browser & Registry Settings",
+    "⚙️ Genuine Licensed Antivirus Installed",
+    "💡 Useful Tips on Phishing & Safe Surfing",
+    "⚡ Restored Smooth Stable System Speed"
+  ],
+  "🖨️ Printer & Peripheral Setup": [
+    "🖨️ Wireless Network Printer Configuration",
+    "📄 Crisp Clear Scan & Print Alignment",
+    "⚙️ Clean Driver Installation Across All PCs",
+    "⚡ Jam-Free Ink Tank / Laser Setup",
+    "📱 Direct Smartphone Printing Configured",
+    "👍 Patient Demonstration Given"
+  ],
+  "🖥️ Custom PC / Workstation Build": [
+    "🖥️ Impeccable Clean Cable Management",
+    "❄️ Optimized Airflow & Liquid Cooling",
+    "⚡ Stress-Tested Under Heavy 100% Load",
+    "🎮 Maximum FPS & Benchmark Scores",
+    "💡 Unbiased Advice on GPU/CPU Compatibility",
+    "💎 Showroom-Grade RGB Aesthetics"
+  ],
+  "⚙️ OS & Software Reinstallation": [
+    "⚙️ Fresh Clean Windows/macOS Installation",
+    "⚡ All Latest Drivers & Firmware Updated",
+    "💾 User Documents & Bookmarks Preserved",
+    "🚀 Super Fast & Responsive Cold Boot",
+    "🛡️ Essential Software Pre-Configured",
+    "👌 Clean System With Zero Bloatware"
+  ],
+  "☁️ AWS / Azure Cloud Migration": [
+    "🛡️ Zero-Downtime Live Production Cutover",
+    "💰 30%+ Reduction in Monthly Cloud Bill",
+    "📈 Auto-Scaling Handled Peak Traffic Spikes",
+    "🔒 Secure VPC Peering & IAM Least Privilege",
+    "📊 Detailed Post-Migration Architecture Map",
+    "👌 Seamless Workload Transition"
+  ],
+  "🚀 CI/CD Pipeline & DevOps Automation": [
+    "⚡ One-Click Automated Production Deployments",
+    "🧪 Integrated Automated Security & Lint Gates",
+    "🐳 Docker Containerization & Kubernetes Helm",
+    "⏱️ Build Time Cut From 30m to Under 4m",
+    "🔄 Instant Zero-Impact Rollback Capability",
+    "👌 Rock-Solid Engineering Velocity"
+  ],
+  "🔒 Penetration Testing & Vulnerability Audit": [
+    "🔒 In-Depth OWASP Top 10 Security Audit",
+    "📋 Executive Summary & Technical Remediation Plan",
+    "🛡️ Hardened API Endpoints & SSL Configurations",
+    "🚫 Eliminated Critical SQL & XSS Vulnerabilities",
+    "📜 Audit Certificate for SOC2 / ISO Compliance",
+    "👍 High-Value Security Posture Upgrade"
+  ],
+  "💾 Disaster Recovery & Automated Backups": [
+    "💾 Automated Multi-Region Snapshot Redundancy",
+    "⏱️ 15-Minute RTO & Zero Data Loss RPO Target",
+    "🧪 Validated Live Failover Simulation Drill",
+    "🔒 End-to-End Encrypted Cold Storage Vaults",
+    "🔔 Real-Time Backup Integrity Alerts",
+    "👌 Complete Business Continuity Assurance"
+  ],
+  "⚡ Database Optimization & Scaling": [
+    "⚡ Query Latency Reduced From Seconds to Milliseconds",
+    "🔍 Missing Index Analysis & Slow Query Audit",
+    "🔄 Read Replica Setup for High-Volume Queries",
+    "🛡️ Connection Pooling & Deadlock Elimination",
+    "📈 Effortlessly Handles 10x Concurrent Users",
+    "💰 Avoided Expensive Hardware Upgrades"
+  ],
+  "🖥️ 24/7 Server Monitoring & Incident Response": [
+    "⏱️ Under 5-Minute Critical Incident SLA",
+    "📊 Live Prometheus & Grafana Metric Dashboards",
+    "🔔 Proactive Alerting Before Users Detect Issues",
+    "🛡️ 99.99% Uptime Maintained Month-over-Month",
+    "📋 Detailed Incident Post-Mortem & RCA Docs",
+    "👨‍💻 Dependable 24/7 Engineering Support"
   ]
 };

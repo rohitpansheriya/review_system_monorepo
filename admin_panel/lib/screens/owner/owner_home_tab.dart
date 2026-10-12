@@ -18,7 +18,7 @@ import '../../core/theme.dart';
 import '../../widgets/app_kpi_card.dart';
 import '../../widgets/month_year_picker_dialog.dart';
 import '../../widgets/charts/monthly_scan_line_chart.dart';
-import '../../widgets/charts/monthly_feedback_bar_chart.dart';
+// import '../../widgets/charts/monthly_feedback_bar_chart.dart';
 
 class OwnerHomeTab extends StatefulWidget {
   const OwnerHomeTab({super.key});
@@ -75,6 +75,10 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
 
     final stats = provider.getAggregatedStats();
     final totalScans = (stats['total_scans'] as num? ?? 0).toInt();
+    final totalSubmitted = (stats['google_reviews_opened'] as num? ?? stats['total_reviews_redirected'] as num? ?? 0).toInt();
+
+    // ── Star-rating calculations (Commented out: flow no longer uses stars) ──
+    /*
     final starMap = stats['star_distribution'] as Map<String, dynamic>? ?? {};
 
     final s5 = (starMap['5'] as num? ?? 0).toInt();
@@ -170,6 +174,7 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
     final positivePercent = totalRated > 0
         ? ((positiveRatings / totalRated) * 100).toStringAsFixed(1)
         : (totalScans > 0 ? '100.0' : '0.0');
+    */
 
     final isDesktop = MediaQuery.of(context).size.width > 700;
 
@@ -245,7 +250,7 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
             const SizedBox(height: 20),
 
             // ── 3. Google Reviews & Baseline Reputation Growth Card (ON TOP) ─
-            _buildGoogleReputationGrowthCard(context, provider, isDesktop, googleReviews),
+            _buildGoogleReputationGrowthCard(context, provider, isDesktop, totalSubmitted),
 
             const SizedBox(height: 28),
 
@@ -438,12 +443,8 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
             // ── 5. High-Level ROI Metrics Grid (Total Scan Analysis) ──────────
             LayoutBuilder(
               builder: (context, constraints) {
-                final crossCount = constraints.maxWidth > 950
-                    ? 4
-                    : (constraints.maxWidth > 540 ? 2 : 1);
-                final ratio = constraints.maxWidth > 950
-                    ? 2.2
-                    : (constraints.maxWidth > 540 ? 2.5 : 3.0);
+                final crossCount = constraints.maxWidth > 650 ? 2 : 1;
+                final ratio = constraints.maxWidth > 650 ? 2.6 : 3.0;
 
                 return GridView.count(
                   crossAxisCount: crossCount,
@@ -458,19 +459,23 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                       label: 'Total QR Scans',
                       value: '$totalScans',
                       subtitle: provider.selectedMonth == 'all'
-                          ? 'Customer interactions'
+                          ? 'Total customer interactions'
                           : 'Scans in selected period',
                       icon: Icons.qr_code_scanner_rounded,
                       color: colorScheme.primary,
                     ),
                     AppKpiCard(
                       compact: true,
-                      label: 'Google Reviews Boosted',
-                      value: '+$googleReviews',
-                      subtitle: googleSubtitle,
-                      icon: Icons.rate_review_rounded,
+                      label: 'Successful Submissions',
+                      value: '+$totalSubmitted',
+                      subtitle: provider.selectedMonth == 'all'
+                          ? 'Customer reviews submitted'
+                          : 'Submissions in selected period',
+                      icon: Icons.check_circle_outline_rounded,
                       color: AppColors.activeFg,
                     ),
+                    // Star-based KPI cards commented out:
+                    /*
                     AppKpiCard(
                       compact: true,
                       label: 'Private Issues Intercepted',
@@ -489,6 +494,7 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                       icon: Icons.auto_graph_rounded,
                       color: AppColors.star,
                     ),
+                    */
                   ],
                 );
               },
@@ -496,12 +502,11 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
 
             const SizedBox(height: 24),
 
-            // ── 5. Monthly Scan Line Graph & Feedback Sentiment Bar Graph ───
+            // ── 5. Monthly Scan Line Graph ──────────────────────────────────
             _buildMonthlyVisualAnalytics(context, provider),
 
-            const SizedBox(height: 24),
-
-            // ── 6. Visual Star-Rating Breakdown ──────────────────────────────
+            // ── 6. Visual Star-Rating Breakdown (Commented out: flow no longer uses stars) ───
+            /*
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -647,6 +652,7 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                 ),
               ),
             ),
+            */
           ],
         ),
       ),
@@ -691,7 +697,7 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      onPressed: () => provider.setTabIndex(3),
+      onPressed: () => provider.setTabIndex(2),
       icon: const Icon(Icons.payment_rounded, size: 18),
       label: const Text(
         'Renew Now (₹999)',
@@ -805,9 +811,16 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
 
 
   Widget _buildMonthlyVisualAnalytics(BuildContext context, OwnerDashboardProvider provider) {
-    final isDesktop = MediaQuery.of(context).size.width > 900;
     final trends = provider.getMonthlyTrends();
 
+    return MonthlyScanLineChart(
+      trends: trends,
+      title: 'QR Scans (Monthly)',
+      badgeText: 'MONTHLY VIEWS',
+    );
+    /*
+    // Star-based feedback performance chart commented out:
+    final isDesktop = MediaQuery.of(context).size.width > 900;
     if (isDesktop) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -846,6 +859,7 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
         ),
       ],
     );
+    */
   }
 
   // ── Google Reputation Baseline & Growth Card ──────────────────────────────

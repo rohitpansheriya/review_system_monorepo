@@ -28,6 +28,7 @@ import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/enroll_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../services/places_service.dart';
 import '../../widgets/app_brand_title.dart';
 import 'branch_form_widget.dart';
 import 'enroll_chip_customizer.dart';
@@ -66,6 +67,12 @@ class _EnrollScreenState extends State<EnrollScreen> {
   final _brandNameFocus  = FocusNode();
   final _ownerNameFocus  = FocusNode();
   final _ownerEmailFocus = FocusNode();
+
+  // Google Maps Places Search controllers
+  final _mapsSearchNameCtrl  = TextEditingController();
+  final _mapsSearchCityCtrl  = TextEditingController();
+  final _mapsSearchNameFocus = FocusNode();
+  final _mapsSearchCityFocus = FocusNode();
 
   @override
   void initState() {
@@ -125,7 +132,54 @@ class _EnrollScreenState extends State<EnrollScreen> {
     _brandNameFocus.dispose();
     _ownerNameFocus.dispose();
     _ownerEmailFocus.dispose();
+    _mapsSearchNameCtrl.dispose();
+    _mapsSearchCityCtrl.dispose();
+    _mapsSearchNameFocus.dispose();
+    _mapsSearchCityFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _searchGoogleMaps() async {
+    final bName = _mapsSearchNameCtrl.text.trim();
+    final cName = _mapsSearchCityCtrl.text.trim();
+    if (bName.isEmpty) {
+      _mapsSearchNameFocus.requestFocus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter business name to search on Google Maps'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (cName.isEmpty) {
+      _mapsSearchCityFocus.requestFocus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter city name (e.g. Surat, Mumbai)'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    await context.read<EnrollProvider>().searchTopLevelPlaces(bName, cName);
+  }
+
+  void _onSelectPlaceCandidate(PlaceCandidate candidate) {
+    final enroll = context.read<EnrollProvider>();
+    enroll.applyPlaceAutoFill(candidate, availableTemplates: _templates);
+    _brandNameCtrl.text = enroll.brandName;
+    setState(() {
+      _brandNameError = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✓ Auto-filled business & branch details for "${candidate.name}" from Google Places!'),
+        backgroundColor: AppColors.activeFg,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   Future<void> _loadTemplates() async {
@@ -395,6 +449,11 @@ class _EnrollScreenState extends State<EnrollScreen> {
 
               const SizedBox(height: AppSpacing.md),
 
+              // ── Google Maps 1-Click Auto-Fill ─────────────────────────────
+              _buildGooglePlacesAutoFillSection(enroll, scheme),
+
+              const SizedBox(height: AppSpacing.md),
+
               // ── Business Details ─────────────────────────────────────────
               _FormSection(
                 title: 'Business Details',
@@ -433,6 +492,9 @@ class _EnrollScreenState extends State<EnrollScreen> {
                       )
                     else
                       DropdownButtonFormField<String>(
+                        value: _templates.any((t) => t['id'] == enroll.templateId)
+                            ? enroll.templateId
+                            : null,
                         isExpanded:    true,
                         dropdownColor: Colors.white,
                         borderRadius:  BorderRadius.circular(14),
@@ -702,6 +764,328 @@ class _EnrollScreenState extends State<EnrollScreen> {
               const SizedBox(height: AppSpacing.xxl - 8),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ── Google Places Auto-Fill UI ──────────────────────────────────────────────
+
+  Widget _buildGooglePlacesAutoFillSection(EnrollProvider enroll, ColorScheme scheme) {
+    if (enroll.autoFilledPlace != null) {
+      final p = enroll.autoFilledPlace!;
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.activeFg.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.activeFg.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.activeFg.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle_rounded, color: AppColors.activeFg, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '✓ AUTO-FILLED FROM GOOGLE MAPS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.activeFg,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        p.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide(color: AppColors.activeFg.withValues(alpha: 0.5)),
+                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 14),
+                  label: const Text('Change', style: TextStyle(fontSize: 12)),
+                  onPressed: () {
+                    enroll.clearAutoFilledPlace();
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if (p.rating != null)
+                  _badge(
+                    icon: Icons.star_rounded,
+                    iconColor: Colors.amber,
+                    text: '${p.rating!.toStringAsFixed(1)} ★ (${p.userRatingCount ?? 0} reviews)',
+                  ),
+                if (enroll.categoryType.isNotEmpty)
+                  _badge(
+                    icon: Icons.category_outlined,
+                    iconColor: scheme.primary,
+                    text: enroll.categoryType,
+                  ),
+                if (p.phoneNumber != null && p.phoneNumber!.isNotEmpty)
+                  _badge(
+                    icon: Icons.phone_outlined,
+                    iconColor: scheme.onSurfaceVariant,
+                    text: p.phoneNumber!,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.location_on_outlined, size: 14, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    p.address,
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _FormSection(
+      title: 'Google Maps 1-Click Auto-Fill',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, size: 16, color: scheme.primary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Search business to automatically pre-fill name, address, category, phone & live reviews.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 520;
+              final nameInput = TextField(
+                controller: _mapsSearchNameCtrl,
+                focusNode:  _mapsSearchNameFocus,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Business name',
+                  hintText: 'e.g. Bawarchi Restaurant',
+                  prefixIcon: Icon(Icons.storefront_outlined),
+                  isDense: true,
+                ),
+                onSubmitted: (_) => _searchGoogleMaps(),
+              );
+
+              final cityInput = TextField(
+                controller: _mapsSearchCityCtrl,
+                focusNode:  _mapsSearchCityFocus,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'City',
+                  hintText: 'e.g. Surat, Mumbai',
+                  prefixIcon: Icon(Icons.location_city_outlined),
+                  isDense: true,
+                ),
+                onSubmitted: (_) => _searchGoogleMaps(),
+              );
+
+              final searchBtn = ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                onPressed: enroll.isTopLevelSearching ? null : _searchGoogleMaps,
+                icon: enroll.isTopLevelSearching
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.travel_explore_rounded, size: 18),
+                label: const Text('Search Google'),
+              );
+
+              return isWide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(flex: 3, child: nameInput),
+                        const SizedBox(width: 8),
+                        Expanded(flex: 2, child: cityInput),
+                        const SizedBox(width: 8),
+                        searchBtn,
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        nameInput,
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: cityInput),
+                            const SizedBox(width: 8),
+                            searchBtn,
+                          ],
+                        ),
+                      ],
+                    );
+            },
+          ),
+          if (enroll.topLevelSearchError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              enroll.topLevelSearchError!,
+              style: TextStyle(color: scheme.error, fontSize: 12),
+            ),
+          ],
+          if (enroll.topLevelCandidates.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Matches found — select to auto-fill the form:',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...enroll.topLevelCandidates.map((c) => _buildCandidateCard(c, scheme)),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => enroll.clearTopLevelSearch(),
+                child: const Text('Dismiss results'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _badge({required IconData icon, required Color iconColor, required String text}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: iconColor),
+          const SizedBox(width: 4),
+          Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCandidateCard(PlaceCandidate c, ColorScheme scheme) {
+    return Card(
+      elevation: 0,
+      color: scheme.surfaceContainerLowest,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    c.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+                if (c.rating != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${c.rating!.toStringAsFixed(1)}${c.userRatingCount != null ? ' (${c.userRatingCount})' : ''}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.location_on_outlined, size: 14, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    c.address,
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+            if (c.phoneNumber != null && c.phoneNumber!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.phone_outlined, size: 14, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Text(
+                    c.phoneNumber!,
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.bolt_rounded, size: 16),
+                label: const Text('Auto-Fill This Business'),
+                onPressed: () => _onSelectPlaceCandidate(c),
+              ),
+            ),
+          ],
         ),
       ),
     );

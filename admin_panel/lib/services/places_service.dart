@@ -25,6 +25,11 @@ class PlaceCandidate {
   final String? photoReference; // Opaque token — use getPlacePhoto function
   final double? rating;
   final int? userRatingCount;
+  final String? phoneNumber;
+  final String? websiteUri;
+  final String? googleMapsUri;
+  final String? primaryType;
+  final List<String> types;
 
   const PlaceCandidate({
     required this.placeId,
@@ -33,16 +38,38 @@ class PlaceCandidate {
     this.photoReference,
     this.rating,
     this.userRatingCount,
+    this.phoneNumber,
+    this.websiteUri,
+    this.googleMapsUri,
+    this.primaryType,
+    this.types = const [],
   });
 
-  factory PlaceCandidate.fromMap(Map map) => PlaceCandidate(
-        placeId:        map['placeId']        as String? ?? '',
-        name:           map['name']           as String? ?? '',
-        address:        map['address']        as String? ?? '',
-        photoReference: map['photoReference'] as String?,
-        rating:         (map['rating'] as num?)?.toDouble(),
-        userRatingCount: (map['userRatingCount'] as num?)?.toInt(),
-      );
+  factory PlaceCandidate.fromMap(Map map) {
+    final rawTypes = map['types'];
+    final typesList = <String>[];
+    if (rawTypes is List) {
+      for (final t in rawTypes) {
+        if (t != null && t.toString().isNotEmpty) {
+          typesList.add(t.toString());
+        }
+      }
+    }
+
+    return PlaceCandidate(
+      placeId:         map['placeId']         as String? ?? '',
+      name:            map['name']            as String? ?? '',
+      address:         map['address']         as String? ?? '',
+      photoReference:  map['photoReference']  as String?,
+      rating:          (map['rating'] as num?)?.toDouble(),
+      userRatingCount: (map['userRatingCount'] as num?)?.toInt(),
+      phoneNumber:     map['phoneNumber']     as String?,
+      websiteUri:      map['websiteUri']      as String?,
+      googleMapsUri:   map['googleMapsUri']   as String?,
+      primaryType:     map['primaryType']     as String?,
+      types:           typesList,
+    );
+  }
 }
 
 class PlacesService {
@@ -91,6 +118,30 @@ class PlacesService {
       // ignore: avoid_print
       print('PlacesService.search unexpected: $e');
       return [];
+    }
+  }
+
+  /// Fetches rich details for a single [placeId].
+  Future<PlaceCandidate?> getDetails(String placeId) async {
+    final pid = placeId.trim();
+    if (pid.isEmpty) return null;
+
+    try {
+      final result = await _functions
+          .httpsCallable(AppConstants.fnGetPlaceDetails)
+          .call({'placeId': pid});
+
+      final data = result.data;
+      if (data == null || data['place'] == null) return null;
+      return PlaceCandidate.fromMap(data['place'] as Map);
+    } on FirebaseFunctionsException catch (e) {
+      // ignore: avoid_print
+      print('PlacesService.getDetails error: ${e.code} — ${e.message}');
+      return null;
+    } catch (e) {
+      // ignore: avoid_print
+      print('PlacesService.getDetails unexpected: $e');
+      return null;
     }
   }
 

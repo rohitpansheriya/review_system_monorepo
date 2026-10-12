@@ -180,7 +180,7 @@ service cloud.firestore {
         // CREATE: Public (unauthenticated customer scan from review page).
         // Strictly validated schema with capped string sizes.
         allow create: if request.resource.data.keys().hasAll(['branch_id', 'timestamp'])
-          && request.resource.data.keys().hasOnly(['branch_id', 'star_rating', 'timestamp', 'session_token', 'action_taken'])
+          && request.resource.data.keys().hasOnly(['branch_id', 'star_rating', 'timestamp', 'session_token', 'action_taken', 'expire_at'])
           && request.resource.data.branch_id is string && request.resource.data.branch_id.size() <= 128
           && (
             !('session_token' in request.resource.data)
@@ -193,6 +193,10 @@ service cloud.firestore {
           && (
             !('action_taken' in request.resource.data)
             || (request.resource.data.action_taken is string && request.resource.data.action_taken.size() <= 64)
+          )
+          && (
+            !('expire_at' in request.resource.data)
+            || (request.resource.data.expire_at is timestamp)
           );
 
         // READ: Admin reads all. Owner reads only their own business's scans.
@@ -290,12 +294,22 @@ service cloud.firestore {
     // Client-side creates are DENIED. Recipients may only update read/dismissed status.
 
     match /notifications/{notifId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.recipient == request.auth.uid);
+      allow read: if isAdmin()
+        || (
+          isSignedIn()
+          && (
+            resource.data.recipient == request.auth.uid
+            || ('email' in request.auth.token && resource.data.recipient == request.auth.token.email)
+          )
+        );
       allow create: if false;
       allow update: if isAdmin()
         || (
           isSignedIn()
-          && resource.data.recipient == request.auth.uid
+          && (
+            resource.data.recipient == request.auth.uid
+            || ('email' in request.auth.token && resource.data.recipient == request.auth.token.email)
+          )
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'dismissed', 'read_at', 'dismissed_at'])
         );
       allow delete: if isAdmin();
@@ -361,6 +375,15 @@ service cloud.firestore {
     match /orphan_payments/{paymentId} {
       allow read, update: if isAdmin();
       allow create, delete: if false;
+    }
+
+    // ─── review_cache/{docId} ───────────────────────────────────────────────
+    // Shared review cache keyed by SHA256(sortedChips + '::' + language).
+    // Read: public (customer review page).
+    // Write: Cloud Functions (Admin SDK bypasses rules) & Admin/Employee.
+    match /review_cache/{docId} {
+      allow read: if true;
+      allow write: if isEmployeeOrAdmin();
     }
 
     // ─── Default-Deny Fallback ─────────────────────────────────────────────

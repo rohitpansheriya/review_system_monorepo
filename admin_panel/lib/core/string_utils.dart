@@ -172,9 +172,17 @@ class StringUtils {
     if (lower.contains('shoe') || lower.contains('sneaker') || lower.contains('footwear') || lower.contains('sandal') || lower.contains('heel')) return '👟 $clean';
     if (lower.contains('bag') || lower.contains('purse') || lower.contains('wallet') || lower.contains('luggage')) return '👜 $clean';
     if (lower.contains('watch') || lower.contains('clock')) return '⌚ $clean';
-    if (lower.contains('phone') || lower.contains('laptop') || lower.contains('electronic') || lower.contains('gadget') || lower.contains('device')) return '📱 $clean';
+    if (lower.contains('phone') || lower.contains('electronic') || lower.contains('gadget') || lower.contains('device')) return '📱 $clean';
 
-    // 6. Highlight & Quality (Step 2) Keywords
+    // 6. IT & Tech Services Keywords
+    if (lower.contains('software') || lower.contains('app dev') || lower.contains('code') || lower.contains('frontend') || lower.contains('backend') || lower.contains('full stack') || lower.contains('ui/ux') || lower.contains('developer') || lower.contains('programming')) return '💻 $clean';
+    if (lower.contains('cloud') || lower.contains('devops') || lower.contains('aws') || lower.contains('azure') || lower.contains('server') || lower.contains('kubernetes') || lower.contains('docker')) return '☁️ $clean';
+    if (lower.contains('security') || lower.contains('cyber') || lower.contains('firewall') || lower.contains('antivirus') || lower.contains('penetration') || lower.contains('audit')) return '🔒 $clean';
+    if (lower.contains('computer') || lower.contains('laptop') || lower.contains('pc repair') || lower.contains('hardware') || lower.contains('ssd') || lower.contains('ram') || lower.contains('motherboard')) return '🖥️ $clean';
+    if (lower.contains('network') || lower.contains('wifi') || lower.contains('lan') || lower.contains('router') || lower.contains('cabling')) return '🌐 $clean';
+    if (lower.contains('data recovery') || lower.contains('backup') || lower.contains('database') || lower.contains('sql') || lower.contains('migration')) return '💾 $clean';
+
+    // 7. Highlight & Quality (Step 2) Keywords
     if (lower.contains('taste') || lower.contains('flavor') || lower.contains('delicious') || lower.contains('spicy') || lower.contains('crispy') || lower.contains('juicy') || lower.contains('fresh') || lower.contains('tender') || lower.contains('tasty') || lower.contains('yum')) return '😋 $clean';
     if (lower.contains('cheese') || lower.contains('cheesy')) return '🧀 $clean';
     if (lower.contains('quality') || lower.contains('finish') || lower.contains('premium') || lower.contains('luxury') || lower.contains('perfection') || lower.contains('precise') || lower.contains('accurate')) return '💎 $clean';
@@ -184,7 +192,7 @@ class StringUtils {
     if (lower.contains('shine') || lower.contains('gloss') || lower.contains('showroom') || lower.contains('glow') || lower.contains('flawless') || lower.contains('elegant')) return '✨ $clean';
     if (lower.contains('gentle') || lower.contains('painless') || lower.contains('comfort') || lower.contains('smooth') || lower.contains('relax')) return '🌸 $clean';
 
-    // 7. Experience, Atmosphere & Staff (Step 3) Keywords
+    // 8. Experience, Atmosphere & Staff (Step 3) Keywords
     if (lower.contains('staff') || lower.contains('team') || lower.contains('doctor') || lower.contains('stylist') || lower.contains('waiter') || lower.contains('chef') || lower.contains('mechanic') || lower.contains('people') || lower.contains('service') || lower.contains('hospitality') || lower.contains('polite') || lower.contains('courteous') || lower.contains('friendly') || lower.contains('welcoming') || lower.contains('helpful')) return '😊 $clean';
     if (lower.contains('vibe') || lower.contains('ambiance') || lower.contains('atmosphere') || lower.contains('music') || lower.contains('cozy') || lower.contains('interior') || lower.contains('decor') || lower.contains('seating') || lower.contains('lighting')) return '✨ $clean';
     if (lower.contains('professional') || lower.contains('expert') || lower.contains('skilled') || lower.contains('experienced') || lower.contains('knowledgeable')) return '🎯 $clean';
@@ -192,13 +200,14 @@ class StringUtils {
     if (lower.contains('delivery') || lower.contains('pickup') || lower.contains('packaging') || lower.contains('packing') || lower.contains('box')) return '📦 $clean';
     if (lower.contains('support') || lower.contains('care') || lower.contains('guidance') || lower.contains('advice') || lower.contains('consultation')) return '💬 $clean';
 
-    // 8. Fallbacks based on Step & Archetype
+    // 9. Fallbacks based on Step & Archetype
     if (step == 1) {
       if (archetype == 'food_dining') return '🍽️ $clean';
       if (archetype == 'beauty_wellness') return '💇 $clean';
       if (archetype == 'healthcare_clinic') return '🩺 $clean';
       if (archetype == 'auto_services') return '🚗 $clean';
       if (archetype == 'retail_shopping') return '🛍️ $clean';
+      if (archetype == 'it_services') return '💻 $clean';
       return '🏷️ $clean';
     } else if (step == 2) {
       return '✨ $clean';

@@ -304,9 +304,10 @@ class EnrollProvider extends ChangeNotifier {
       if (b.address.trim().isEmpty) {
         return '$label: address is required.';
       }
-      if (!b.starRoutingComplete) {
-        return '$label: please set routing for all 5 stars.';
-      }
+      // Star selection commented out for simplified flow
+      // if (!b.starRoutingComplete) {
+      //   return '$label: please set routing for all 5 stars.';
+      // }
     }
     return null;
   }
@@ -336,7 +337,152 @@ class EnrollProvider extends ChangeNotifier {
     }
   }
 
-  // ── Place auto-search (per branch) ───────────────────────────────────────
+  // ── Place auto-search (Global & per branch) ───────────────────────────────
+
+  PlaceCandidate? autoFilledPlace;
+  List<PlaceCandidate> topLevelCandidates = [];
+  bool isTopLevelSearching = false;
+  String? topLevelSearchError;
+
+  void clearTopLevelSearch() {
+    topLevelCandidates = [];
+    topLevelSearchError = null;
+    isTopLevelSearching = false;
+    notifyListeners();
+  }
+
+  void clearAutoFilledPlace() {
+    autoFilledPlace = null;
+    notifyListeners();
+  }
+
+  /// Global search on Google Places (Business Name + City)
+  Future<void> searchTopLevelPlaces(String businessName, String city) async {
+    final bName = businessName.trim();
+    final cName = city.trim();
+    if (bName.isEmpty || cName.isEmpty) return;
+
+    isTopLevelSearching = true;
+    topLevelSearchError = null;
+    topLevelCandidates  = [];
+    notifyListeners();
+
+    try {
+      final results = await _places.search(bName, cName);
+      topLevelCandidates  = results;
+      topLevelSearchError = results.isEmpty
+          ? 'No matching business found on Google Maps. Try different keywords or city.'
+          : null;
+    } catch (e) {
+      topLevelCandidates  = [];
+      topLevelSearchError = 'Search failed — check network or enter manually below.';
+    } finally {
+      isTopLevelSearching = false;
+      notifyListeners();
+    }
+  }
+
+  /// Auto-fills business name, category, archetype, chips, address, phone, and ratings from a PlaceCandidate.
+  void applyPlaceAutoFill(
+    PlaceCandidate candidate, {
+    List<Map<String, dynamic>>? availableTemplates,
+    int branchIndex = 0,
+  }) {
+    autoFilledPlace = candidate;
+
+    // 1. Business Name
+    if (candidate.name.trim().isNotEmpty) {
+      brandName = candidate.name.trim();
+    }
+
+    // 2. Intelligent Category / Archetype detection
+    String? matchedTemplateId;
+    String matchedCategoryType = '';
+
+    final searchKeys = <String>[];
+    if (candidate.primaryType != null && candidate.primaryType!.isNotEmpty) {
+      searchKeys.add(candidate.primaryType!.replaceAll('_', ' ').toLowerCase());
+    }
+    for (final t in candidate.types) {
+      searchKeys.add(t.replaceAll('_', ' ').toLowerCase());
+    }
+    searchKeys.add(candidate.name.toLowerCase());
+
+    // Try matching available Firestore templates first
+    if (availableTemplates != null && availableTemplates.isNotEmpty) {
+      for (final tmpl in availableTemplates) {
+        final tId   = (tmpl['id'] as String? ?? '').toLowerCase();
+        final tName = (tmpl['name'] as String? ?? '').toLowerCase();
+        final tType = (tmpl['business_type'] as String? ?? '').toLowerCase();
+
+        for (final key in searchKeys) {
+          if (tId == key || tName == key || tType == key ||
+              tName.contains(key) || (key.length > 3 && key.contains(tName)) ||
+              tType.contains(key) || (key.length > 3 && key.contains(tType))) {
+            matchedTemplateId   = tmpl['id'] as String?;
+            matchedCategoryType = tmpl['business_type'] as String? ?? tmpl['name'] as String? ?? tmpl['id'] as String;
+            break;
+          }
+        }
+        if (matchedTemplateId != null) break;
+      }
+    }
+
+    // Fall back to detecting preset from dictionary
+    final bestPreset = StepCategoryPresets.detectBestPreset(
+      searchKeys.join(' '),
+      matchedTemplateId,
+    );
+
+    if (matchedCategoryType.isEmpty) {
+      matchedCategoryType = bestPreset.name;
+    }
+
+    applyCategoryPreset(matchedCategoryType, matchedTemplateId ?? bestPreset.id);
+
+    // 3. Auto-fill Branch
+    if (branchIndex >= 0 && branchIndex < _branches.length) {
+      final draft = _branches[branchIndex];
+      draft.confirmCandidate(candidate);
+      if (_mode == EnrollMode.single) {
+        draft.name = brandName;
+      } else if (draft.name.trim().isEmpty) {
+        draft.name = '${candidate.name} (Main)';
+      }
+    }
+
+    // 4. Pre-fill Owner phone if ownerPhone is empty and phone was found
+    if (ownerPhone.trim().isEmpty && candidate.phoneNumber != null) {
+      final digits = candidate.phoneNumber!.replaceAll(RegExp(r'\D'), '');
+      if (digits.length == 10 && RegExp(r'^[6-9]').hasMatch(digits)) {
+        ownerPhone = '+91$digits';
+      } else if (digits.length == 11 && digits.startsWith('0') && RegExp(r'^[6-9]').hasMatch(digits.substring(1))) {
+        ownerPhone = '+91${digits.substring(1)}';
+      } else if (digits.length == 12 && digits.startsWith('91') && RegExp(r'^[6-9]').hasMatch(digits.substring(2))) {
+        ownerPhone = '+91${digits.substring(2)}';
+      }
+    }
+
+    topLevelCandidates = [];
+    topLevelSearchError = null;
+    notifyListeners();
+  }
+
+  /// Fetches rich details by Place ID and auto-fills.
+  Future<bool> fetchAndApplyPlaceDetails(
+    String placeId, {
+    List<Map<String, dynamic>>? availableTemplates,
+    int branchIndex = 0,
+  }) async {
+    final candidate = await _places.getDetails(placeId);
+    if (candidate == null) return false;
+    applyPlaceAutoFill(
+      candidate,
+      availableTemplates: availableTemplates,
+      branchIndex: branchIndex,
+    );
+    return true;
+  }
 
   /// Searches Places for a specific branch by index.
   Future<void> searchPlaces(int branchIndex, String businessName, String city) async {
@@ -507,6 +653,10 @@ class EnrollProvider extends ChangeNotifier {
     ownerName                = '';
     ownerEmail               = '';
     ownerPhone               = '';
+    autoFilledPlace          = null;
+    topLevelCandidates       = [];
+    isTopLevelSearching      = false;
+    topLevelSearchError      = null;
     final preset             = StepCategoryPresets.detectBestPreset('', null);
     step1Chips               = List<String>.from(preset.step1);
     step2Chips               = List<String>.from(preset.step2);

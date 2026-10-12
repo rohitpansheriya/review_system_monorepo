@@ -28,7 +28,7 @@ import '../../core/theme.dart';
 import '../../models/branch_draft.dart';
 import '../../providers/enroll_provider.dart';
 import '../../services/places_service.dart';
-import 'star_routing_widget.dart';
+// import 'star_routing_widget.dart';
 
 class BranchFormWidget extends StatefulWidget {
   final int branchIndex;
@@ -242,12 +242,59 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
     }
   }
 
+  bool _isFetchingPlaceDetails = false;
+
   void _confirmCandidate(dynamic candidate) {
-    widget.draft.confirmCandidate(candidate);
-    // Sync controllers to auto-filled values
-    _addressCtrl.text = widget.draft.address;
-    _placeIdCtrl.text = widget.draft.placeId ?? '';
-    widget.onChanged();
+    if (candidate is PlaceCandidate) {
+      widget.draft.confirmCandidate(candidate);
+      // Sync controllers to auto-filled values
+      _addressCtrl.text = widget.draft.address;
+      _placeIdCtrl.text = widget.draft.placeId ?? '';
+
+      // If single mode and parent brandName is empty, auto-set brandName
+      try {
+        final enroll = context.read<EnrollProvider>();
+        if (enroll.brandName.trim().isEmpty && candidate.name.isNotEmpty) {
+          enroll.brandName = candidate.name;
+        }
+        if (enroll.categoryType.trim().isEmpty) {
+          enroll.applyPlaceAutoFill(candidate, branchIndex: widget.branchIndex);
+        }
+      } catch (_) {}
+
+      widget.onChanged();
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _fetchDetailsByPlaceId() async {
+    final pid = _placeIdCtrl.text.trim();
+    if (pid.isEmpty) return;
+
+    setState(() => _isFetchingPlaceDetails = true);
+    try {
+      final placesSvc = context.read<PlacesService>();
+      final c = await placesSvc.getDetails(pid);
+      if (c != null && mounted) {
+        _confirmCandidate(c);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Auto-filled from Google Places: ${c.name}'),
+            backgroundColor: AppColors.activeFg,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Could not fetch details for this Place ID. Check format or connection.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFetchingPlaceDetails = false);
+    }
   }
 
   void _clearSearch() {
@@ -477,20 +524,88 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
             const SizedBox(height: 4),
             ...draft.candidates.map(
               (c) => Card(
-                margin: const EdgeInsets.only(bottom: 6),
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.location_on_outlined, size: 20),
-                  title: Text(c.name,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w500, fontSize: 13)),
-                  subtitle: Text(c.address,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12)),
-                  trailing: TextButton(
-                    onPressed: () => _confirmCandidate(c),
-                    child: const Text('Use this'),
+                elevation: 0,
+                color: scheme.surfaceContainerLow,
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: scheme.outlineVariant),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              c.name,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                          if (c.rating != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '${c.rating!.toStringAsFixed(1)}${c.userRatingCount != null ? ' (${c.userRatingCount})' : ''}',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.location_on_outlined, size: 14, color: scheme.onSurfaceVariant),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              c.address,
+                              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (c.phoneNumber != null && c.phoneNumber!.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(Icons.phone_outlined, size: 14, color: scheme.onSurfaceVariant),
+                            const SizedBox(width: 4),
+                            Text(
+                              c.phoneNumber!,
+                              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.check, size: 14),
+                          label: const Text('Use this branch'),
+                          onPressed: () => _confirmCandidate(c),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -564,6 +679,28 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
               helperStyle: _hasInvalidPlaceIdFormat
                   ? TextStyle(color: scheme.error, fontWeight: FontWeight.w500)
                   : null,
+              suffixIcon: _placeIdCtrl.text.trim().isNotEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _isFetchingPlaceDetails
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              icon: const Icon(Icons.download_rounded, size: 16),
+                              label: const Text('Fetch Google Info', style: TextStyle(fontSize: 12)),
+                              onPressed: _fetchDetailsByPlaceId,
+                            ),
+                    )
+                  : null,
               errorText: widget.showError &&
                       (draft.placeId == null || draft.placeId!.trim().isEmpty)
                   ? 'Google Place ID is required for 5-star review routing'
@@ -585,12 +722,12 @@ class _BranchFormWidgetState extends State<BranchFormWidget> {
 
           const SizedBox(height: 24),
 
-          // ── Star routing ─────────────────────────────────────────────────
-          StarRoutingWidget(
-            draft:      draft,
-            onChanged:  widget.onChanged,
-            showError:  widget.showError,
-          ),
+          // ── Star routing (Commented out - flow no longer uses star selection) ───
+          // StarRoutingWidget(
+          //   draft:      draft,
+          //   onChanged:  widget.onChanged,
+          //   showError:  widget.showError,
+          // ),
         ],
       ),
     );

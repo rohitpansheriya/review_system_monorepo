@@ -188,12 +188,12 @@ export async function buildQrForBranch(
     branchId, businessId, reviewUrl, categoryType, accent,
   });
 
-  // -- 4. Generate QR code PNG with ISO 4-module quiet zone --
+  // -- 4. Generate QR code PNG --
   const QR_SIZE = 500;
   const qrBuffer: Buffer = await QRCode.toBuffer(reviewUrl, {
     errorCorrectionLevel: "H",
     type: "png",
-    margin: 4,
+    margin: 2,
     width: QR_SIZE,
     color: {dark: "#000000", light: "#FFFFFF"},
   });
@@ -336,13 +336,13 @@ export async function buildPlainQrForBranch(
     branchId, businessId, plainQrUrl,
   });
 
-  // Generate minimal QR — URL → PNG, error correction H, 600×600 px, margin 4.
+  // Generate minimal QR — URL → PNG, error correction H, 600×600 px.
   // No logo overlay, no category border, no canvas padding.
   const PLAIN_SIZE = 600;
   const plainQrBuffer: Buffer = await QRCode.toBuffer(plainQrUrl, {
     errorCorrectionLevel: "H",
     type: "png",
-    margin: 4,
+    margin: 2,
     width: PLAIN_SIZE,
     color: {dark: "#000000", light: "#FFFFFF"},
   });

@@ -139,9 +139,8 @@ class StandeeGenerator {
     _drawRoundedRect(ctx, qrFrameX, qrFrameY, qrFrameW, qrFrameH, 44);
     ctx.stroke();
 
-    // Generate & draw QR matrix with 75px quiet zone margin (guaranteeing > 4 modules)
-    const double qrMargin = 75;
-    _drawQrCode(ctx, reviewUrl, qrFrameX + qrMargin, qrFrameY + qrMargin, qrFrameW - (qrMargin * 2));
+    // Generate & draw QR matrix
+    _drawQrCode(ctx, reviewUrl, qrFrameX + 60, qrFrameY + 60, qrFrameW - 120);
 
     // ── 6. Bottom Prompt: "OR SCAN CAMERA TO REVIEW" ──────────────────────────
     ctx.fillStyle = '#64748B';
@@ -298,9 +297,7 @@ class StandeeGenerator {
     ctx.restore();
   }
 
-  /// Draws ISO/IEC 18004 compliant QR Code matrix with standard sharp square finder patterns
-  /// and high error correction (Level H - 30%) in deep midnight navy (#08142A) for instant
-  /// recognition by smartphone cameras at any scanning angle.
+  /// Draws QR Code matrix with standard sharp square finder patterns in navy (#0B1B3A)
   static void _drawQrCode(
     html.CanvasRenderingContext2D ctx,
     String data,
@@ -310,12 +307,12 @@ class StandeeGenerator {
   ) {
     final qrCode = QrCode.fromData(
       data: data,
-      errorCorrectLevel: QrErrorCorrectLevel.H,
+      errorCorrectLevel: QrErrorCorrectLevel.M,
     );
     final qrImage = QrImage(qrCode);
     final int modules = qrImage.moduleCount;
     final double moduleSize = size / modules;
-    const String darkColor = '#08142A'; // High-contrast midnight navy
+    const String darkColor = '#0B1B3A';
 
     ctx.save();
 
@@ -327,7 +324,7 @@ class StandeeGenerator {
       return false;
     }
 
-    // 1. Draw solid data modules (excluding finder pattern areas)
+    // 1. Draw regular modules (excluding finder pattern areas)
     ctx.fillStyle = darkColor;
     for (int r = 0; r < modules; r++) {
       for (int c = 0; c < modules; c++) {
@@ -335,14 +332,12 @@ class StandeeGenerator {
         if (qrImage.isDark(r, c)) {
           final x = startX + (c * moduleSize);
           final y = startY + (r * moduleSize);
-          // +0.3px slight expansion prevents canvas subpixel rendering seams
-          ctx.fillRect(x, y, moduleSize + 0.3, moduleSize + 0.3);
+          ctx.fillRect(x, y, moduleSize + 0.5, moduleSize + 0.5);
         }
       }
     }
 
-    // 2. Draw standard ISO 18004 7×7 square finder eyes at 3 corners
-    // (Solid 7x7 outer square, 5x5 white cutout, 3x3 solid core = strict 1:1:3:1:1 ratio)
+    // 2. Draw standard square finder patterns at 3 corners (instead of rounded)
     void drawStandardFinderEye(double eyeX, double eyeY) {
       final double eyeSize = moduleSize * 7;
 
@@ -369,17 +364,6 @@ class StandeeGenerator {
       );
     }
 
-    // Clear 1-module white separator areas around the 3 finder eyes to guarantee
-    // clean quiet boundaries between the finder patterns and surrounding data.
-    ctx.fillStyle = '#FFFFFF';
-    // Top-Left 8×8 clear
-    ctx.fillRect(startX, startY, moduleSize * 8, moduleSize * 8);
-    // Top-Right 8×8 clear
-    ctx.fillRect(startX + ((modules - 8) * moduleSize), startY, moduleSize * 8, moduleSize * 8);
-    // Bottom-Left 8×8 clear
-    ctx.fillRect(startX, startY + ((modules - 8) * moduleSize), moduleSize * 8, moduleSize * 8);
-
-    // Render the 3 standard square finder eyes
     final double rightEyeX = startX + ((modules - 7) * moduleSize);
     final double bottomEyeY = startY + ((modules - 7) * moduleSize);
 
@@ -431,8 +415,8 @@ class StandeeGenerator {
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, 800, 800);
 
-    // Generous 80px quiet zone margin (> 4 modules)
-    _drawQrCode(ctx, reviewUrl, 80, 80, 640);
+    // Margin 60px as before
+    _drawQrCode(ctx, reviewUrl, 60, 60, 680);
 
     final cleanBiz = businessName.replaceAll(RegExp(r'[^\w\s\-]'), '').trim().replaceAll(RegExp(r'\s+'), '_');
     final cleanBranch = (branchName ?? '').replaceAll(RegExp(r'[^\w\s\-]'), '').trim().replaceAll(RegExp(r'\s+'), '_');

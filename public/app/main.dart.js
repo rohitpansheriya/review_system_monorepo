@@ -8201,7 +8201,7 @@ j.strokeStyle="#1B3A8C"
 j.lineWidth=10
 A.aAT(j,230,770,740,740,44)
 j.stroke()
-A.bfq(j,d,305,845,590)
+A.bfq(j,d,290,830,620)
 j.fillStyle="#64748B"
 j.font=u.d
 j.textAlign="center"
@@ -8245,29 +8245,23 @@ B.f2.vn(a,"Reviews",h,c)
 a.fillStyle="#FBBC05"
 B.f2.vn(a,"\u2605\u2605\u2605\u2605\u2605",h+(k+j),c)
 a.restore()},
-bfq(a,b,c,d,e){var s,r,q,p,o,n,m,l,k,j=t.ej,i=A.bsT(2,A.a([new A.J0(B.dm.e6(b))],j))
-j=A.a([],j)
-A.Yj(i,1,40,"typeNumber")
-A.aov(2,4,B.a__,null,"errorCorrectLevel")
-j.push(new A.J0(B.dm.e6(b)))
-s=A.bsU(new A.avF(i,2,i*4+17,j))
+bfq(a,b,c,d,e){var s,r,q,p,o,n,m,l,k=t.ej,j=A.bsT(0,A.a([new A.J0(B.dm.e6(b))],k))
+k=A.a([],k)
+A.Yj(j,1,40,"typeNumber")
+A.aov(0,4,B.a__,null,"errorCorrectLevel")
+k.push(new A.J0(B.dm.e6(b)))
+s=A.bsU(new A.avF(j,0,j*4+17,k))
 r=s.a
 q=e/r
 a.save()
 p=new A.aAS(r)
-a.fillStyle="#08142A"
-for(j=q+0.3,o=0;o<r;++o)for(n=d+o*q,m=0;m<r;++m){if(p.$2(o,m))continue
-if(s.fh(o,m))a.fillRect(c+m*q,n,j,j)}j=new A.aAR(q,a)
-a.fillStyle="#FFFFFF"
-l=q*8
-a.fillRect(c,d,l,l)
-k=(r-8)*q
-a.fillRect(c+k,d,l,l)
-a.fillRect(c,d+k,l,l)
+a.fillStyle="#0B1B3A"
+for(k=q+0.5,o=0;o<r;++o)for(n=d+o*q,m=0;m<r;++m){if(p.$2(o,m))continue
+if(s.fh(o,m))a.fillRect(c+m*q,n,k,k)}k=new A.aAR(q,a)
 l=(r-7)*q
-j.$2(c,d)
-j.$2(c+l,d)
-j.$2(c,d+l)
+k.$2(c,d)
+k.$2(c+l,d)
+k.$2(c,d+l)
 a.restore()},
 Kz(a,b,c,d){var s=0,r=A.q(t.H),q,p,o,n,m,l
 var $async$Kz=A.m(function(e,f){if(e===1)return A.n(f,r)
@@ -8295,7 +8289,7 @@ return A.p($async$Kz,r)},
 bfr(a,b,c){var s,r,q,p,o,n="[^\\w\\s\\-]",m=A.baS(800,800),l=t.MJ.a(B.t1.Ss(m,"2d"))
 l.fillStyle="#FFFFFF"
 l.fillRect(0,0,800,800)
-A.bfq(l,c,80,80,640)
+A.bfq(l,c,60,60,680)
 s=A.b5(n,!0,!1)
 s=B.b.M(A.cb(b,s,""))
 r=A.b5("\\s+",!0,!1)
@@ -52133,12 +52127,12 @@ return!1},
 $S:236}
 A.aAR.prototype={
 $2(a,b){var s,r=this.a,q=r*7,p=this.b
-p.fillStyle="#08142A"
+p.fillStyle="#0B1B3A"
 p.fillRect(a,b,q,q)
 p.fillStyle="#FFFFFF"
 s=r*5
 p.fillRect(a+r,b+r,s,s)
-p.fillStyle="#08142A"
+p.fillStyle="#0B1B3A"
 s=r*2
 r*=3
 p.fillRect(a+s,b+s,r,r)},

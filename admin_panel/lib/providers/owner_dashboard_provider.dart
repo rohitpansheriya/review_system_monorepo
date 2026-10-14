@@ -45,6 +45,14 @@ class OwnerDashboardProvider extends ChangeNotifier {
   String? get error => _error;
 
   bool get isSingleBranch => _branches.length <= 1;
+  BranchModel? get selectedBranch {
+    if (_branches.isEmpty) return null;
+    if (_selectedBranchId == 'all') return _branches.first;
+    for (final b in _branches) {
+      if (b.id == _selectedBranchId) return b;
+    }
+    return _branches.first;
+  }
   bool get isActive => _business?.subscriptionStatus == 'active';
   bool get isGracePeriod => _business?.subscriptionStatus == 'grace_period';
   bool get isSuspended => _business?.subscriptionStatus == 'suspended';

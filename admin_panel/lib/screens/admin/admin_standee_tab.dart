@@ -25,6 +25,7 @@ import '../../widgets/app_empty_state.dart';
 import '../../widgets/app_fulfillment_stepper.dart';
 import '../../widgets/app_kpi_card.dart';
 import '../../widgets/app_search_bar.dart';
+import '../../core/standee_generator.dart';
 
 class AdminStandeeTab extends StatefulWidget {
   const AdminStandeeTab({super.key});
@@ -972,6 +973,38 @@ class _AdminStandeeTabState extends State<AdminStandeeTab> {
                         icon: Icon(nextStepIcon ?? Icons.arrow_forward_rounded, size: 16),
                         label: Text(nextStepLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        side: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                      onPressed: () async {
+                        final scaffold = ScaffoldMessenger.of(context);
+                        try {
+                          final reviewUrl = 'https://appnexa.co.in/r/${item.businessId}/${item.branchId}';
+                          await StandeeGenerator.downloadStandeePng(
+                            businessName: item.businessName,
+                            branchName: item.branchName,
+                            reviewUrl: reviewUrl,
+                          );
+                          scaffold.showSnackBar(
+                            SnackBar(
+                              content: Text('4×6 Standee downloaded for ${item.businessName}!'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        } catch (e) {
+                          scaffold.showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to download standee: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.download_rounded, size: 16),
+                      label: const Text('Download Standee (4×6)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                    ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                       decoration: BoxDecoration(

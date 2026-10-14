@@ -87,16 +87,15 @@ class StandeeGenerator {
     ctx.fillStyle = '#FFFFFF';
     final cleanBizName = businessName.trim().isEmpty ? 'Your Business' : businessName.trim();
     
-    // Scale font size dynamically based on length
-    double fontSize = 56;
+    // Scale font size dynamically based on length, maintaining 1:1 parity between
+    // Business Name and the Google Reviews / Stars row.
+    double fontSize = 48;
     if (cleanBizName.length > 30) {
-      fontSize = 40;
+      fontSize = 38;
     } else if (cleanBizName.length > 22) {
-      fontSize = 46;
-    } else if (cleanBizName.length > 15) {
-      fontSize = 50;
+      fontSize = 42;
     }
-    ctx.font = 'bold ${fontSize.toInt()}px "Plus Jakarta Sans", "Inter", sans-serif';
+    ctx.font = '800 ${fontSize.toInt()}px "Plus Jakarta Sans", "Inter", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -107,13 +106,12 @@ class StandeeGenerator {
     ctx.fillText(cleanBizName, headerCenterX, headerCenterY, maxTextWidth);
 
     // ── 3. Equidistant Spacing & Google Reviews Row ───────────────────────────
-    // Header Bottom = 240.
-    // Equal gap = 100px.
-    // Google Reviews Y = 240 + 100 = 340.
-    // NFC Halo Top = 340 + 100 = 440.
-    // Distance(Header, Google) == Distance(Google, NFC Button) == 100px!
+    // Header Bottom = 260.
+    // Equal gap = 80-100px.
+    // Google Reviews Y = 340.
+    // NFC Halo Top = 440.
     const double gRowY = 340;
-    _drawGoogleReviewsRow(ctx, canvasWidth / 2, gRowY);
+    _drawGoogleReviewsRow(ctx, canvasWidth / 2, gRowY, fontSize: fontSize);
 
     // ── 4. NFC Contactless Zone (Raised & Separated from QR Code) ─────────────
     // Halo radius 65 -> center Y = 440 + 65 = 505
@@ -141,8 +139,9 @@ class StandeeGenerator {
     _drawRoundedRect(ctx, qrFrameX, qrFrameY, qrFrameW, qrFrameH, 44);
     ctx.stroke();
 
-    // Generate & draw QR matrix
-    _drawQrCode(ctx, reviewUrl, qrFrameX + 60, qrFrameY + 60, qrFrameW - 120);
+    // Generate & draw QR matrix with 75px quiet zone margin (guaranteeing > 4 modules)
+    const double qrMargin = 75;
+    _drawQrCode(ctx, reviewUrl, qrFrameX + qrMargin, qrFrameY + qrMargin, qrFrameW - (qrMargin * 2));
 
     // ── 6. Bottom Prompt: "OR SCAN CAMERA TO REVIEW" ──────────────────────────
     ctx.fillStyle = '#64748B';
@@ -163,10 +162,11 @@ class StandeeGenerator {
   static void _drawGoogleReviewsRow(
     html.CanvasRenderingContext2D ctx,
     double centerX,
-    double y,
-  ) {
+    double y, {
+    double fontSize = 48,
+  }) {
     ctx.save();
-    ctx.font = '800 48px "Plus Jakarta Sans", "Inter", sans-serif';
+    ctx.font = '800 ${fontSize.toInt()}px "Plus Jakarta Sans", "Inter", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
@@ -180,19 +180,19 @@ class StandeeGenerator {
       '#EA4335', // e - Red
     ];
 
-    // Measure each individual letter dynamically
+    // Measure each individual letter dynamically at the matching fontSize
     final List<double> letterWidths = [];
     double googleTotalW = 0;
     for (final char in letters) {
-      final w = (ctx.measureText(char).width ?? 28).toDouble();
+      final w = (ctx.measureText(char).width ?? (28 * fontSize / 48)).toDouble();
       letterWidths.add(w);
       googleTotalW += w;
     }
 
-    final double space1W = (ctx.measureText(' ').width ?? 14).toDouble();
-    final double reviewsW = (ctx.measureText('Reviews').width ?? 180).toDouble();
-    final double space2W = (ctx.measureText('   ').width ?? 28).toDouble();
-    final double starsW = (ctx.measureText('★★★★★').width ?? 190).toDouble();
+    final double space1W = (ctx.measureText(' ').width ?? (14 * fontSize / 48)).toDouble();
+    final double reviewsW = (ctx.measureText('Reviews').width ?? (180 * fontSize / 48)).toDouble();
+    final double space2W = (ctx.measureText('   ').width ?? (28 * fontSize / 48)).toDouble();
+    final double starsW = (ctx.measureText('★★★★★').width ?? (190 * fontSize / 48)).toDouble();
 
     final double totalW = googleTotalW + space1W + reviewsW + space2W + starsW;
     double curX = centerX - (totalW / 2);
@@ -298,7 +298,9 @@ class StandeeGenerator {
     ctx.restore();
   }
 
-  /// Draws QR Code matrix with custom rounded finder patterns in navy (#0B1B3A)
+  /// Draws ISO/IEC 18004 compliant QR Code matrix with standard sharp square finder patterns
+  /// and high error correction (Level H - 30%) in deep midnight navy (#08142A) for instant
+  /// recognition by smartphone cameras at any scanning angle.
   static void _drawQrCode(
     html.CanvasRenderingContext2D ctx,
     String data,
@@ -308,58 +310,85 @@ class StandeeGenerator {
   ) {
     final qrCode = QrCode.fromData(
       data: data,
-      errorCorrectLevel: QrErrorCorrectLevel.M,
+      errorCorrectLevel: QrErrorCorrectLevel.H,
     );
     final qrImage = QrImage(qrCode);
     final int modules = qrImage.moduleCount;
     final double moduleSize = size / modules;
+    const String darkColor = '#08142A'; // High-contrast midnight navy
 
     ctx.save();
-    ctx.fillStyle = '#0B1B3A';
 
     // Helper: checks if a module is inside one of the three 7x7 corner finder patterns
-    bool isFinderPattern(int r, int c) {
+    bool isInsideFinderEye(int r, int c) {
       if (r < 7 && c < 7) return true; // Top-Left
       if (r < 7 && c >= modules - 7) return true; // Top-Right
       if (r >= modules - 7 && c < 7) return true; // Bottom-Left
       return false;
     }
 
-    // 1. Draw regular modules (excluding finder pattern areas)
+    // 1. Draw solid data modules (excluding finder pattern areas)
+    ctx.fillStyle = darkColor;
     for (int r = 0; r < modules; r++) {
       for (int c = 0; c < modules; c++) {
-        if (isFinderPattern(r, c)) continue;
+        if (isInsideFinderEye(r, c)) continue;
         if (qrImage.isDark(r, c)) {
           final x = startX + (c * moduleSize);
           final y = startY + (r * moduleSize);
-          ctx.fillRect(x, y, moduleSize + 0.5, moduleSize + 0.5);
+          // +0.3px slight expansion prevents canvas subpixel rendering seams
+          ctx.fillRect(x, y, moduleSize + 0.3, moduleSize + 0.3);
         }
       }
     }
 
-    // 2. Draw styled rounded finder patterns at 3 corners
-    void drawFinderEye(double eyeX, double eyeY, double eyeSize) {
-      // Outer 7x7 rounded square
-      _drawRoundedRect(ctx, eyeX, eyeY, eyeSize, eyeSize, eyeSize * 0.22);
-      ctx.lineWidth = moduleSize;
-      ctx.strokeStyle = '#0B1B3A';
-      ctx.stroke();
+    // 2. Draw standard ISO 18004 7×7 square finder eyes at 3 corners
+    // (Solid 7x7 outer square, 5x5 white cutout, 3x3 solid core = strict 1:1:3:1:1 ratio)
+    void drawStandardFinderEye(double eyeX, double eyeY) {
+      final double eyeSize = moduleSize * 7;
 
-      // Inner 3x3 rounded core
-      final coreOffset = moduleSize * 2;
-      final coreSize = eyeSize - (coreOffset * 2);
-      _drawRoundedRect(ctx, eyeX + coreOffset, eyeY + coreOffset, coreSize, coreSize, coreSize * 0.25);
-      ctx.fillStyle = '#0B1B3A';
-      ctx.fill();
+      // Outer 7×7 module solid square
+      ctx.fillStyle = darkColor;
+      ctx.fillRect(eyeX, eyeY, eyeSize, eyeSize);
+
+      // Inner 5×5 module clean white cutout (1 module inset on all 4 sides)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(
+        eyeX + moduleSize,
+        eyeY + moduleSize,
+        moduleSize * 5,
+        moduleSize * 5,
+      );
+
+      // Core 3×3 module solid dark square (2 modules inset on all 4 sides)
+      ctx.fillStyle = darkColor;
+      ctx.fillRect(
+        eyeX + (moduleSize * 2),
+        eyeY + (moduleSize * 2),
+        moduleSize * 3,
+        moduleSize * 3,
+      );
     }
 
-    final double finderSize = moduleSize * 7;
+    // Clear 1-module white separator areas around the 3 finder eyes to guarantee
+    // clean quiet boundaries between the finder patterns and surrounding data.
+    ctx.fillStyle = '#FFFFFF';
+    // Top-Left 8×8 clear
+    ctx.fillRect(startX, startY, moduleSize * 8, moduleSize * 8);
+    // Top-Right 8×8 clear
+    ctx.fillRect(startX + ((modules - 8) * moduleSize), startY, moduleSize * 8, moduleSize * 8);
+    // Bottom-Left 8×8 clear
+    ctx.fillRect(startX, startY + ((modules - 8) * moduleSize), moduleSize * 8, moduleSize * 8);
+
+    // Render the 3 standard square finder eyes
+    final double rightEyeX = startX + ((modules - 7) * moduleSize);
+    final double bottomEyeY = startY + ((modules - 7) * moduleSize);
+
     // Top-Left Eye
-    drawFinderEye(startX, startY, finderSize);
+    drawStandardFinderEye(startX, startY);
     // Top-Right Eye
-    drawFinderEye(startX + ((modules - 7) * moduleSize), startY, finderSize);
+    drawStandardFinderEye(rightEyeX, startY);
     // Bottom-Left Eye
-    drawFinderEye(startX, startY + ((modules - 7) * moduleSize), finderSize);
+    drawStandardFinderEye(startX, bottomEyeY);
 
     ctx.restore();
   }
@@ -402,8 +431,8 @@ class StandeeGenerator {
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, 800, 800);
 
-    // Margin 60px
-    _drawQrCode(ctx, reviewUrl, 60, 60, 680);
+    // Generous 80px quiet zone margin (> 4 modules)
+    _drawQrCode(ctx, reviewUrl, 80, 80, 640);
 
     final cleanBiz = businessName.replaceAll(RegExp(r'[^\w\s\-]'), '').trim().replaceAll(RegExp(r'\s+'), '_');
     final cleanBranch = (branchName ?? '').replaceAll(RegExp(r'[^\w\s\-]'), '').trim().replaceAll(RegExp(r'\s+'), '_');

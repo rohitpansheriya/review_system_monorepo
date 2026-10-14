@@ -18,6 +18,7 @@ import '../../core/theme.dart';
 import '../../widgets/app_kpi_card.dart';
 import '../../widgets/month_year_picker_dialog.dart';
 import '../../widgets/charts/monthly_scan_line_chart.dart';
+import '../../widgets/share_business_qr.dart';
 // import '../../widgets/charts/monthly_feedback_bar_chart.dart';
 
 class OwnerHomeTab extends StatefulWidget {
@@ -653,6 +654,17 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
               ),
             ),
             */
+
+            const SizedBox(height: 20),
+
+            // ── Share Review QR & Download Standee Card ─────────────────────
+            if (provider.selectedBranch != null)
+              ShareBusinessQr(
+                branch: provider.selectedBranch!,
+                ownerPhone: biz.ownerPhone,
+                businessName: biz.brandName,
+                logoUrl: biz.logoUrl,
+              ),
           ],
         ),
       ),

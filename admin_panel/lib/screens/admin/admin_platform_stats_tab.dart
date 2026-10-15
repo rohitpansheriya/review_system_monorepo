@@ -148,327 +148,53 @@ class AdminPlatformStatsTab extends StatelessWidget {
           // ── Revenue, Payment Collections & Renewals Breakdown ────────────
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 960;
-              return Flex(
-                direction: isWide ? Axis.horizontal : Axis.vertical,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Card 1: Payment Collections & Revenue
-                  Expanded(
-                    flex: isWide ? 1 : 0,
-                    child: Card(
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: colorScheme.outlineVariant),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.account_balance_wallet_outlined,
-                                      color: colorScheme.primary,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      'Revenue & Collections',
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                                // ── Month Selector Dropdown ──
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: colorScheme.outlineVariant,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFF00458B).withValues(alpha: 0.04),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<String?>(
-                                      value: provider.selectedRevenueMonth,
-                                      dropdownColor: Colors.white,
-                                      borderRadius: BorderRadius.circular(14),
-                                      elevation: 8,
-                                      isDense: true,
-                                      icon: const Padding(
-                                        padding: EdgeInsets.only(left: 6),
-                                        child: Icon(
-                                          Icons.keyboard_arrow_down_rounded,
-                                          size: 18,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                      items: [
-                                        const DropdownMenuItem<String?>(
-                                          value: null,
-                                          child: Text('All Time'),
-                                        ),
-                                        ...provider.availableRevenueMonths.map((
-                                          m,
-                                        ) {
-                                          String label = m;
-                                          try {
-                                            label = DateFormat(
-                                              'MMMM yyyy',
-                                            ).format(DateTime.parse('$m-01'));
-                                          } catch (_) {}
-                                          return DropdownMenuItem<String?>(
-                                            value: m,
-                                            child: Text(label),
-                                          );
-                                        }),
-                                      ],
-                                      onChanged: (val) {
-                                        provider.setSelectedRevenueMonth(val);
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 20),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              textBaseline: TextBaseline.alphabetic,
-                              children: [
-                                Text(
-                                  '₹${provider.revenueSnapshot.toStringAsFixed(0)}',
-                                  style: theme.textTheme.headlineMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: colorScheme.primary,
-                                      ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  provider.selectedRevenueMonth != null
-                                      ? '(${DateFormat('MMMM yyyy').format(DateTime.parse('${provider.selectedRevenueMonth}-01'))})'
-                                      : '(All-Time Total)',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
+              final width = constraints.maxWidth;
+              final revCard = _buildRevenueCard(context, provider, theme, colorScheme);
+              final branchCard = _buildBranchHealthCard(context, provider, theme, colorScheme);
+              final renewalsCard = _buildRenewalsCard(context, provider, theme, colorScheme);
 
-                            // ── Revenue Streams (New Enrollments vs Annual Renewals) ──
-                            Text(
-                              'REVENUE STREAMS',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            _buildPaymentMethodRow(
-                              context,
-                              label: 'New Client Enrollments (₹1,999)',
-                              amount: provider.newEnrollmentsRevenue,
-                              count: provider.newEnrollmentsCount,
-                              icon: Icons.person_add_alt_1_outlined,
-                              color: const Color(0xFF16A34A),
-                            ),
-                            const SizedBox(height: 6),
-                            _buildPaymentMethodRow(
-                              context,
-                              label: 'Annual Subscriptions (₹999)',
-                              amount: provider.renewalsRevenue,
-                              count: provider.renewalsCount,
-                              icon: Icons.autorenew_rounded,
-                              color: const Color(0xFF2563EB),
-                            ),
-
-                            const Divider(height: 20),
-
-                            // ── Payment Methods (Online vs Cash) ──
-                            Text(
-                              'PAYMENT CHANNELS',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            _buildPaymentMethodRow(
-                              context,
-                              label: 'Online (Razorpay)',
-                              amount: provider.onlineRevenue,
-                              count: provider.onlinePaymentsCount,
-                              icon: Icons.credit_card,
-                              color: Colors.blue,
-                            ),
-                            const SizedBox(height: 6),
-                            _buildPaymentMethodRow(
-                              context,
-                              label: 'Cash (Admin Verified)',
-                              amount: provider.cashRevenue,
-                              count: provider.cashPaymentsCount,
-                              icon: Icons.payments_outlined,
-                              color: Colors.green,
-                            ),
-                          ],
-                        ),
-                      ),
+              if (width >= 1150) {
+                // Large desktop: 3 cards side-by-side in a horizontal row
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: revCard),
+                    const SizedBox(width: 16),
+                    Expanded(child: branchCard),
+                    const SizedBox(width: 16),
+                    Expanded(child: renewalsCard),
+                  ],
+                );
+              } else if (width >= 720) {
+                // Medium screen / Tablet: Card 1 takes full width, Cards 2 & 3 share row below
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    revCard,
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: branchCard),
+                        const SizedBox(width: 16),
+                        Expanded(child: renewalsCard),
+                      ],
                     ),
-                  ),
-                  SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
-
-                  // Card 2: Branch Locations Overview
-                  Expanded(
-                    flex: isWide ? 1 : 0,
-                    child: Card(
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: colorScheme.outlineVariant),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_city_outlined,
-                                  color: colorScheme.primary,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Branch Locations Health',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 20),
-                            Text(
-                              '${provider.totalActiveBranches} Active',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildBranchStatusRow(
-                              context,
-                              label: 'Active Branches (Paid / Live)',
-                              count: provider.totalActiveBranches,
-                              icon: Icons.check_circle_outline,
-                              color: Colors.green,
-                            ),
-                            const SizedBox(height: 8),
-                            _buildBranchStatusRow(
-                              context,
-                              label: 'Pending Payment Branches',
-                              count: provider.totalPendingBranches,
-                              icon: Icons.hourglass_top_outlined,
-                              color: Colors.amber[800]!,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
-
-                  // Card 3: Renewals Due Breakdown
-                  Expanded(
-                    flex: isWide ? 1 : 0,
-                    child: Card(
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: colorScheme.outlineVariant),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_month,
-                                  color: colorScheme.primary,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Upcoming Renewals',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 20),
-                            _buildRenewalRow(
-                              context,
-                              'Due in 30 Days',
-                              provider.renewalsDue30,
-                              Colors.blue,
-                            ),
-                            const SizedBox(height: 6),
-                            _buildRenewalRow(
-                              context,
-                              'Due in 15 Days',
-                              provider.renewalsDue15,
-                              Colors.amber,
-                            ),
-                            const SizedBox(height: 6),
-                            _buildRenewalRow(
-                              context,
-                              'Due in 7 Days',
-                              provider.renewalsDue7,
-                              Colors.deepOrange,
-                            ),
-                            const SizedBox(height: 6),
-                            _buildRenewalRow(
-                              context,
-                              'Due Today / Tomorrow',
-                              provider.renewalsDue1,
-                              Colors.red,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
+                  ],
+                );
+              } else {
+                // Mobile / narrow viewports: stacked vertically
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    revCard,
+                    const SizedBox(height: 16),
+                    branchCard,
+                    const SizedBox(height: 16),
+                    renewalsCard,
+                  ],
+                );
+              }
             },
           ),
           const SizedBox(height: 32),
@@ -481,6 +207,404 @@ class AdminPlatformStatsTab extends StatelessWidget {
   }
 
 
+
+  Widget _buildRevenueCard(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: LayoutBuilder(
+          builder: (context, cardConstraints) {
+            // When inner card space is constrained (< 400px), stack the title and dropdown
+            final isCompact = cardConstraints.maxWidth < 400;
+
+            final selectedMonthValue = (provider.selectedRevenueMonth != null &&
+                    provider.availableRevenueMonths
+                        .contains(provider.selectedRevenueMonth))
+                ? provider.selectedRevenueMonth
+                : null;
+
+            Widget monthDropdownWidget({required bool isFullWidth}) {
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00458B).withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: selectedMonthValue,
+                    isExpanded: isFullWidth,
+                    dropdownColor: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    elevation: 8,
+                    isDense: true,
+                    icon: const Padding(
+                      padding: EdgeInsets.only(left: 6),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.all_inclusive_rounded,
+                              size: 14,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 6),
+                            Text('All Time'),
+                          ],
+                        ),
+                      ),
+                      ...provider.availableRevenueMonths.map((m) {
+                        String label = m;
+                        try {
+                          label = DateFormat('MMMM yyyy')
+                              .format(DateTime.parse('$m-01'));
+                        } catch (_) {}
+                        return DropdownMenuItem<String?>(
+                          value: m,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.calendar_month_outlined,
+                                size: 14,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(label),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) {
+                      provider.setSelectedRevenueMonth(val);
+                    },
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!isCompact)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.account_balance_wallet_outlined,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Revenue & Collections',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      monthDropdownWidget(isFullWidth: false),
+                    ],
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.account_balance_wallet_outlined,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Revenue & Collections',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: monthDropdownWidget(isFullWidth: true),
+                      ),
+                    ],
+                  ),
+                const Divider(height: 20),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      '₹${provider.revenueSnapshot.toStringAsFixed(0)}',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    Text(
+                      provider.selectedRevenueMonth != null
+                          ? '(${DateFormat('MMMM yyyy').format(DateTime.parse('${provider.selectedRevenueMonth}-01'))})'
+                          : '(All-Time Total)',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // ── Revenue Streams (New Enrollments vs Annual Renewals) ──
+                Text(
+                  'REVENUE STREAMS',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildPaymentMethodRow(
+                  context,
+                  label: 'New Client Enrollments (₹1,999)',
+                  amount: provider.newEnrollmentsRevenue,
+                  count: provider.newEnrollmentsCount,
+                  icon: Icons.person_add_alt_1_outlined,
+                  color: const Color(0xFF16A34A),
+                ),
+                const SizedBox(height: 6),
+                _buildPaymentMethodRow(
+                  context,
+                  label: 'Annual Subscriptions (₹999)',
+                  amount: provider.renewalsRevenue,
+                  count: provider.renewalsCount,
+                  icon: Icons.autorenew_rounded,
+                  color: const Color(0xFF2563EB),
+                ),
+
+                const Divider(height: 20),
+
+                // ── Payment Methods (Online vs Cash) ──
+                Text(
+                  'PAYMENT CHANNELS',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildPaymentMethodRow(
+                  context,
+                  label: 'Online (Razorpay)',
+                  amount: provider.onlineRevenue,
+                  count: provider.onlinePaymentsCount,
+                  icon: Icons.credit_card,
+                  color: Colors.blue,
+                ),
+                const SizedBox(height: 6),
+                _buildPaymentMethodRow(
+                  context,
+                  label: 'Cash (Admin Verified)',
+                  amount: provider.cashRevenue,
+                  count: provider.cashPaymentsCount,
+                  icon: Icons.payments_outlined,
+                  color: Colors.green,
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBranchHealthCard(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.location_city_outlined,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Branch Locations Health',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            Text(
+              '${provider.totalActiveBranches} Active',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildBranchStatusRow(
+              context,
+              label: 'Active Branches (Paid / Live)',
+              count: provider.totalActiveBranches,
+              icon: Icons.check_circle_outline,
+              color: Colors.green,
+            ),
+            const SizedBox(height: 8),
+            _buildBranchStatusRow(
+              context,
+              label: 'Pending Payment Branches',
+              count: provider.totalPendingBranches,
+              icon: Icons.hourglass_top_outlined,
+              color: Colors.amber[800]!,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRenewalsCard(
+    BuildContext context,
+    AdminDashboardProvider provider,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_month,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Upcoming Renewals',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            _buildRenewalRow(
+              context,
+              'Due in 30 Days',
+              provider.renewalsDue30,
+              Colors.blue,
+            ),
+            const SizedBox(height: 6),
+            _buildRenewalRow(
+              context,
+              'Due in 15 Days',
+              provider.renewalsDue15,
+              Colors.amber,
+            ),
+            const SizedBox(height: 6),
+            _buildRenewalRow(
+              context,
+              'Due in 7 Days',
+              provider.renewalsDue7,
+              Colors.deepOrange,
+            ),
+            const SizedBox(height: 6),
+            _buildRenewalRow(
+              context,
+              'Due Today / Tomorrow',
+              provider.renewalsDue1,
+              Colors.red,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildRenewalRow(
     BuildContext context,
@@ -525,8 +649,10 @@ class AdminPlatformStatsTab extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(width: 8),
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -565,8 +691,10 @@ class AdminPlatformStatsTab extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(

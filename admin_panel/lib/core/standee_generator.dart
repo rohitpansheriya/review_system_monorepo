@@ -87,13 +87,12 @@ class StandeeGenerator {
     ctx.fillStyle = '#FFFFFF';
     final cleanBizName = businessName.trim().isEmpty ? 'Your Business' : businessName.trim();
     
-    // Scale font size dynamically based on length, maintaining 1:1 parity between
-    // Business Name and the Google Reviews / Stars row.
-    double fontSize = 48;
+    // Scale font size dynamically based on length for maximum visibility
+    double fontSize = 58;
     if (cleanBizName.length > 30) {
-      fontSize = 38;
-    } else if (cleanBizName.length > 22) {
-      fontSize = 42;
+      fontSize = 44;
+    } else if (cleanBizName.length > 20) {
+      fontSize = 50;
     }
     ctx.font = '800 ${fontSize.toInt()}px "Plus Jakarta Sans", "Inter", sans-serif';
     ctx.textAlign = 'center';
@@ -111,7 +110,8 @@ class StandeeGenerator {
     // Google Reviews Y = 340.
     // NFC Halo Top = 440.
     const double gRowY = 340;
-    _drawGoogleReviewsRow(ctx, canvasWidth / 2, gRowY, fontSize: fontSize);
+    const double googleFontSize = 54;
+    _drawGoogleReviewsRow(ctx, canvasWidth / 2, gRowY, fontSize: googleFontSize);
 
     // ── 4. NFC Contactless Zone (Raised & Separated from QR Code) ─────────────
     // Halo radius 65 -> center Y = 440 + 65 = 505
@@ -143,15 +143,15 @@ class StandeeGenerator {
     _drawQrCode(ctx, reviewUrl, qrFrameX + 60, qrFrameY + 60, qrFrameW - 120);
 
     // ── 6. Bottom Prompt: "OR SCAN CAMERA TO REVIEW" ──────────────────────────
-    ctx.fillStyle = '#64748B';
-    ctx.font = '800 30px "Plus Jakarta Sans", "Inter", sans-serif';
+    ctx.fillStyle = '#334155';
+    ctx.font = '800 38px "Plus Jakarta Sans", "Inter", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('OR SCAN CAMERA TO REVIEW', canvasWidth / 2, 1600);
+    ctx.fillText('OR SCAN CAMERA TO REVIEW', canvasWidth / 2, 1595);
 
     // ── 7. Subtle Footer Branding (No TM) ─────────────────────────────────────
-    ctx.fillStyle = '#94A3B8';
-    ctx.font = '600 22px "Plus Jakarta Sans", "Inter", sans-serif';
+    ctx.fillStyle = '#64748B';
+    ctx.font = '600 26px "Plus Jakarta Sans", "Inter", sans-serif';
     ctx.fillText('AppNexa Smart Standee  •  appnexa.co.in', canvasWidth / 2, 1700);
 
     return canvas.toDataUrl('image/png');
@@ -162,7 +162,7 @@ class StandeeGenerator {
     html.CanvasRenderingContext2D ctx,
     double centerX,
     double y, {
-    double fontSize = 48,
+    double fontSize = 54,
   }) {
     ctx.save();
     ctx.font = '800 ${fontSize.toInt()}px "Plus Jakarta Sans", "Inter", sans-serif';
@@ -282,17 +282,17 @@ class StandeeGenerator {
 
     // 4. "TAP PHONE HERE" text
     ctx.fillStyle = '#0F172A';
-    ctx.font = '800 30px "Plus Jakarta Sans", "Inter", sans-serif';
+    ctx.font = '800 38px "Plus Jakarta Sans", "Inter", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('TAP PHONE HERE', centerX, centerY + 86);
+    ctx.fillText('TAP PHONE HERE', centerX, centerY + 90);
 
     // 5. "Instant NFC Contactless"
     ctx.fillStyle = '#64748B';
-    ctx.font = '600 22px "Plus Jakarta Sans", "Inter", sans-serif';
+    ctx.font = '600 28px "Plus Jakarta Sans", "Inter", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Instant NFC Contactless', centerX, centerY + 120);
+    ctx.fillText('Instant NFC Contactless', centerX, centerY + 132);
 
     ctx.restore();
   }
